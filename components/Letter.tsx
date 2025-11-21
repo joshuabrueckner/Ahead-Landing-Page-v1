@@ -9,23 +9,23 @@ export const Letter: React.FC = () => {
           To the 77% of you who feel lost with AI:
         </h1>
 
-        <div className="font-sans text-base md:text-11px leading-relaxed text-brand-black/90 space-y-6 text-center">
+        <div className="font-sans text-base md:text-lg leading-relaxed text-brand-black/90 space-y-6 text-center">
           <p>
             The pressure to figure this stuff out is no longer subtle.
           </p>
 
           <p>
-             You read daily headlines about widespread layoffs and you’re feeling the market pressure.
+            You read daily headlines about widespread layoffs and you’re feeling the market pressure.
           </p>
 
           <p>
             You’re expected to revolutionize your workflows using new tools you don’t understand.
           </p>
-          
+
           <p>
             <i>"It’s faster if I just do it myself,"</i> you say.
           </p>
-          
+
           <p>
             But you know deep down there is potential here if you just knew what levers to pull.
           </p>
@@ -47,23 +47,29 @@ export const Letter: React.FC = () => {
           </p>
 
           <div className="mt-8 mb-4 flex flex-col items-center">
-             {/* Signature Image Placeholder */}
-             <img 
-                src="https://placehold.co/250x80/ffffff/000000?text=Joshua+A.+Brueckner&font=playfair" 
-                alt="Joshua A. Brueckner Signature" 
-                className="h-16 w-auto object-contain"
-             />
-             <div className="mt-2 font-sans text-sm font-medium text-brand-gray tracking-wider">
-                Joshua Brueckner
-                <div className="mt-2 font-sans text-sm font-medium text-brand-gray tracking-wider">
-                </div>Founder, Ahead
-             </div>
+            <img
+              src="https://placehold.co/250x80/ffffff/000000?text=Joshua+A.+Brueckner&font=playfair"
+              alt="Joshua A. Brueckner Signature"
+              className="h-16 w-auto object-contain"
+            />
+            <div className="mt-2 font-sans text-sm font-medium text-brand-gray tracking-wider text-center">
+              Joshua Brueckner
+            </div>
+            <div className="font-sans text-xs font-medium text-brand-gray tracking-wide text-center">
+              Founder, Ahead
+            </div>
           </div>
 
-            PS: <a href="mailto:bruecknerjoshua@gmail.com" className="inline-block mt-2 md:mt-0 md:ml-1 underline decoration-1 underline-offset-4 hover:text-blue-600 transition-colors font-medium">
-               Reach out
-            </a> if you're an AI expert and want to get involved. We want to meet you. 
-            <br className="md:hidden"/>
+          <p>
+            PS:{' '}
+            <a
+              href="mailto:bruecknerjoshua@gmail.com"
+              className="inline-block mt-2 md:mt-0 md:ml-1 underline decoration-1 underline-offset-4 hover:text-blue-600 transition-colors font-medium"
+            >
+              Reach out
+            </a>{' '}
+            if you're an AI expert and want to get involved. We want to meet you.
+          </p>
         </div>
       </div>
     </div>
