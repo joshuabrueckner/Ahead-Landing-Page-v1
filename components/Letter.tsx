@@ -6,10 +6,10 @@ export const Letter: React.FC = () => {
       {/* Letter Content */}
       <div className="flex flex-col w-full max-w-4xl items-center">
         <h1 className="text-2xl md:text-4xl font-serif mb-8 leading-tight text-brand-black text-center">
-          To the 77% of you who feel lost with AI:
+          An open letter to the 77% who feel lost with AI:
         </h1>
 
-        <div className="font-sans text-base md:text-lg leading-relaxed text-brand-black/90 space-y-6 text-center">
+        <div className="font-sans text-[11px] md:text-sm leading-relaxed text-brand-black/90 space-y-6 text-center">
           <p>
             The pressure to figure this stuff out is no longer subtle.
           </p>
