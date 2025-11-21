@@ -18,3 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1r6Vlxn2fKxtgFodQazcZk5
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Notes
+
+If you see a `Binary files are not supported` message while creating a PR, it means the PR publish step failed because the tool cannot upload binary assets (for example, images) to GitHub. Remove the binary files from the diff or replace them with text-based alternatives before retrying the PR creation.
