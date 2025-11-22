@@ -73,36 +73,7 @@ export const Letter: React.FC = () => {
             Imagine all you could do if you just had the right support.
           </p>
 
-          {/* Newsletter form */}
-          <form onSubmit={handleSubscribe} className="w-full max-w-md mx-auto mb-6">
-            <label htmlFor="newsletter" className="sr-only">Email</label>
-            <div className="flex gap-2">
-              <input
-                id="newsletter"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Your email"
-                className="flex-1 px-4 py-2 rounded border border-gray-200 focus:ring-2 focus:ring-brand-blue"
-                disabled={status === 'loading'}
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 bg-brand-blue text-white rounded disabled:opacity-60"
-                disabled={status === 'loading'}
-              >
-                {status === 'loading' ? 'Sending…' : 'Subscribe'}
-              </button>
-            </div>
-
-            {status === 'success' && (
-              <div className="mt-2 text-sm text-green-600">Thanks — you’re subscribed.</div>
-            )}
-            {status === 'error' && (
-              <div className="mt-2 text-sm text-red-600">Error: {errorMsg}</div>
-            )}
-          </form>
+ 
 
           <div className="mb-4 flex flex-col items-center">
             <img
