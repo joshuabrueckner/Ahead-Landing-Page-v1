@@ -6,11 +6,29 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      onSubmit(email);
+    if (!email) return;
+    try {
+      // Keep onSubmit for backward compatibility (e.g., analytics)
+      try { onSubmit(email); } catch {}
+
+      const res = await fetch('/.netlify/functions/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || 'Subscription failed');
+      }
+
       setIsSubmitted(true);
+    } catch (err) {
+      // For now, log the error and keep the form visible; we could surface the error in the UI
+      console.error('Newsletter subscribe error', err);
+      alert('Subscription failed — please try again.');
     }
   };
 
