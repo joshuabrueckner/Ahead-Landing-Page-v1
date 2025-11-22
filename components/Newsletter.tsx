@@ -17,7 +17,7 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   };
 
   const isHtmlLike = (value: unknown) =>
-    typeof value === 'string' && /<\s*!?html/i.test(value.trim().slice(0, 120));
+    typeof value === 'string' && /<!doctype html|<html[\s>]|<\/?[a-z][\s\S]*>/i.test(value.trim().slice(0, 240));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +40,7 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
         const objectMessage = body && typeof body === 'object' ? body.detail || body.message : undefined;
         const stringMessage =
           typeof body === 'string' && body.trim() && !isHtmlLike(body)
-            ? body.trim()
+            ? body.trim().slice(0, 200)
             : undefined;
 
         const detail = objectMessage || stringMessage || statusMessage;
