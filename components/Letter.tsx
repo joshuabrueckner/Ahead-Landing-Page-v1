@@ -48,9 +48,9 @@ export const Letter: React.FC = () => {
 
           <div className="mt-8 mb-4 flex flex-col items-center">
             <img
-              src="https://placehold.co/250x80/ffffff/000000?text=Joshua+A.+Brueckner&font=playfair"
+              src="/joshua-signature.png"
               alt="Joshua A. Brueckner Signature"
-              className="h-16 w-auto object-contain"
+              className="w-[150px] h-auto object-contain"
             />
             <div className="mt-2 font-sans text-sm font-medium text-brand-gray tracking-wider text-center">
               Joshua Brueckner
