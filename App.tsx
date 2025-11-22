@@ -15,10 +15,6 @@ const App: React.FC = () => {
       {/* Header - Logo and Tagline */}
   <header className="flex-none w-full px-8 py-6 flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 bg-brand-offwhite z-20">
         <Logo className="scale-75 origin-center" />
-        <span className="hidden md:block w-px h-6 bg-gray-200"></span>
-        <span className="text-sm md:text-base text-brand-gray font-semibold tracking-tight text-center font-serif">
-          The Human Interface for Navigating AI
-        </span>
       </header>
 
       {/* Main Content - Centered Letter */}
