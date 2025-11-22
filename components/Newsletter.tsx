@@ -16,6 +16,9 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
     return res.text();
   };
 
+  const isHtmlLike = (value: unknown) =>
+    typeof value === 'string' && /<\s*!?html/i.test(value.trim().slice(0, 120));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
@@ -33,10 +36,14 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
       if (!res.ok) {
         const body = await parseErrorResponse(res);
 
-        const detail =
-          (body && typeof body === 'object' ? body.detail || body.message : undefined) ||
-          (typeof body === 'string' && !body.trim().startsWith('<!') ? body.trim() : undefined) ||
-          (res.status === 404 ? 'Subscription service is unavailable (404).' : undefined);
+        const statusMessage = res.status === 404 ? 'Subscription service is unavailable (404).' : undefined;
+        const objectMessage = body && typeof body === 'object' ? body.detail || body.message : undefined;
+        const stringMessage =
+          typeof body === 'string' && body.trim() && !isHtmlLike(body)
+            ? body.trim()
+            : undefined;
+
+        const detail = objectMessage || stringMessage || statusMessage;
 
         throw new Error(detail || 'Subscription failed — please try again later.');
       }
