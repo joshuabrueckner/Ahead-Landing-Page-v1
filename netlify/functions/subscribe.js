@@ -15,8 +15,8 @@ const handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ message: 'Missing email' }) };
   }
 
-  const LOOPS_API_URL = process.env.LOOPS_API_URL;
-  const LOOPS_API_KEY = process.env.LOOPS_API_KEY;
+  const LOOPS_API_URL = process.env.LOOPS_API_URL?.trim();
+  const LOOPS_API_KEY = process.env.LOOPS_API_KEY?.trim();
 
   if (!LOOPS_API_URL || !LOOPS_API_KEY) {
     return { statusCode: 500, body: JSON.stringify({ message: 'Server not configured' }) };
@@ -38,7 +38,17 @@ const handler = async (event) => {
     try { json = JSON.parse(text); } catch { json = text; }
 
     if (!res.ok) {
-      return { statusCode: 502, body: JSON.stringify({ message: 'Loops API error', detail: json }) };
+      const errorMessage =
+        json?.message ||
+        json?.error ||
+        (typeof json === 'string' && json.trim()) ||
+        res.statusText ||
+        'Loops API error';
+
+      return {
+        statusCode: res.status >= 400 && res.status < 500 ? res.status : 502,
+        body: JSON.stringify({ message: 'Loops API error', detail: errorMessage }),
+      };
     }
 
     return { statusCode: 200, body: JSON.stringify({ ok: true, loops: json }) };

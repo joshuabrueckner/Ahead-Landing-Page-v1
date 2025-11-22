@@ -5,10 +5,12 @@ import { NewsletterFormProps } from '../types';
 export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+    setError('');
     try {
       // Keep onSubmit for backward compatibility (e.g., analytics)
       try { onSubmit(email); } catch {}
@@ -21,14 +23,14 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || 'Subscription failed');
+        throw new Error(body?.detail || body?.message || 'Subscription failed');
       }
 
       setIsSubmitted(true);
     } catch (err) {
       // For now, log the error and keep the form visible; we could surface the error in the UI
       console.error('Newsletter subscribe error', err);
-      alert('Subscription failed — please try again.');
+      setError(err instanceof Error ? err.message : 'Subscription failed — please try again.');
     }
   };
 
@@ -52,7 +54,7 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
         ) : (
           <form onSubmit={handleSubmit} className="relative w-full group">
             <div className="relative flex items-center">
-                <input 
+                <input
                   type="email" 
                   placeholder="Enter your email" 
                   value={email}
@@ -60,14 +62,19 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
                   className="w-full bg-transparent border-b border-brand-black/30 py-3 text-sm placeholder:text-brand-gray/50 focus:outline-none focus:border-brand-black transition-all pr-10 font-sans"
                   required
                 />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="absolute right-0 top-1/2 -translate-y-1/2 p-2 hover:opacity-70 transition-opacity"
                   aria-label="Submit"
                 >
                   <ArrowRight size={20} className="text-brand-black" />
                 </button>
             </div>
+            {error && (
+              <p className="mt-2 text-sm text-red-600 text-left" role="alert">
+                {error}
+              </p>
+            )}
           </form>
         )}
       </div>
