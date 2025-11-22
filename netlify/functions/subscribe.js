@@ -1,6 +1,23 @@
 const isHtmlLike = (value) =>
   typeof value === 'string' && /<!doctype html|<html[\s>]|<\/?[a-z][\s\S]*>/i.test(value.trim().slice(0, 240));
 
+const friendlyMessage = (value) => {
+  const trimmed = (value || '').trim();
+  const lower = trimmed.toLowerCase();
+
+  if (
+    lower.includes('already in your audience') ||
+    lower.includes('already subscribed') ||
+    lower.includes('contact already exists')
+  ) {
+    return 'Email is already subscribed.';
+  }
+
+  if (lower === 'loops api error') return undefined;
+
+  return undefined;
+};
+
 const safeMessage = (value, fallback = 'Loops API error') => {
   if (value && typeof value === 'object') {
     const detail = value.detail || value.message || value.error;
@@ -11,6 +28,9 @@ const safeMessage = (value, fallback = 'Loops API error') => {
     const trimmed = value.trim();
     if (!trimmed) return fallback;
     if (isHtmlLike(trimmed)) return fallback;
+
+    const friendly = friendlyMessage(trimmed);
+    if (friendly) return friendly;
 
     const normalized = trimmed.replace(/\s+/g, ' ');
     return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;

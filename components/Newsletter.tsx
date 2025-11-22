@@ -19,6 +19,23 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const isHtmlLike = (value: unknown) =>
     typeof value === 'string' && /<!doctype html|<html[\s>]|<\/?[a-z][\s\S]*>/i.test(value.trim().slice(0, 240));
 
+  const friendlyMessage = (value: string) => {
+    const trimmed = value.trim();
+    const lower = trimmed.toLowerCase();
+
+    if (
+      lower.includes('already in your audience') ||
+      lower.includes('already subscribed') ||
+      lower.includes('contact already exists')
+    ) {
+      return 'Email is already subscribed.';
+    }
+
+    if (lower === 'loops api error') return undefined;
+
+    return undefined;
+  };
+
   const formatError = (value: unknown, statusCode?: number) => {
     const fallback = statusCode === 404 ? 'Subscription service is unavailable.' : 'Subscription failed — please try again later.';
 
@@ -33,6 +50,9 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
       const trimmed = value.trim();
       if (!trimmed) return fallback;
       if (isHtmlLike(trimmed)) return fallback;
+
+      const friendly = friendlyMessage(trimmed);
+      if (friendly) return friendly;
 
       const normalized = trimmed.replace(/\s+/g, ' ');
       return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
