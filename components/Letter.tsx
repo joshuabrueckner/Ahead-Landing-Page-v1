@@ -37,6 +37,8 @@ export const Letter: React.FC = () => {
           <a
             href="https://www.forbes.com/sites/bryanrobinson/2024/09/09/77-of-employees-lost-on-how-to-use-ai-in-their-careers-new-study-shows/"
             className="text-inherit border-b border-current/30 pb-0.5"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             77%
           </a>{' '}
