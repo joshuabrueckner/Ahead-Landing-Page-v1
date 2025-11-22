@@ -25,6 +25,17 @@ const jsonResponse = (statusCode, body) => ({
   body: JSON.stringify(body),
 });
 
+const normalizeApiUrl = (value) => {
+  if (!value) return '';
+
+  const trimmed = value.trim().replace(/\/$/, '');
+  if (!trimmed) return '';
+
+  // Ensure the base URL points to the Loops API instead of the app root (appending /api when missing).
+  if (/\/api$/i.test(trimmed)) return trimmed;
+  return `${trimmed}/api`;
+};
+
 const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { message: 'Method not allowed' });
@@ -42,7 +53,7 @@ const handler = async (event) => {
     return jsonResponse(400, { message: 'Missing email' });
   }
 
-  const LOOPS_API_URL = process.env.LOOPS_API_URL?.trim();
+  const LOOPS_API_URL = normalizeApiUrl(process.env.LOOPS_API_URL);
   const LOOPS_API_KEY = process.env.LOOPS_API_KEY?.trim();
 
   if (!LOOPS_API_URL || !LOOPS_API_KEY) {
@@ -50,7 +61,7 @@ const handler = async (event) => {
   }
 
   try {
-    const endpoint = `${LOOPS_API_URL.replace(/\/$/, '')}/subscribers`;
+    const endpoint = `${LOOPS_API_URL}/subscribers`;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -65,7 +76,11 @@ const handler = async (event) => {
     try { json = JSON.parse(text); } catch { json = text; }
 
     if (!res.ok) {
-      const detail = safeMessage(json, res.statusText);
+      let detail = safeMessage(json, res.statusText);
+
+      if (res.status === 404) {
+        detail = `${detail}. Verify LOOPS_API_URL points to the /api base (e.g., https://app.loops.so/api).`;
+      }
 
       return {
         statusCode: res.status >= 400 && res.status < 500 ? res.status : 502,
