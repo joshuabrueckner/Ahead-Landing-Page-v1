@@ -149,7 +149,7 @@ export const Letter: React.FC = () => {
           </p>
 
           <p>
-            <i>"It’s faster if I just do it myself,"</i> you say.
+            <i>“It’s faster if I just do it myself,”</i> you say.
           </p>
 
           <p>
