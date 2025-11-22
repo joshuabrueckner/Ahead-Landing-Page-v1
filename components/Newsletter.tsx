@@ -7,6 +7,15 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
 
+  const parseErrorResponse = async (res: Response) => {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return res.json().catch(() => ({}));
+    }
+
+    return res.text();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
@@ -22,10 +31,17 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail || body?.message || 'Subscription failed');
+        const body = await parseErrorResponse(res);
+
+        const detail =
+          (body && typeof body === 'object' ? body.detail || body.message : undefined) ||
+          (typeof body === 'string' && !body.trim().startsWith('<!') ? body.trim() : undefined) ||
+          (res.status === 404 ? 'Subscription service is unavailable (404).' : undefined);
+
+        throw new Error(detail || 'Subscription failed — please try again later.');
       }
 
+      setError('');
       setIsSubmitted(true);
     } catch (err) {
       // For now, log the error and keep the form visible; we could surface the error in the UI
