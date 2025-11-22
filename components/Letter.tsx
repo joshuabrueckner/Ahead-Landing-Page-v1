@@ -71,15 +71,33 @@ export const Letter: React.FC = () => {
     }
     try {
       setContactStatus('submitting');
-      const res = await fetch('/.netlify/functions/contact', {
+      // Submit to Netlify Forms (static form in index.html)
+      const encode = (data: Record<string, string>) =>
+        Object.keys(data)
+          .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(data[k]))
+          .join('&');
+
+      const payload: Record<string, string> = {
+        'form-name': 'contact',
+        'bot-field': '',
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        email: contact.email,
+        subject: contact.subject,
+        message: contact.message,
+      };
+
+      const res = await fetch('/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(contact),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: encode(payload),
       });
-      const json = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        throw new Error(json?.message || json?.detail || 'Submission failed');
+        const text = await res.text().catch(() => '');
+        throw new Error(text || 'Submission failed');
       }
+
       setContactStatus('success');
       // clear form
       setContact({ firstName: '', lastName: '', email: '', subject: '', message: '' });
