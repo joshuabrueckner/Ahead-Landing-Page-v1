@@ -12,11 +12,13 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-full flex flex-col bg-brand-offwhite font-sans overflow-hidden">
       
-      {/* Header - spacer / simple header */}
-      <header className="flex-none w-full bg-brand-offwhite z-20">
-        <div className="w-full max-w-6xl mx-auto px-6 md:px-12 py-4">
-          {/* kept intentionally minimal; logo and tagline moved to footer */}
-        </div>
+      {/* Header - Logo and Tagline */}
+  <header className="flex-none w-full px-8 py-6 flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 bg-brand-offwhite z-20">
+        <Logo className="scale-75 origin-center" />
+        <span className="hidden md:block w-px h-6 bg-gray-200"></span>
+        <span className="text-sm md:text-base text-brand-gray font-semibold tracking-tight text-center font-serif">
+          The Human Interface for Navigating AI
+        </span>
       </header>
 
       {/* Main Content - Centered Letter */}
@@ -28,20 +30,7 @@ const App: React.FC = () => {
 
       {/* Footer - Newsletter */}
       <footer className="flex-none w-full bg-brand-offwhite border-t border-gray-100 py-8 px-6 md:px-12 z-20">
-        <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          {/* Left: Logo above Tagline (stacked) */}
-          <div className="flex flex-col items-start md:items-start gap-2">
-            <Logo className="h-8 md:h-10" />
-            <span className="text-sm md:text-base text-brand-gray font-semibold tracking-tight font-serif">
-              The Human Interface for Navigating AI
-            </span>
-          </div>
-
-          {/* Right: Newsletter (reduced width to tighten spacing) */}
-          <div className="w-full md:w-2/5 lg:w-2/5">
-            <Newsletter onSubmit={handleNewsletterSubmit} />
-          </div>
-        </div>
+         <Newsletter onSubmit={handleNewsletterSubmit} />
       </footer>
 
     </div>
