@@ -16,7 +16,7 @@ const App: React.FC = () => {
   <header className="flex-none w-full px-8 py-6 flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6 bg-brand-offwhite z-20">
         <Logo className="scale-75 origin-center" />
         <span className="hidden md:block w-px h-6 bg-gray-200"></span>
-        <span className="text-xs md:text-sm text-brand-gray font-medium tracking-tight text-center font-serif">
+        <span className="text-sm md:text-base text-brand-gray font-medium tracking-tight text-center font-serif">
           The Human Interface for Navigating AI
         </span>
       </header>
