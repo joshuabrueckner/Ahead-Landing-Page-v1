@@ -95,7 +95,7 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center md:items-end justify-between gap-8 md:gap-12 text-[#fdf9f1]">
+    <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center md:items-end justify-between gap-6 md:gap-12 text-[#fdf9f1] px-4 sm:px-6">
       <div className="space-y-3 text-center md:text-left flex-1 w-full md:w-auto">
         <h2 className="text-xl md:text-2xl font-serif leading-tight">
           Get notified when Ahead launches
@@ -105,7 +105,7 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
         </p>
       </div>
         
-      <div className="w-full md:w-1/2 lg:w-2/5">
+  <div className="w-full md:w-1/2 lg:w-2/5">
         {isSubmitted ? (
            <div className="bg-white/10 border border-white/20 text-[#fdf9f1] p-3 rounded-lg flex items-center gap-3 animate-fade-in justify-center md:justify-start">
              <Check size={18} />
@@ -119,12 +119,12 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-transparent border-b border-[#fdf9f1]/50 py-3 text-sm placeholder:text-[#fdf9f1]/70 text-[#fdf9f1] focus:outline-none focus:border-[#fdf9f1] transition-all pr-10 font-sans"
+                  className="w-full bg-transparent border-b border-[#fdf9f1]/50 py-3 sm:py-4 text-sm sm:text-base placeholder:text-[#fdf9f1]/70 text-[#fdf9f1] focus:outline-none focus:border-[#fdf9f1] transition-all pr-12 font-sans"
                   required
                 />
                 <button
                   type="submit"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 p-2 hover:opacity-70 transition-opacity text-[#fdf9f1]"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 p-3 sm:p-2 hover:opacity-70 transition-opacity text-[#fdf9f1]"
                   aria-label="Submit"
                 >
                   <ArrowRight size={20} className="text-current" />

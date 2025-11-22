@@ -119,10 +119,10 @@ export const Letter: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col relative w-full items-center">
+    <div className="flex flex-col relative w-full items-center px-4 sm:px-6">
       {/* Letter Content */}
       <div className="flex flex-col w-full max-w-4xl items-center">
-        <h1 className="text-2xl md:text-4xl font-serif mb-8 leading-tight text-brand-black text-center">
+  <h1 className="text-xl sm:text-2xl md:text-4xl font-serif mb-6 md:mb-8 leading-tight text-brand-black text-center">
           An open letter to the{' '}
           <a
             href="https://www.forbes.com/sites/bryanrobinson/2024/09/09/77-of-employees-lost-on-how-to-use-ai-in-their-careers-new-study-shows/"
@@ -135,7 +135,7 @@ export const Letter: React.FC = () => {
           who feel lost with AI:
         </h1>
 
-        <div className="font-sans text-[11px] md:text-sm leading-relaxed text-brand-black/90 space-y-6 text-center">
+  <div className="font-sans text-[13px] sm:text-[11px] md:text-sm leading-relaxed text-brand-black/90 space-y-6 text-center">
           <p>
             The pressure to figure this stuff out is no longer subtle.
           </p>
@@ -173,7 +173,7 @@ export const Letter: React.FC = () => {
           </p>
 
 <br></br>
-          <div className="mb-4 flex flex-col items-center">
+          <div className="mb-4 flex flex-col items-center w-full">
             <img
               src="/joshua-signature.png"
               alt="Joshua A. Brueckner Signature"
@@ -188,7 +188,7 @@ export const Letter: React.FC = () => {
             {showContact && (
               <div className="fixed inset-0 z-50 flex items-center justify-center">
                 <div className="absolute inset-0 bg-black/50" onClick={closeContact} />
-                <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 p-6">
+                <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 p-4 sm:p-6 max-h-[90vh] overflow-auto">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-medium">Get in touch</h3>
                     <button onClick={closeContact} aria-label="Close" className="text-gray-500 hover:text-gray-700">✕</button>
@@ -196,16 +196,16 @@ export const Letter: React.FC = () => {
                   <form onSubmit={submitContact} className="space-y-3">
                     {contactError && <div className="text-sm text-red-600">{contactError}</div>}
                     {contactStatus === 'success' && <div className="text-sm text-green-600">Message sent — thank you!</div>}
-                    <div className="grid grid-cols-2 gap-3">
-                      <input name="firstName" placeholder="First Name" value={contact.firstName} onChange={handleContactChange} className="px-3 py-2 border rounded" />
-                      <input name="lastName" placeholder="Last Name" value={contact.lastName} onChange={handleContactChange} className="px-3 py-2 border rounded" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input name="firstName" placeholder="First Name" value={contact.firstName} onChange={handleContactChange} className="px-3 py-3 sm:py-2 border rounded" />
+                      <input name="lastName" placeholder="Last Name" value={contact.lastName} onChange={handleContactChange} className="px-3 py-3 sm:py-2 border rounded" />
                     </div>
                     <input name="email" type="email" placeholder="Email" value={contact.email} onChange={handleContactChange} className="w-full px-3 py-2 border rounded" />
                     <input name="subject" placeholder="Subject" value={contact.subject} onChange={handleContactChange} className="w-full px-3 py-2 border rounded" />
                     <textarea name="message" placeholder="Message" value={contact.message} onChange={handleContactChange} className="w-full px-3 py-2 border rounded h-28" />
-                    <div className="flex items-center justify-end gap-2">
-                      <button type="button" onClick={closeContact} className="px-4 py-2 border rounded">Cancel</button>
-                      <button type="submit" disabled={contactStatus === 'submitting'} className="px-4 py-2 bg-brand-black text-white rounded">
+                    <div className="flex flex-col sm:flex-row items-center justify-end gap-2">
+                      <button type="button" onClick={closeContact} className="w-full sm:w-auto px-4 py-3 sm:py-2 border rounded">Cancel</button>
+                      <button type="submit" disabled={contactStatus === 'submitting'} className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-brand-black text-white rounded">
                         {contactStatus === 'submitting' ? 'Sending...' : 'Send'}
                       </button>
                     </div>
