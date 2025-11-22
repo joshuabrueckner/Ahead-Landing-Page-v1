@@ -25,7 +25,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Footer - Newsletter */}
-      <footer className="flex-none w-full bg-brand-offwhite border-t border-gray-100 py-8 px-6 md:px-12 z-20">
+      <footer className="flex-none w-full bg-[#5a6972] text-[#fdf9f1] py-8 px-6 md:px-12 z-20">
          <Newsletter onSubmit={handleNewsletterSubmit} />
       </footer>
 
