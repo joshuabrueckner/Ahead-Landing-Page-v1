@@ -28,20 +28,17 @@ const App: React.FC = () => {
 
       {/* Footer - Newsletter */}
       <footer className="flex-none w-full bg-brand-offwhite border-t border-gray-100 py-8 px-6 md:px-12 z-20">
-        <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-          {/* Left: Logo + Tagline */}
-          <div className="flex items-start md:items-center gap-4">
+        <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          {/* Left: Logo above Tagline (stacked) */}
+          <div className="flex flex-col items-start md:items-start gap-2">
             <Logo className="h-8 md:h-10" />
-            <div className="flex flex-col">
-              <span className="text-sm md:text-base text-brand-gray font-semibold tracking-tight font-serif">
-                The Human Interface for Navigating AI
-              </span>
-              <span className="text-xs text-brand-gray/70 mt-1">Ahead</span>
-            </div>
+            <span className="text-sm md:text-base text-brand-gray font-semibold tracking-tight font-serif">
+              The Human Interface for Navigating AI
+            </span>
           </div>
 
-          {/* Right: Newsletter */}
-          <div className="w-full md:w-1/2 lg:w-2/5">
+          {/* Right: Newsletter (reduced width to tighten spacing) */}
+          <div className="w-full md:w-2/5 lg:w-2/5">
             <Newsletter onSubmit={handleNewsletterSubmit} />
           </div>
         </div>
