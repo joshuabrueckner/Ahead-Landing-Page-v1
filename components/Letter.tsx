@@ -46,7 +46,7 @@ export const Letter: React.FC = () => {
             Imagine all you could do if you just had the right support.
           </p>
 
-          <div className="mt-10 mb-4 flex flex-col items-center">
+          <div className="mt-12 mb-4 flex flex-col items-center">
             <img
               src="/joshua-signature.png"
               alt="Joshua A. Brueckner Signature"
