@@ -19,6 +19,26 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const isHtmlLike = (value: unknown) =>
     typeof value === 'string' && /<!doctype html|<html[\s>]|<\/?[a-z][\s\S]*>/i.test(value.trim().slice(0, 240));
 
+  const formatError = (value: unknown, statusCode?: number) => {
+    const fallback = statusCode === 404 ? 'Subscription service is unavailable.' : 'Subscription failed — please try again later.';
+
+    if (value && typeof value === 'object') {
+      const detail = (value as { detail?: string; message?: string }).detail || (value as { message?: string }).message;
+      if (detail) return formatError(detail, statusCode);
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return fallback;
+      if (isHtmlLike(trimmed)) return fallback;
+
+      const normalized = trimmed.replace(/\s+/g, ' ');
+      return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
+    }
+
+    return fallback;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
@@ -35,17 +55,7 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
 
       if (!res.ok) {
         const body = await parseErrorResponse(res);
-
-        const statusMessage = res.status === 404 ? 'Subscription service is unavailable (404).' : undefined;
-        const objectMessage = body && typeof body === 'object' ? body.detail || body.message : undefined;
-        const stringMessage =
-          typeof body === 'string' && body.trim() && !isHtmlLike(body)
-            ? body.trim().slice(0, 200)
-            : undefined;
-
-        const detail = objectMessage || stringMessage || statusMessage;
-
-        throw new Error(detail || 'Subscription failed — please try again later.');
+        throw new Error(formatError(body, res.status));
       }
 
       setError('');
@@ -53,7 +63,8 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
     } catch (err) {
       // For now, log the error and keep the form visible; we could surface the error in the UI
       console.error('Newsletter subscribe error', err);
-      setError(err instanceof Error ? err.message : 'Subscription failed — please try again.');
+      const formatted = err instanceof Error ? err.message : undefined;
+      setError(formatError(formatted));
     }
   };
 

@@ -1,3 +1,24 @@
+const isHtmlLike = (value) =>
+  typeof value === 'string' && /<!doctype html|<html[\s>]|<\/?[a-z][\s\S]*>/i.test(value.trim().slice(0, 240));
+
+const safeMessage = (value, fallback = 'Loops API error') => {
+  if (value && typeof value === 'object') {
+    const detail = value.detail || value.message || value.error;
+    if (detail) return safeMessage(detail, fallback);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return fallback;
+    if (isHtmlLike(trimmed)) return fallback;
+
+    const normalized = trimmed.replace(/\s+/g, ' ');
+    return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
+  }
+
+  return fallback;
+};
+
 const jsonResponse = (statusCode, body) => ({
   statusCode,
   headers: { 'Content-Type': 'application/json' },
@@ -44,17 +65,12 @@ const handler = async (event) => {
     try { json = JSON.parse(text); } catch { json = text; }
 
     if (!res.ok) {
-      const errorMessage =
-        json?.message ||
-        json?.error ||
-        (typeof json === 'string' && json.trim()) ||
-        res.statusText ||
-        'Loops API error';
+      const detail = safeMessage(json, res.statusText);
 
       return {
         statusCode: res.status >= 400 && res.status < 500 ? res.status : 502,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Loops API error', detail: errorMessage }),
+        body: JSON.stringify({ message: 'Loops API error', detail }),
       };
     }
 
