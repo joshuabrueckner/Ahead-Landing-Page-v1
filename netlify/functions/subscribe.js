@@ -50,7 +50,7 @@ const normalizeApiUrl = (value, apiVersion = 'v1') => {
 
 const normalizeSubscriberPath = (value) => {
   const cleaned = (value || '').trim().replace(/^\/+/, '').replace(/\/+$/, '');
-  return cleaned || 'subscribers';
+  return cleaned || 'contacts/create';
 };
 
 const handler = async (event) => {
@@ -101,7 +101,7 @@ const handler = async (event) => {
 
       const hint =
         res.status === 404
-          ? 'Verify LOOPS_API_URL includes the /api base (e.g., https://app.loops.so/api) and that LOOPS_SUBSCRIBER_PATH matches the path from the Loops docs (often api/v1/subscribers).'
+          ? 'Verify LOOPS_API_URL includes the /api base (e.g., https://app.loops.so/api) and that LOOPS_SUBSCRIBER_PATH matches the Loops contacts endpoint (e.g., contacts/create).'
           : undefined;
 
       return {
