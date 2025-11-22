@@ -100,6 +100,17 @@ export const Letter: React.FC = () => {
 
       setContactStatus('success');
       // clear form
+      // attempt to add to Loops (subscribe) but don't fail the primary flow if this errors
+      try {
+        await fetch('/.netlify/functions/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: contact.email, firstName: contact.firstName, lastName: contact.lastName }),
+        });
+      } catch (err) {
+        console.error('Loops subscribe failed', err);
+      }
+
       setContact({ firstName: '', lastName: '', email: '', subject: '', message: '' });
     } catch (err: any) {
       setContactStatus('error');

@@ -86,6 +86,8 @@ const handler = async (event) => {
   }
 
   const email = body?.email;
+  const firstName = body?.firstName || body?.first_name || body?.firstname;
+  const lastName = body?.lastName || body?.last_name || body?.lastname;
   if (!email || typeof email !== 'string') {
     return jsonResponse(400, { message: 'Missing email' });
   }
@@ -103,13 +105,17 @@ const handler = async (event) => {
 
   try {
     const endpoint = `${LOOPS_API_URL}/${LOOPS_SUBSCRIBER_PATH}`;
+    const payload = { email };
+    if (firstName) payload.firstName = firstName;
+    if (lastName) payload.lastName = lastName;
+
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${LOOPS_API_KEY}`,
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(payload),
     });
 
     const text = await res.text();
