@@ -71,8 +71,15 @@ export const Letter: React.FC = () => {
     }
     try {
       setContactStatus('submitting');
-      // Replace this fetch with your real endpoint when ready
-      await new Promise(res => setTimeout(res, 600));
+      const res = await fetch('/.netlify/functions/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contact),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.message || json?.detail || 'Submission failed');
+      }
       setContactStatus('success');
       // clear form
       setContact({ firstName: '', lastName: '', email: '', subject: '', message: '' });
