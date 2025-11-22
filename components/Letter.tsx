@@ -220,7 +220,7 @@ export const Letter: React.FC = () => {
             <button
               type="button"
               onClick={openContact}
-              className="inline-block mt-2 md:mt-0 md:ml-1 underline decoration-1 underline-offset-4 hover:text-blue-600 transition-colors font-medium"
+              className="inline-block mt-2 md:mt-0 md:ml-1 underline decoration-1 underline-offset-4 font-medium"
             >
               Reach out
             </button>{' '}
