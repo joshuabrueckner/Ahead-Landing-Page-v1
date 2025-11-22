@@ -25,15 +25,32 @@ const jsonResponse = (statusCode, body) => ({
   body: JSON.stringify(body),
 });
 
-const normalizeApiUrl = (value) => {
+const normalizeApiVersion = (value) => {
+  if (!value) return 'v1';
+  const trimmed = value.trim();
+  if (!trimmed) return 'v1';
+  if (/^v\d+$/i.test(trimmed)) return trimmed.toLowerCase();
+  if (/^\d+$/.test(trimmed)) return `v${trimmed}`;
+  return trimmed.replace(/\/+$/g, '').replace(/^\/+/, '');
+};
+
+const normalizeApiUrl = (value, apiVersion = 'v1') => {
   if (!value) return '';
 
-  const trimmed = value.trim().replace(/\/$/, '');
+  const trimmed = value.trim().replace(/\/+$/, '');
   if (!trimmed) return '';
 
-  // Ensure the base URL points to the Loops API instead of the app root (appending /api when missing).
-  if (/\/api$/i.test(trimmed)) return trimmed;
-  return `${trimmed}/api`;
+  const baseWithApi = /\/api(\/v\d+)?$/i.test(trimmed) ? trimmed : `${trimmed}/api`;
+  const version = normalizeApiVersion(apiVersion);
+
+  if (!version) return baseWithApi;
+  if (new RegExp(`/api/${version}$`, 'i').test(baseWithApi)) return baseWithApi;
+  return `${baseWithApi}/${version}`.replace(/\/+$/, '');
+};
+
+const normalizeSubscriberPath = (value) => {
+  const cleaned = (value || '').trim().replace(/^\/+/, '').replace(/\/+$/, '');
+  return cleaned || 'subscribers';
 };
 
 const handler = async (event) => {
@@ -53,15 +70,19 @@ const handler = async (event) => {
     return jsonResponse(400, { message: 'Missing email' });
   }
 
-  const LOOPS_API_URL = normalizeApiUrl(process.env.LOOPS_API_URL);
+  const LOOPS_API_URL = normalizeApiUrl(
+    process.env.LOOPS_API_URL,
+    process.env.LOOPS_API_VERSION || 'v1'
+  );
   const LOOPS_API_KEY = process.env.LOOPS_API_KEY?.trim();
+  const LOOPS_SUBSCRIBER_PATH = normalizeSubscriberPath(process.env.LOOPS_SUBSCRIBER_PATH);
 
   if (!LOOPS_API_URL || !LOOPS_API_KEY) {
     return jsonResponse(500, { message: 'Server not configured' });
   }
 
   try {
-    const endpoint = `${LOOPS_API_URL}/subscribers`;
+    const endpoint = `${LOOPS_API_URL}/${LOOPS_SUBSCRIBER_PATH}`;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -78,14 +99,15 @@ const handler = async (event) => {
     if (!res.ok) {
       let detail = safeMessage(json, res.statusText);
 
-      if (res.status === 404) {
-        detail = `${detail}. Verify LOOPS_API_URL points to the /api base (e.g., https://app.loops.so/api).`;
-      }
+      const hint =
+        res.status === 404
+          ? 'Verify LOOPS_API_URL includes the /api base (e.g., https://app.loops.so/api) and that LOOPS_SUBSCRIBER_PATH matches the path from the Loops docs (often api/v1/subscribers).'
+          : undefined;
 
       return {
         statusCode: res.status >= 400 && res.status < 500 ? res.status : 502,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Loops API error', detail }),
+        body: JSON.stringify({ message: 'Loops API error', detail, hint, endpoint }),
       };
     }
 
