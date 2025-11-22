@@ -1,6 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export const Letter: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch('/.netlify/functions/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || 'Subscription failed');
+      }
+      setStatus('success');
+      setEmail('');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Something went wrong');
+      setStatus('error');
+    }
+  };
+
   return (
     <div className="flex flex-col relative w-full items-center">
       {/* Letter Content */}
@@ -45,7 +72,38 @@ export const Letter: React.FC = () => {
           <p className="mb-12">
             Imagine all you could do if you just had the right support.
           </p>
-<br></br>
+
+          {/* Newsletter form */}
+          <form onSubmit={handleSubscribe} className="w-full max-w-md mx-auto mb-6">
+            <label htmlFor="newsletter" className="sr-only">Email</label>
+            <div className="flex gap-2">
+              <input
+                id="newsletter"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Your email"
+                className="flex-1 px-4 py-2 rounded border border-gray-200 focus:ring-2 focus:ring-brand-blue"
+                disabled={status === 'loading'}
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-brand-blue text-white rounded disabled:opacity-60"
+                disabled={status === 'loading'}
+              >
+                {status === 'loading' ? 'Sending…' : 'Subscribe'}
+              </button>
+            </div>
+
+            {status === 'success' && (
+              <div className="mt-2 text-sm text-green-600">Thanks — you’re subscribed.</div>
+            )}
+            {status === 'error' && (
+              <div className="mt-2 text-sm text-red-600">Error: {errorMsg}</div>
+            )}
+          </form>
+
           <div className="mb-4 flex flex-col items-center">
             <img
               src="/joshua-signature.png"
