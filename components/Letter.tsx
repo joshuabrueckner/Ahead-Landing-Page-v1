@@ -42,11 +42,11 @@ export const Letter: React.FC = () => {
             We believe human intelligence is the answer to mastering artificial intelligence.
           </p>
 
-          <p>
+          <p className="mb-12">
             Imagine all you could do if you just had the right support.
           </p>
 
-          <div className="mt-16 mb-4 flex flex-col items-center">
+          <div className="mb-4 flex flex-col items-center">
             <img
               src="/joshua-signature.png"
               alt="Joshua A. Brueckner Signature"
