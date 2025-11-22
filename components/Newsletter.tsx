@@ -22,6 +22,8 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const formatError = (value: unknown, statusCode?: number) => {
     const fallback = statusCode === 404 ? 'Subscription service is unavailable.' : 'Subscription failed — please try again later.';
 
+    if (statusCode === 404) return fallback;
+
     if (value && typeof value === 'object') {
       const detail = (value as { detail?: string; message?: string }).detail || (value as { message?: string }).message;
       if (detail) return formatError(detail, statusCode);
@@ -55,7 +57,10 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
 
       if (!res.ok) {
         const body = await parseErrorResponse(res);
-        throw new Error(formatError(body, res.status));
+        const formatted = formatError(body, res.status);
+        const error = new Error(formatted);
+        (error as Error & { statusCode?: number }).statusCode = res.status;
+        throw error;
       }
 
       setError('');
@@ -64,7 +69,8 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
       // For now, log the error and keep the form visible; we could surface the error in the UI
       console.error('Newsletter subscribe error', err);
       const formatted = err instanceof Error ? err.message : undefined;
-      setError(formatError(formatted));
+      const statusCode = err instanceof Error ? (err as Error & { statusCode?: number }).statusCode : undefined;
+      setError(formatError(formatted, statusCode));
     }
   };
 
