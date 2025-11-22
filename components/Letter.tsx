@@ -15,7 +15,7 @@ export const Letter: React.FC = () => {
           </p>
 
           <p>
-            You read daily headlines about widespread layoffs and you’re feeling the market pressure.
+            You read daily headlines about widespread layoffs and market volatility.
           </p>
 
           <p>
@@ -45,7 +45,7 @@ export const Letter: React.FC = () => {
           <p className="mb-12">
             Imagine all you could do if you just had the right support.
           </p>
-
+<br></br>
           <div className="mb-4 flex flex-col items-center">
             <img
               src="/joshua-signature.png"
