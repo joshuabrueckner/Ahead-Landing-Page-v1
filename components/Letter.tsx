@@ -28,6 +28,60 @@ export const Letter: React.FC = () => {
     }
   };
 
+  // Contact modal state & form
+  const [showContact, setShowContact] = useState(false);
+  const [contact, setContact] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    subject: '',
+    message: '',
+  });
+  const [contactStatus, setContactStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [contactError, setContactError] = useState('');
+
+  const openContact = () => {
+    setShowContact(true);
+    setContactStatus('idle');
+    setContactError('');
+  };
+  const closeContact = () => setShowContact(false);
+
+  const handleContactChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setContact(prev => ({ ...prev, [name]: value }));
+  };
+
+  const validateContact = () => {
+    if (!contact.firstName.trim()) return 'First name is required';
+    if (!contact.lastName.trim()) return 'Last name is required';
+    if (!contact.email.trim()) return 'Email is required';
+    if (!contact.subject.trim()) return 'Subject is required';
+    if (!contact.message.trim()) return 'Message is required';
+    return '';
+  };
+
+  const submitContact = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setContactError('');
+    const v = validateContact();
+    if (v) {
+      setContactError(v);
+      return;
+    }
+    try {
+      setContactStatus('submitting');
+      // Replace this fetch with your real endpoint when ready
+      await new Promise(res => setTimeout(res, 600));
+      setContactStatus('success');
+      // clear form
+      setContact({ firstName: '', lastName: '', email: '', subject: '', message: '' });
+    } catch (err: any) {
+      setContactStatus('error');
+      setContactError(err?.message || 'Failed to send');
+    }
+  };
+
   return (
     <div className="flex flex-col relative w-full items-center">
       {/* Letter Content */}
@@ -95,16 +149,45 @@ export const Letter: React.FC = () => {
             <div className="font-sans text-xs font-medium text-brand-gray tracking-wide text-center">
               Founder, Ahead
             </div>
+            {showContact && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/50" onClick={closeContact} />
+                <div className="relative bg-white rounded-lg shadow-lg max-w-lg w-full mx-4 p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium">Contact Joshua</h3>
+                    <button onClick={closeContact} aria-label="Close" className="text-gray-500 hover:text-gray-700">✕</button>
+                  </div>
+                  <form onSubmit={submitContact} className="space-y-3">
+                    {contactError && <div className="text-sm text-red-600">{contactError}</div>}
+                    {contactStatus === 'success' && <div className="text-sm text-green-600">Message sent — thank you!</div>}
+                    <div className="grid grid-cols-2 gap-3">
+                      <input name="firstName" placeholder="First Name" value={contact.firstName} onChange={handleContactChange} className="px-3 py-2 border rounded" />
+                      <input name="lastName" placeholder="Last Name" value={contact.lastName} onChange={handleContactChange} className="px-3 py-2 border rounded" />
+                    </div>
+                    <input name="email" type="email" placeholder="Email" value={contact.email} onChange={handleContactChange} className="w-full px-3 py-2 border rounded" />
+                    <input name="subject" placeholder="Subject" value={contact.subject} onChange={handleContactChange} className="w-full px-3 py-2 border rounded" />
+                    <textarea name="message" placeholder="Message" value={contact.message} onChange={handleContactChange} className="w-full px-3 py-2 border rounded h-28" />
+                    <div className="flex items-center justify-end gap-2">
+                      <button type="button" onClick={closeContact} className="px-4 py-2 border rounded">Cancel</button>
+                      <button type="submit" disabled={contactStatus === 'submitting'} className="px-4 py-2 bg-brand-black text-white rounded">
+                        {contactStatus === 'submitting' ? 'Sending...' : 'Send'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
 
           <p>
             PS:{' '}
-            <a
-              href="mailto:bruecknerjoshua@gmail.com"
+            <button
+              type="button"
+              onClick={openContact}
               className="inline-block mt-2 md:mt-0 md:ml-1 underline decoration-1 underline-offset-4 hover:text-blue-600 transition-colors font-medium"
             >
               Reach out
-            </a>{' '}
+            </button>{' '}
             if you're an AI expert and want to get involved. We want to meet you.
           </p>
         </div>
@@ -112,3 +195,5 @@ export const Letter: React.FC = () => {
     </div>
   );
 };
+
+export default Letter;
