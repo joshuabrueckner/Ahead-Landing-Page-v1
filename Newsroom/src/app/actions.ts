@@ -75,8 +75,11 @@ const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle,
       const formattedDate = formatDateForSerpApi(dateStr);
       // cdr:1 enables custom date range
       // cd_min and cd_max set the range (inclusive)
-      tbsParam = `cdr:1,cd_min:${formattedDate},cd_max:${formattedDate}`;
+      // sbd:1 sorts by date to ensure we get the latest articles for that day
+      tbsParam = `cdr:1,cd_min:${formattedDate},cd_max:${formattedDate},sbd:1`;
   }
+  
+  console.log(`Fetching news from SerpApi with tbs=${tbsParam} for date=${dateStr}`);
 
   try {
     const response = await getJson({
@@ -160,6 +163,8 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
 
     // Filter for the requested date (or yesterday by default)
     const targetDate = dateStr || getYesterdayDateStringISO();
+    
+    console.log(`Filtering Future Tools articles for date=${targetDate}`);
     
     const filteredArticles = articles.filter((article: any) => {
         return article.date_iso === targetDate;
