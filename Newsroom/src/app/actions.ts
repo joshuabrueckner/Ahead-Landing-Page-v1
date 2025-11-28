@@ -381,7 +381,9 @@ One-sentence summary:`,
   }
 }
 
-export async function extractArticleTextAction(articleUrl: string): Promise<{ text?: string; error?: string; imageUrl?: string; title?: string; source?: string; resolvedUrl?: string }> {
+export async function extractArticleTextAction(
+  articleUrl: string
+): Promise<{ text?: string; error?: string; imageUrl?: string; title?: string; source?: string; resolvedUrl?: string }> {
   const token = process.env.DIFFBOT_TOKEN;
   if (!token) {
     console.error("Diffbot token is not configured.");
@@ -389,28 +391,25 @@ export async function extractArticleTextAction(articleUrl: string): Promise<{ te
   }
 
   const params = new URLSearchParams({
-    const summary = result.text?.trim();
-    if (!summary) {
-      return { error: "Failed to generate summary" };
-    }
-
-    const lowercased = summary.charAt(0).toLowerCase() + summary.slice(1);
+    token,
     url: articleUrl,
-    return lowercased;
-    fields: "title,text,siteName,pageUrl,images"
+    fields: "title,text,siteName,pageUrl,images",
   });
 
   const diffbotUrl = `https://api.diffbot.com/v3/article?${params.toString()}`;
-  
+
   try {
     const response = await fetch(diffbotUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      method: "GET",
+      headers: { Accept: "application/json" },
     });
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error(`Diffbot API error for ${articleUrl}: ${response.status} ${response.statusText}`, errorBody);
+      console.error(
+        `Diffbot API error for ${articleUrl}: ${response.status} ${response.statusText}`,
+        errorBody
+      );
       return { error: `Diffbot API error: ${response.status} - ${errorBody}` };
     }
 
@@ -418,23 +417,23 @@ export async function extractArticleTextAction(articleUrl: string): Promise<{ te
     const articleObject = data?.objects?.[0];
 
     if (!articleObject) {
+      return { error: "Diffbot did not return article content." };
     }
 
     const primaryImage = articleObject.images?.find((img: any) => img.primary);
 
-    return { 
-      text: articleObject.text || '', 
+    return {
+      text: articleObject.text || "",
       imageUrl: primaryImage?.url,
-      title: articleObject.title || '',
-      source: cleanSourceName(articleObject.siteName || articleObject.publisher || ''),
+      title: articleObject.title || "",
+      source: cleanSourceName(articleObject.siteName || articleObject.publisher || ""),
       resolvedUrl: articleObject.pageUrl || articleUrl,
     };
-            const summary = result.text?.trim();
-            if (!summary) {
-              return { error: "Failed to generate summary" };
-            }
-
-            return { summary };
+  } catch (error: any) {
+    console.error("Error extracting article text via Diffbot:", error);
+    return { error: error?.message || "Failed to extract article text." };
+  }
+}
 
 export async function getAITipAction(
   input: GenerateAITipInput
