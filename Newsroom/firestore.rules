@@ -1,0 +1,19 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Rules for subscribers collection
+    match /newsletterSubscribers/{subscriberId} {
+      allow read: if true;
+      allow update, delete: if false;
+      allow create: if true;
+    }
+  }
+}

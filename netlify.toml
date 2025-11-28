@@ -1,0 +1,19 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Redirect /newsroom to a separate Netlify site
+# You'll need to deploy the Newsroom app separately and update this URL
+[[redirects]]
+  from = "/newsroom/*"
+  to = "https://newsroom--jumpahead.netlify.app/:splat"
+  status = 200
+  force = true
+
+# Optional: Redirect /newsroom (without trailing slash) to /newsroom/
+[[redirects]]
+  from = "/newsroom"
+  to = "https://newsroom--jumpahead.netlify.app/"
+  status = 200
+  force = true
