@@ -56,22 +56,34 @@ const getYesterdayDateStringISO = () => {
     return `${year}-${month}-${day}`;
 };
 
+const formatDateForSerpApi = (dateStr: string) => {
+    // Input: YYYY-MM-DD
+    // Output: MM/DD/YYYY
+    const [year, month, day] = dateStr.split('-');
+    return `${month}/${day}/${year}`;
+};
 
-const fetchNewsFromSerpApi = async (): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
+const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
   const apiKey = process.env.SERPAPI_KEY;
   if (!apiKey) {
     throw new Error("SERPAPI_KEY is not defined.");
   }
 
-  const yesterday = getYesterdayDateString();
+  let tbsParam = "qdr:d,sbd:1"; // Default: past 24 hours, sorted by date
+
+  if (dateStr) {
+      const formattedDate = formatDateForSerpApi(dateStr);
+      // cdr:1 enables custom date range
+      // cd_min and cd_max set the range (inclusive)
+      tbsParam = `cdr:1,cd_min:${formattedDate},cd_max:${formattedDate}`;
+  }
 
   try {
     const response = await getJson({
       engine: "google_news",
       q: "AI",
       api_key: apiKey,
-      // Using tbs=qdr:d for "past day" and since we run this early morning PT, it aligns with "yesterday"
-      tbs: "qdr:d,sbd:1",
+      tbs: tbsParam,
       num: "15"
     });
 
@@ -94,7 +106,7 @@ const fetchNewsFromSerpApi = async (): Promise<Omit<NewsArticle, 'id' | 'summary
   }
 };
 
-const fetchNewsFromFutureTools = async (): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
+const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
   const apiKey = process.env.PARSE_BOT_API_KEY;
   if (!apiKey) {
     console.warn("PARSE_BOT_API_KEY is not defined. Skipping Future Tools fetch.");
@@ -146,11 +158,11 @@ const fetchNewsFromFutureTools = async (): Promise<Omit<NewsArticle, 'id' | 'sum
       return [];
     }
 
-    // Filter for yesterday's articles
-    const yesterday = getYesterdayDateStringISO();
+    // Filter for the requested date (or yesterday by default)
+    const targetDate = dateStr || getYesterdayDateStringISO();
     
     const filteredArticles = articles.filter((article: any) => {
-        return article.date_iso === yesterday;
+        return article.date_iso === targetDate;
     });
 
     return filteredArticles.map((article: any) => ({
@@ -167,14 +179,14 @@ const fetchNewsFromFutureTools = async (): Promise<Omit<NewsArticle, 'id' | 'sum
   }
 };
 
-export async function getArticleHeadlinesAction(): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[] | { error: string }> {
+export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[] | { error: string }> {
   try {
     const [serpApiArticles, futureToolsArticles] = await Promise.all([
-      fetchNewsFromSerpApi().catch(e => {
+      fetchNewsFromSerpApi(dateStr).catch(e => {
         console.error("SerpApi fetch failed:", e);
         return [];
       }),
-      fetchNewsFromFutureTools()
+      fetchNewsFromFutureTools(dateStr)
     ]);
 
     const allArticles = [...serpApiArticles, ...futureToolsArticles];

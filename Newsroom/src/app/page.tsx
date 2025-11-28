@@ -17,8 +17,21 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   
+  const getYesterdayDateStringISO = () => {
+    const nowInPT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const yesterdayInPT = new Date(nowInPT);
+    yesterdayInPT.setDate(yesterdayInPT.getDate() - 1);
+    
+    const year = yesterdayInPT.getFullYear();
+    const month = String(yesterdayInPT.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterdayInPT.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  };
+
   const [displayedArticles, setDisplayedArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string>(getYesterdayDateStringISO());
 
   const [products, setProducts] = useState<ProductLaunch[]>([]);
   
@@ -38,7 +51,7 @@ export default function Home() {
     async function fetchInitialData() {
       setIsLoading(true);
       
-      const headlinesPromise = getArticleHeadlinesAction();
+      const headlinesPromise = getArticleHeadlinesAction(selectedDate);
       const productsPromise = getTopAIProductsAction();
 
       const [headlinesResult, productsResult] = await Promise.all([headlinesPromise, productsPromise]);
@@ -64,7 +77,7 @@ export default function Home() {
     }
     fetchInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]);
+  }, [toast, selectedDate]);
   
   
   const handleSelect = (article: NewsArticle) => {
@@ -168,6 +181,8 @@ export default function Home() {
             featuredArticle={featuredArticle}
             isLoading={isLoading && displayedArticles.length === 0}
             onReloadArticle={() => {}}
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
           />
           <ProductsSelection 
             products={products}

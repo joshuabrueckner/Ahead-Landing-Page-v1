@@ -113,6 +113,8 @@ type NewsSelectionProps = {
   featuredArticle: NewsArticle | null;
   isLoading: boolean;
   onReloadArticle: (article: NewsArticle) => void;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 };
 
 const ArticleItem = ({ 
@@ -274,7 +276,7 @@ const ArticleItem = ({
 };
 
 
-export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading }: NewsSelectionProps) {
+export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   
@@ -324,7 +326,13 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
               </CardDescription>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Input 
+                type="date" 
+                value={selectedDate} 
+                onChange={(e) => onDateChange(e.target.value)}
+                className="w-auto"
+            />
             <Button 
               variant="default" 
               size="sm" 
