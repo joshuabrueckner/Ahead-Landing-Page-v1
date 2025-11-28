@@ -18,10 +18,10 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
     <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center md:items-end justify-between gap-8 md:gap-12">
       <div className="space-y-3 text-center md:text-left flex-1 w-full md:w-auto">
         <h2 className="text-xl md:text-2xl font-serif text-brand-black leading-tight">
-          Get notified when Ahead launches
+          Don't wait. Start getting ahead now.
         </h2>
         <p className="text-sm text-brand-gray font-sans font-light leading-snug max-w-md mx-auto md:mx-0">
-          In the meantime, we'll send digestible AI news, written for humans.
+          Subscribe for Ahead launch alerts and immediate access to quick, digestible daily AI news, written for humans.
         </p>
       </div>
         
