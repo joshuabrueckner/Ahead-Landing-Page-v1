@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { NewsArticle } from "@/lib/data";
 import {
   Card,
@@ -61,23 +61,26 @@ const ArticleItem = ({
     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
     const { toast } = useToast();
     const [extractedText, setExtractedText] = useState("");
-    const [isExtracting, setIsExtracting] = useState(false);
+    const [isExtracting, setIsExtracting] = useState(true);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
     
-    const handleExtractText = async () => {
-        setIsExtracting(true);
-        const result = await extractArticleTextAction(article.url);
-        if (result.error) {
-            toast({
-                variant: "destructive",
-                title: "Extraction Failed",
-                description: result.error,
-            });
-        } else {
-            setExtractedText(result.text || "No text was extracted.");
-            setIsTextDialogOpen(true);
-        }
-        setIsExtracting(false);
+    // Auto-extract text on mount
+    useEffect(() => {
+        const extractText = async () => {
+            const result = await extractArticleTextAction(article.url);
+            if (result.error) {
+                console.error("Auto-extraction failed:", result.error);
+                setExtractedText("Failed to extract article text.");
+            } else {
+                setExtractedText(result.text || "No text was extracted.");
+            }
+            setIsExtracting(false);
+        };
+        extractText();
+    }, [article.url]);
+    
+    const handleShowText = () => {
+        setIsTextDialogOpen(true);
     };
 
     return (
@@ -107,7 +110,7 @@ const ArticleItem = ({
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                     <Dialog open={isTextDialogOpen} onOpenChange={setIsTextDialogOpen}>
-                        <Button variant="outline" size="sm" onClick={handleExtractText} disabled={isExtracting}>
+                        <Button variant="outline" size="sm" onClick={handleShowText} disabled={isExtracting}>
                             {isExtracting ? <Loader className="h-4 w-4 animate-spin" /> : <Text className="h-4 w-4" />}
                         </Button>
                         <DialogContent className="max-w-3xl">
