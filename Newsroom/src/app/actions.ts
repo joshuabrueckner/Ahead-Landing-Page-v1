@@ -28,7 +28,6 @@ import {
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
 import { collection, addDoc, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
-import { xml2js } from "xml-js";
 import { ai } from "@/ai/genkit";
 
 
@@ -61,7 +60,11 @@ const toISODate = (date: Date) => {
   return pacific.toISOString().slice(0, 10);
 };
 
-const GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB/sections/CAQiQ0NCQVNMQW9JTDIwdk1EZGpNWFlTQW1WdUdnSlZVeUlOQ0FRYUNRb0hMMjB2TUcxcmVpb0pFZ2N2YlM4d2JXdDZLQUEqKggAKiYICiIgQ0JBU0Vnb0lMMjB2TURkak1YWVNBbVZ1R2dKVlV5Z0FQAVAB?hl=en-US&gl=US&ceid=US%3Aen";
+const SERPAPI_NEWS_SEARCH_URL = "https://serpapi.com/search.json";
+const SERPAPI_MAX_RESULTS = 50;
+const FUTURE_TOOLS_NEWS_URL = "https://www.futuretools.io/news";
+const PARSE_BOT_FETCH_ENDPOINT = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/fetch_news_page";
+const PARSE_BOT_EXTRACT_ENDPOINT = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/extract_articles";
 
 const normalizeArticleDate = (rawDate?: string | null): string | null => {
   if (!rawDate) return null;
@@ -162,74 +165,82 @@ const normalizeFutureToolsDate = (rawDate?: string | null) => {
   return null;
 };
 
-const resolveGoogleNewsLink = (link?: string) => {
-  if (!link) return "";
-  try {
-    const url = new URL(link);
-    const articleUrl = url.searchParams.get("url");
-    return articleUrl || link;
-  } catch (error) {
-    return link;
+
+const getSerpApiSourceName = (rawSource: any) => {
+  if (!rawSource) return "";
+  if (typeof rawSource === "string") return cleanSourceName(rawSource);
+  if (typeof rawSource === "object") {
+    return cleanSourceName(rawSource.name || rawSource.publisher || rawSource.title || "");
   }
+  return "";
 };
 
-const extractText = (value: any): string => {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-  return value._cdata ?? value._text ?? "";
+const normalizeSerpApiDate = (item: any): string | null => {
+  const dateUtc = item?.date_utc;
+  if (dateUtc) {
+    const parsed = Date.parse(dateUtc);
+    if (!Number.isNaN(parsed)) {
+      return toISODate(new Date(parsed));
+    }
+  }
+  return normalizeArticleDate(item?.date || item?.published_date || item?.time);
 };
 
-const fetchNewsFromGoogleNewsRss = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
-  console.log(`Fetching news from Google News RSS for date=${dateStr}`);
+const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
+  const apiKey = process.env.SERPAPI_KEY;
+  if (!apiKey) {
+    console.warn("SERPAPI_KEY is not defined. Skipping SerpApi fetch.");
+    return [];
+  }
+
+  const query = new URLSearchParams({
+    engine: "google_news",
+    q: '"artificial intelligence" OR "AI"',
+    hl: "en",
+    gl: "us",
+    num: String(SERPAPI_MAX_RESULTS),
+    sbd: "1",
+    api_key: apiKey,
+  });
 
   try {
-    const response = await fetch(GOOGLE_NEWS_RSS_URL, {
-      headers: { Accept: "application/rss+xml" },
+    const response = await fetch(`${SERPAPI_NEWS_SEARCH_URL}?${query.toString()}`, {
       cache: "no-store",
+      headers: { Accept: "application/json" },
     });
 
     if (!response.ok) {
-      throw new Error(`Google News RSS error: ${response.status} ${response.statusText}`);
+      const errorBody = await response.text();
+      throw new Error(`SerpApi error: ${response.status} ${response.statusText} - ${errorBody}`);
     }
 
-    const xml = await response.text();
-    const parsed = xml2js(xml, { compact: true, trim: true });
-    const rawItems = parsed?.rss?.channel?.item;
-    const itemsArray = Array.isArray(rawItems)
-      ? rawItems
-      : rawItems
-      ? [rawItems]
-      : [];
+    const data = await response.json();
+    const rawResults = Array.isArray(data?.news_results) ? data.news_results : [];
 
-    const filteredItems = dateStr
-      ? itemsArray.filter((item: any) => {
-          const normalized = normalizeArticleDate(extractText(item?.pubDate));
-          return normalized ? normalized === dateStr : false;
-        })
-      : itemsArray;
-
-    return filteredItems.slice(0, 15).map((item: any) => {
-      const source = cleanSourceName(extractText(item?.source) || "Google News") || "Google News";
-      const title = stripSourceFromTitle(extractText(item?.title) || "Untitled", source);
-      const url = resolveGoogleNewsLink(extractText(item?.link));
-      const date = extractText(item?.pubDate) || "";
-      const media = item?.["media:content"];
-      const mediaEntries = Array.isArray(media) ? media : media ? [media] : [];
-      const imageUrl = mediaEntries.find((entry: any) => entry?._attributes?.url)?._attributes?.url;
-
+    const normalizedResults = rawResults.map((item: any) => {
+      const source = getSerpApiSourceName(item?.source) || "Unknown";
+      const normalizedDate = normalizeSerpApiDate(item);
       return {
-        title,
-        url,
+        title: stripSourceFromTitle(item?.title || "Untitled", source),
+        url: item?.link || item?.url || "",
         source,
-        date,
-        imageUrl,
+        date: normalizedDate || item?.date || "",
+        imageUrl: item?.thumbnail || item?.image,
+        normalizedDate,
       };
-    });
+    }).filter((entry) => !!entry.url);
+
+    const filteredResults = dateStr
+      ? normalizedResults.filter((entry) => entry.normalizedDate === dateStr)
+      : normalizedResults;
+
+    return filteredResults.slice(0, 15).map(({ normalizedDate, ...article }) => article);
   } catch (error: any) {
-    console.error("Error fetching news from Google News RSS:", error);
-    throw new Error(error?.message || "Google News RSS request failed");
+    console.error("Error fetching news from SerpApi:", error);
+    throw new Error(error?.message || "SerpApi request failed");
   }
 };
+
 
 const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
   const apiKey = process.env.PARSE_BOT_API_KEY;
@@ -238,90 +249,103 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
     return [];
   }
 
+  const targetDate = dateStr || getYesterdayDateStringISO();
+  console.log(`Fetching Future Tools articles for date=${targetDate}`);
+
+  let htmlContent: string | null = null;
+
   try {
-    // Step 1: Fetch News Page HTML
-    const fetchPageUrl = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/fetch_news_page";
-    const fetchPageResponse = await fetch(fetchPageUrl, {
-      method: 'POST',
+    const fetchResponse = await fetch(PARSE_BOT_FETCH_ENDPOINT, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-API-Key": apiKey,
       },
-      body: JSON.stringify({ url: "https://www.futuretools.io/news" })
+      body: JSON.stringify({ url: FUTURE_TOOLS_NEWS_URL }),
     });
 
-    if (!fetchPageResponse.ok) {
-      throw new Error(`Failed to fetch news page: ${fetchPageResponse.statusText}`);
+    if (fetchResponse.ok) {
+      const payload = await fetchResponse.json();
+      htmlContent = payload?.html_content ?? null;
+    } else {
+      const errorBody = await fetchResponse.text();
+      console.error(`Parse.bot fetch_news_page failed: ${fetchResponse.status} - ${errorBody}`);
     }
+  } catch (error) {
+    console.error("Error calling fetch_news_page:", error);
+  }
 
-    const fetchPageData = await fetchPageResponse.json();
-    const htmlContent = fetchPageData.html_content;
-
-    if (!htmlContent) {
-      throw new Error("No HTML content returned from fetch_news_page");
+  if (!htmlContent) {
+    try {
+      const fallbackResponse = await fetch(FUTURE_TOOLS_NEWS_URL, {
+        cache: "no-store",
+        headers: { Accept: "text/html" },
+      });
+      if (fallbackResponse.ok) {
+        htmlContent = await fallbackResponse.text();
+      }
+    } catch (error) {
+      console.error("Direct Future Tools fetch failed:", error);
     }
+  }
 
-    // Step 2: Extract Articles
-    const extractUrl = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/extract_articles";
-    const extractResponse = await fetch(extractUrl, {
-      method: 'POST',
+  if (!htmlContent) {
+    return [];
+  }
+
+  try {
+    const extractResponse = await fetch(PARSE_BOT_EXTRACT_ENDPOINT, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-API-Key": apiKey,
       },
-      body: JSON.stringify({ html_content: htmlContent })
+      body: JSON.stringify({ html_content: htmlContent }),
     });
 
     if (!extractResponse.ok) {
-      throw new Error(`Failed to extract articles: ${extractResponse.statusText}`);
+      const errorBody = await extractResponse.text();
+      throw new Error(`Parse.bot extract_articles failed: ${extractResponse.status} - ${errorBody}`);
     }
 
-    const extractData = await extractResponse.json();
-    const articles = extractData.articles;
+    const payload = await extractResponse.json();
+    const articles = Array.isArray(payload?.articles) ? payload.articles : [];
 
-    if (!articles || !Array.isArray(articles)) {
-      return [];
-    }
-
-    // Filter for the requested date (or yesterday by default)
-    const targetDate = dateStr || getYesterdayDateStringISO();
-    
-    console.log(`Filtering Future Tools articles for date=${targetDate}`);
-    
     const filteredArticles = articles.filter((article: any) => {
-        const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date);
-        return normalizedDate === targetDate;
+      const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date || article.date_text);
+      return normalizedDate === targetDate;
     });
 
     return filteredArticles.map((article: any) => {
-      const source = cleanSourceName(article.source) || "Future Tools";
-      const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date) || targetDate;
+      const source = cleanSourceName(article.source || article.source_domain || "Future Tools") || "Future Tools";
+      const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date || article.date_text) || targetDate;
       return {
         title: stripSourceFromTitle(article.title?.trim() || "Untitled", source),
         url: article.url || article.link,
         source,
         date: normalizedDate,
-        imageUrl: undefined
+        imageUrl: undefined,
       };
     });
-
   } catch (error: any) {
-    console.error("Error fetching news from Future Tools:", error);
+    console.error("Error extracting Future Tools articles:", error);
     return [];
   }
 };
 
 export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[] | { error: string }> {
   try {
-    const [rssArticles, futureToolsArticles] = await Promise.all([
-      fetchNewsFromGoogleNewsRss(dateStr).catch(e => {
-        console.error("Google News RSS fetch failed:", e);
+    const [serpApiArticles, futureToolsArticles] = await Promise.all([
+      fetchNewsFromSerpApi(dateStr).catch(e => {
+        console.error("SerpApi fetch failed:", e);
         return [];
       }),
       fetchNewsFromFutureTools(dateStr)
     ]);
 
-    const allArticles = [...rssArticles, ...futureToolsArticles];
+    const allArticles = [...serpApiArticles, ...futureToolsArticles];
     
     if (allArticles.length === 0) {
         return { error: "Failed to fetch articles from all sources." };
