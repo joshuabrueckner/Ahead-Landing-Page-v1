@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppLogo } from "@/components/icons";
@@ -10,7 +10,7 @@ import ProductsSelection from "@/components/products-selection";
 import AiTipSection from "@/components/ai-tip-section";
 import { Button } from "@/components/ui/button";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
-import { getArticleHeadlinesAction, getTopAIProductsAction } from "./actions";
+import { getTopAIProductsAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
@@ -58,7 +58,16 @@ export default function Home() {
       setIsLoading(true);
       setDisplayedArticles([]); // Clear articles to show loading state
       
-      const headlinesPromise = getArticleHeadlinesAction(selectedDate);
+      const articlesUrl = selectedDate ? `/api/articles?date=${selectedDate}` : "/api/articles";
+      const headlinesPromise = fetch(articlesUrl, { cache: "no-store" })
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) {
+            return { error: data.error || "Failed to fetch headlines" };
+          }
+          return data;
+        })
+        .catch((error) => ({ error: error.message }));
       const productsPromise = getTopAIProductsAction();
 
       const [headlinesResult, productsResult] = await Promise.all([headlinesPromise, productsPromise]);
