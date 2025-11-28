@@ -335,26 +335,28 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                       className="mt-1"
                     />
                   </div>
-                  <div className="flex-grow">
-                    <label htmlFor={`product-${product.id}`} className="font-semibold text-foreground hover:text-primary cursor-pointer">
-                      <a href={product.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                        {product.name}
-                      </a>
-                    </label>
-                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                      {productSummaries[product.id] || product.summary || product.description}
-                    </p>
-                    <div className="flex items-center text-xs text-muted-foreground/80 mt-2 font-medium">
-                        <ArrowUp className="w-3 h-3 mr-1 text-green-500" /> {(product.upvotes || 0).toLocaleString()} upvotes
+                  <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
+                    <div className="flex-1">
+                      <label htmlFor={`product-${product.id}`} className="font-semibold text-foreground hover:text-primary cursor-pointer">
+                        <a href={product.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {product.name}
+                        </a>
+                      </label>
+                      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                        {productSummaries[product.id] || product.summary || product.description}
+                      </p>
+                      <div className="flex items-center text-xs text-muted-foreground/80 mt-2 font-medium">
+                          <ArrowUp className="w-3 h-3 mr-1 text-green-500" /> {(product.upvotes || 0).toLocaleString()} upvotes
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-3">
+                    <div className="flex items-center gap-2 sm:ml-auto">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             type="button"
-                            variant="default"
+                            variant="ghost"
                             size="icon"
-                            className="h-9 w-9 rounded-full"
+                            className="h-9 w-9 rounded-full border border-border/40 bg-secondary/30 text-muted-foreground hover:text-primary"
                             aria-label={`Regenerate summary for ${product.name}`}
                             onClick={() => handleRegenerateSummary(product)}
                             disabled={!!regeneratingSummaries[product.id]}
@@ -372,9 +374,9 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                         <TooltipTrigger asChild>
                           <Button
                             type="button"
-                            variant="default"
+                            variant="outline"
                             size="icon"
-                            className="h-9 w-9 rounded-full"
+                            className="h-9 w-9 rounded-full text-muted-foreground"
                             aria-label={`Show extracted text for ${product.name}`}
                             onClick={() => setTextDialogProduct(product)}
                           >

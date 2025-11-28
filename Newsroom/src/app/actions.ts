@@ -570,7 +570,8 @@ export async function getTopAIProductsAction(dateStr?: string): Promise<ProductL
                         node {
                             id
                             name
-                            tagline
+                  tagline
+                  description
                             votesCount
                             website
                         }
@@ -603,8 +604,9 @@ export async function getTopAIProductsAction(dateStr?: string): Promise<ProductL
         }
 
         const products = data.data.posts.edges.map((edge: any) => {
-            const name = (edge.node.name || '').replace(emojiRegex, '').trim();
-            const description = (edge.node.tagline || '').replace(emojiRegex, '').trim();
+          const name = (edge.node.name || '').replace(emojiRegex, '').trim();
+          const rawDescription = edge.node.description || edge.node.tagline || '';
+          const description = rawDescription.replace(emojiRegex, '').trim();
 
             return {
                 id: edge.node.id,
