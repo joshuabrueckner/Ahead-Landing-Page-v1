@@ -25,13 +25,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader, Newspaper, PlusCircle, Text, RefreshCw } from "lucide-react";
+import { Loader, Newspaper, Text, RefreshCw, Sparkles, Plus } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 import { extractArticleTextAction, generateArticleOneSentenceSummary } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const MAX_SELECTIONS = 5;
 const CONCURRENT_EXTRACTIONS = 1;
@@ -282,6 +283,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setDateInput(selectedDate);
@@ -293,6 +295,25 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
       onDateChange(value);
     }
   };
+
+  const handleDateButtonClick = () => {
+    if (dateInputRef.current) {
+      const input = dateInputRef.current as HTMLInputElement & { showPicker?: () => void };
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    }
+  };
+
+  const dayLabel = (() => {
+    if (!dateInput) return "--";
+    const parts = dateInput.split("-");
+    const dayPart = parts[2];
+    if (!dayPart) return "--";
+    return String(parseInt(dayPart, 10));
+  })();
   
   const selectedIds = new Set(selectedArticles.map(a => a.id));
   
@@ -334,37 +355,70 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
               </CardDescription>
             </div>
           </div>
-          <div className="flex gap-2 items-center">
-            <div className="flex items-center border rounded-md overflow-hidden">
+          <TooltipProvider delayDuration={200}>
+            <div className="flex gap-2 items-center">
+              <div>
                 <Input 
-                    type="date" 
-                    value={dateInput} 
-                    onChange={(e) => handleDateInputChange(e.target.value)}
-                    className="w-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                    max={maxDate}
+                  ref={dateInputRef}
+                  type="date" 
+                  value={dateInput} 
+                  onChange={(e) => handleDateInputChange(e.target.value)}
+                  className="sr-only"
+                  max={maxDate}
                 />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleDateButtonClick}
+                      className="h-10 w-10 rounded-full font-semibold"
+                      aria-label="Jump to date"
+                    >
+                      {dayLabel}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Jump to date</TooltipContent>
+                </Tooltip>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="default" 
+                    size="icon" 
+                    onClick={handleStartExtraction}
+                    disabled={isExtractionStarted || isLoading}
+                    className="h-10 w-10 rounded-full"
+                    aria-label="Extract & Summarize"
+                  >
+                    {isExtractionStarted ? (
+                      <Loader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Extract & Summarize</TooltipContent>
+              </Tooltip>
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" aria-label="Add article">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Add article</TooltipContent>
+                </Tooltip>
+                <AddArticleDialog 
+                  onAddArticle={onAddArticle} 
+                  onClose={() => setIsAddDialogOpen(false)} 
+                />
+              </Dialog>
             </div>
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={handleStartExtraction}
-              disabled={isExtractionStarted || isLoading}
-            >
-              {isExtractionStarted ? "Extracting..." : "Extract & Summarize"}
-            </Button>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Add Article
-                </Button>
-              </DialogTrigger>
-              <AddArticleDialog 
-                onAddArticle={onAddArticle} 
-                onClose={() => setIsAddDialogOpen(false)} 
-              />
-            </Dialog>
-          </div>
+          </TooltipProvider>
         </div>
       </CardHeader>
       <CardContent className="p-0">
