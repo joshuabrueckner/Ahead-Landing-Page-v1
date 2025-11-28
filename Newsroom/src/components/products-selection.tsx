@@ -111,7 +111,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
         }
       }
 
-      await delay(5000); // small pause to respect rate limits
+      await delay(2000); // faster cadence (Gemini only)
     }
 
     setIsGeneratingSummaries(false);
