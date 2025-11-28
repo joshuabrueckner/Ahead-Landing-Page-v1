@@ -29,6 +29,7 @@ import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
 import { collection, addDoc, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
 import { getJson } from "serpapi";
+import { ai } from "@/ai/genkit";
 
 
 const getYesterdayDateString = () => {
@@ -94,7 +95,7 @@ export async function getArticleHeadlinesAction(): Promise<Omit<NewsArticle, 'id
 export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
   try {
     const result = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-thinking-exp-01-21',
+      model: 'googleai/gemini-2.5-pro-preview',
       prompt: `You are a helpful assistant that summarizes AI news articles for people who are not fully up-to-speed on all things AI.
 
 Given the article text below, write ONE clear, accessible sentence that explains what this article is about. The summary should:

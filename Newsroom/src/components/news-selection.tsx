@@ -34,7 +34,7 @@ import { ScrollArea } from "./ui/scroll-area";
 
 const MAX_SELECTIONS = 5;
 const CONCURRENT_EXTRACTIONS = 1;
-const EXTRACTION_DELAY = 2000; // 2 second delay between requests
+const EXTRACTION_DELAY = 15000; // 15 second delay to respect Diffbot rate limit of 0.08 calls/sec
 
 type ExtractionResult = {
   text: string;
