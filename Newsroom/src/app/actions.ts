@@ -44,6 +44,18 @@ const getYesterdayDateString = () => {
     return `${month}/${day}/${year}`;
 };
 
+const getYesterdayDateStringISO = () => {
+    const nowInPT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const yesterdayInPT = new Date(nowInPT);
+    yesterdayInPT.setDate(yesterdayInPT.getDate() - 1);
+    
+    const year = yesterdayInPT.getFullYear();
+    const month = String(yesterdayInPT.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterdayInPT.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+};
+
 
 const fetchNewsFromSerpApi = async (): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
   const apiKey = process.env.SERPAPI_KEY;
@@ -82,10 +94,96 @@ const fetchNewsFromSerpApi = async (): Promise<Omit<NewsArticle, 'id' | 'summary
   }
 };
 
+const fetchNewsFromFutureTools = async (): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
+  const apiKey = process.env.PARSE_BOT_API_KEY;
+  if (!apiKey) {
+    console.warn("PARSE_BOT_API_KEY is not defined. Skipping Future Tools fetch.");
+    return [];
+  }
+
+  try {
+    // Step 1: Fetch News Page HTML
+    const fetchPageUrl = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/fetch_news_page";
+    const fetchPageResponse = await fetch(fetchPageUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ url: "https://www.futuretools.io/news" })
+    });
+
+    if (!fetchPageResponse.ok) {
+      throw new Error(`Failed to fetch news page: ${fetchPageResponse.statusText}`);
+    }
+
+    const fetchPageData = await fetchPageResponse.json();
+    const htmlContent = fetchPageData.html_content;
+
+    if (!htmlContent) {
+      throw new Error("No HTML content returned from fetch_news_page");
+    }
+
+    // Step 2: Extract Articles
+    const extractUrl = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/extract_articles";
+    const extractResponse = await fetch(extractUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ html_content: htmlContent })
+    });
+
+    if (!extractResponse.ok) {
+      throw new Error(`Failed to extract articles: ${extractResponse.statusText}`);
+    }
+
+    const extractData = await extractResponse.json();
+    const articles = extractData.articles;
+
+    if (!articles || !Array.isArray(articles)) {
+      return [];
+    }
+
+    // Filter for yesterday's articles
+    const yesterday = getYesterdayDateStringISO();
+    
+    const filteredArticles = articles.filter((article: any) => {
+        return article.date_iso === yesterday;
+    });
+
+    return filteredArticles.map((article: any) => ({
+      title: article.title,
+      url: article.url || article.link,
+      source: article.source,
+      date: article.date_iso,
+      imageUrl: undefined
+    }));
+
+  } catch (error: any) {
+    console.error("Error fetching news from Future Tools:", error);
+    return [];
+  }
+};
+
 export async function getArticleHeadlinesAction(): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[] | { error: string }> {
   try {
-    const articles = await fetchNewsFromSerpApi();
-    return articles;
+    const [serpApiArticles, futureToolsArticles] = await Promise.all([
+      fetchNewsFromSerpApi().catch(e => {
+        console.error("SerpApi fetch failed:", e);
+        return [];
+      }),
+      fetchNewsFromFutureTools()
+    ]);
+
+    const allArticles = [...serpApiArticles, ...futureToolsArticles];
+    
+    if (allArticles.length === 0) {
+        return { error: "Failed to fetch articles from all sources." };
+    }
+
+    return allArticles;
   } catch (error: any) {
     console.error("Error fetching article headlines:", error);
     return { error: error.message };
