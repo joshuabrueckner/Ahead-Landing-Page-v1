@@ -24,7 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Plus, ArrowUp, Loader } from "lucide-react";
+import { Rocket, Plus, ArrowUp, Loader, Sparkles } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -47,7 +47,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const [dateInput, setDateInput] = useState(selectedDate);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [productSummaries, setProductSummaries] = useState<Record<string, string>>({});
-  const generatingSummariesRef = useRef<Set<string>>(new Set());
+  const [isGeneratingSummaries, setIsGeneratingSummaries] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,47 +71,51 @@ export default function ProductsSelection({ products: initialProducts, selectedP
     });
   }, [products]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const generateMissingSummaries = async () => {
-      for (const product of products) {
-        if (productSummaries[product.id]) continue;
-        if (generatingSummariesRef.current.has(product.id)) continue;
+  const handleGenerateSummaries = async () => {
+    if (isGeneratingSummaries) return;
+    const queue = products.filter(product => !productSummaries[product.id]);
 
-        generatingSummariesRef.current.add(product.id);
-        try {
-          const result = await generateProductOutcomeSentenceAction({
-            name: product.name,
-            description: product.description,
-            url: product.url,
-          });
-          if (!cancelled) {
-            setProductSummaries(prev => ({
-              ...prev,
-              [product.id]: result.summary || product.description,
-            }));
+    if (queue.length === 0) {
+      toast({ title: "All summaries ready", description: "Every product already has a description." });
+      return;
+    }
+
+    setIsGeneratingSummaries(true);
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    for (const product of queue) {
+      console.log(`[Products] Generating summary for: ${product.name}`);
+      try {
+        const result = await generateProductOutcomeSentenceAction({
+          name: product.name,
+          description: product.description,
+          url: product.url,
+        });
+
+        if (result.error) {
+          toast({ title: `Couldn't summarize ${product.name}`, description: result.error, variant: "destructive" });
+          if (/429|quota/i.test(result.error)) {
+            break;
           }
-        } catch (error) {
-          console.error("Failed to generate summary for product", product.name, error);
-          if (!cancelled) {
-            toast({ title: "Summary error", description: `Couldn't summarize ${product.name}.`, variant: "destructive" });
-            setProductSummaries(prev => ({
-              ...prev,
-              [product.id]: product.description,
-            }));
-          }
-        } finally {
-          generatingSummariesRef.current.delete(product.id);
+        } else if (result.summary) {
+          setProductSummaries(prev => ({
+            ...prev,
+            [product.id]: result.summary as string,
+          }));
+        }
+      } catch (error: any) {
+        const message = error?.message || "Unexpected error";
+        toast({ title: `Couldn't summarize ${product.name}`, description: message, variant: "destructive" });
+        if (/429|quota/i.test(message)) {
+          break;
         }
       }
-    };
 
-    generateMissingSummaries();
+      await delay(5000); // small pause to respect rate limits
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [products, productSummaries, toast]);
+    setIsGeneratingSummaries(false);
+  };
 
   useEffect(() => {
     setDateInput(selectedDate);
@@ -216,6 +220,26 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                   <TooltipContent>Jump to date</TooltipContent>
                 </Tooltip>
               </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="icon"
+                    onClick={handleGenerateSummaries}
+                    className="h-10 w-10 rounded-full"
+                    disabled={isGeneratingSummaries}
+                    aria-label="Generate product summaries"
+                  >
+                    {isGeneratingSummaries ? (
+                      <Loader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Generate summaries</TooltipContent>
+              </Tooltip>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <Tooltip>
                   <TooltipTrigger asChild>
