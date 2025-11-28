@@ -4,20 +4,16 @@
   functions = "netlify/functions"
 
 [build.environment]
-  # Firebase API keys are safe for client-side use (protected by security rules)
-  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyALvyVK73VkgOkQUKMwQyvEycxFhVBjhjo"
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
 
-# Redirect /newsroom to a separate Netlify site
-# You'll need to deploy the Newsroom app separately and update this URL
 [[redirects]]
   from = "/newsroom/*"
-  to = "https://newsroom--jumpahead.netlify.app/:splat"
+  to = "https://newsroom-ahead.netlify.app/:splat"
   status = 200
   force = true
 
-# Optional: Redirect /newsroom (without trailing slash) to /newsroom/
 [[redirects]]
   from = "/newsroom"
-  to = "https://newsroom--jumpahead.netlify.app/"
+  to = "https://newsroom-ahead.netlify.app/"
   status = 200
   force = true
