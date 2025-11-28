@@ -232,6 +232,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const selectionCount = selectedProducts.length;
 
   return (
+    <TooltipProvider delayDuration={200}>
     <>
     <Card>
       <CardHeader>
@@ -409,6 +410,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
       </DialogContent>
     </Dialog>
     </>
+    </TooltipProvider>
   );
 }
 
