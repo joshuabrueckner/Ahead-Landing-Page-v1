@@ -23,6 +23,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader, Newspaper, PlusCircle, Text } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
@@ -136,6 +137,7 @@ const ArticleItem = ({
     const [extractedText, setExtractedText] = useState("");
     const [summary, setSummary] = useState("");
     const [isExtracting, setIsExtracting] = useState(false);
+    const [isSummarizing, setIsSummarizing] = useState(false);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
     const [hasBeenQueued, setHasBeenQueued] = useState(false);
     
@@ -155,6 +157,38 @@ const ArticleItem = ({
     
     const handleShowText = () => {
         setIsTextDialogOpen(true);
+    };
+
+    const handleRegenerateSummary = async () => {
+        if (!extractedText) return;
+        setIsSummarizing(true);
+        try {
+            const result = await generateArticleOneSentenceSummary(extractedText);
+            if (result.error) {
+                console.error("Summary generation failed:", result.error);
+                toast({
+                    title: "Error",
+                    description: "Failed to regenerate summary.",
+                    variant: "destructive",
+                });
+            } else {
+                setSummary(result.summary || "");
+                toast({
+                    title: "Success",
+                    description: "Summary regenerated successfully.",
+                });
+                setIsTextDialogOpen(false);
+            }
+        } catch (error) {
+            console.error("Error regenerating summary:", error);
+             toast({
+                title: "Error",
+                description: "An unexpected error occurred.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSummarizing(false);
+        }
     };
 
     return (
@@ -190,13 +224,24 @@ const ArticleItem = ({
                         <Button variant="outline" size="sm" onClick={handleShowText} disabled={isExtracting}>
                             {isExtracting ? <Loader className="h-4 w-4 animate-spin" /> : <Text className="h-4 w-4" />}
                         </Button>
-                        <DialogContent className="max-w-3xl">
+                        <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
                             <DialogHeader>
                                 <DialogTitle>Extracted Article Text</DialogTitle>
                             </DialogHeader>
-                            <ScrollArea className="h-[60vh] rounded-md border p-4">
-                               <p className="text-sm whitespace-pre-wrap">{extractedText}</p>
-                            </ScrollArea>
+                            <div className="flex-grow py-4">
+                               <Textarea 
+                                value={extractedText} 
+                                onChange={(e) => setExtractedText(e.target.value)} 
+                                className="h-full resize-none font-mono text-sm"
+                                placeholder="Article text will appear here..."
+                               />
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleRegenerateSummary} disabled={isSummarizing || !extractedText}>
+                                    {isSummarizing ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    {isSummarizing ? "Summarizing..." : "Regenerate Summary"}
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
                     {isFeatured && (
