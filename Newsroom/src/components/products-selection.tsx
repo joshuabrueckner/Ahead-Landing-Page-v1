@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { generateProductOutcomeSentenceAction } from "@/app/actions";
@@ -315,15 +314,15 @@ export default function ProductsSelection({ products: initialProducts, selectedP
           </TooltipProvider>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {products.map((product, index) => {
+      <CardContent className="p-0">
+        <div className="divide-y border-t">
+          {products.map((product) => {
             const isSelected = selectedIds.has(product.id);
             const selectionIndex = isSelected ? selectedProducts.findIndex(p => p.id === product.id) : -1;
             return (
-              <div key={product.id}>
+              <div key={product.id} className="p-2">
                 <div className="flex items-start gap-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-shrink-0 pt-1">
                     <span className="text-muted-foreground font-bold w-5 text-center">
                       {isSelected ? `${selectionIndex + 1}.` : ''}
                     </span>
@@ -395,7 +394,6 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                     </div>
                   </div>
                 </div>
-                {index < products.length - 1 && <Separator className="mt-4" />}
               </div>
             );
           })}
