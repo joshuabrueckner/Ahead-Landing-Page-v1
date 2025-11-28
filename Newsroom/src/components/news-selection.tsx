@@ -214,8 +214,8 @@ const ArticleItem = ({
           "p-2 transition-colors", 
           isFeatured && "bg-secondary rounded-lg"
         )}>
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-4 flex-shrink-0 pt-1">
+          <div className="flex items-start gap-4">
+            <div className="flex items-center gap-4 flex-shrink-0 pt-1">
                     <span className="text-muted-foreground font-bold w-5 text-center">
                         {isSelected ? `${selectionIndex + 1}.` : ''}
                     </span>
@@ -226,18 +226,19 @@ const ArticleItem = ({
                       disabled={isSelectionDisabled}
                     />
                 </div>
-                <div className="flex-grow min-w-0">
-                    <label htmlFor={`article-select-${article.id}`} className={cn("font-semibold text-foreground hover:text-primary cursor-pointer leading-tight", isSelectionDisabled && 'cursor-not-allowed')}>
-                        {article.title}
-                    </label>
-                    {summary && !isExtracting && (
-                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{summary}</p>
-                    )}
-                    <div className="text-xs text-muted-foreground/80 flex items-center gap-2 mt-1">
-                        <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">{sourceName}</a>
-                    </div>
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex-1 min-w-0">
+                <label htmlFor={`article-select-${article.id}`} className={cn("font-semibold text-foreground hover:text-primary cursor-pointer leading-tight", isSelectionDisabled && 'cursor-not-allowed')}>
+                  {article.title}
+                </label>
+                {summary && !isExtracting && (
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{summary}</p>
+                )}
+                <div className="text-xs text-muted-foreground/80 flex items-center gap-2 mt-1">
+                  <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">{sourceName}</a>
                 </div>
-                <div className="flex items-center gap-2 ml-auto">
+              </div>
+              <div className="flex items-center gap-2 sm:ml-auto">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -297,7 +298,8 @@ const ArticleItem = ({
                     {isFeatured && (
                         <Badge variant="outline" className="flex-shrink-0">Featured</Badge>
                     )}
-                </div>
+                    </div>
+                  </div>
             </div>
                 </div>
                 </TooltipProvider>
