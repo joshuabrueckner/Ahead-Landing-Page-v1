@@ -46,6 +46,9 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const [productSummaries, setProductSummaries] = useState<Record<string, string>>({});
+  const generatingSummariesRef = useRef<Set<string>>(new Set());
+  const { toast } = useToast();
 
   useEffect(() => {
     // This effect ensures that if selected products are loaded from localStorage,
@@ -55,6 +58,60 @@ export default function ProductsSelection({ products: initialProducts, selectedP
         .sort((a,b) => (b.upvotes || 0) - (a.upvotes || 0));
     setProducts(uniqueProducts);
   }, [initialProducts, selectedProducts]);
+
+  useEffect(() => {
+    setProductSummaries(prev => {
+      const next = { ...prev };
+      products.forEach(product => {
+        if (product.summary && !next[product.id]) {
+          next[product.id] = product.summary;
+        }
+      });
+      return next;
+    });
+  }, [products]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const generateMissingSummaries = async () => {
+      for (const product of products) {
+        if (productSummaries[product.id]) continue;
+        if (generatingSummariesRef.current.has(product.id)) continue;
+
+        generatingSummariesRef.current.add(product.id);
+        try {
+          const result = await generateProductOutcomeSentenceAction({
+            name: product.name,
+            description: product.description,
+            url: product.url,
+          });
+          if (!cancelled) {
+            setProductSummaries(prev => ({
+              ...prev,
+              [product.id]: result.summary || product.description,
+            }));
+          }
+        } catch (error) {
+          console.error("Failed to generate summary for product", product.name, error);
+          if (!cancelled) {
+            toast({ title: "Summary error", description: `Couldn't summarize ${product.name}.`, variant: "destructive" });
+            setProductSummaries(prev => ({
+              ...prev,
+              [product.id]: product.description,
+            }));
+          }
+        } finally {
+          generatingSummariesRef.current.delete(product.id);
+        }
+      }
+    };
+
+    generateMissingSummaries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [products, productSummaries, toast]);
 
   useEffect(() => {
     setDateInput(selectedDate);
@@ -206,7 +263,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                       </a>
                     </label>
                     <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                      {product.summary || product.description}
+                      {productSummaries[product.id] || product.summary || product.description}
                     </p>
                     <div className="flex items-center text-xs text-muted-foreground/80 mt-2 font-medium">
                         <ArrowUp className="w-3 h-3 mr-1 text-green-500" /> {(product.upvotes || 0).toLocaleString()} upvotes
