@@ -116,6 +116,7 @@ type NewsSelectionProps = {
   selectedDate: string;
   onDateChange: (date: string) => void;
   maxDate: string;
+  onAddArticle: (article: Omit<NewsArticle, 'id'>) => void;
 };
 
 const ArticleItem = ({ 
@@ -277,7 +278,7 @@ const ArticleItem = ({
 };
 
 
-export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate }: NewsSelectionProps) {
+export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate, onAddArticle }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
@@ -299,12 +300,6 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
     setIsExtractionStarted(true);
   };
   
-  const handleAddArticle = (newArticle: Omit<NewsArticle, 'id' | 'date' | 'summary' | 'text'>) => {
-    // This function is not fully implemented in the current flow, as adding articles requires processing.
-    // For now, we can just display a toast.
-    alert("Adding articles manually is not yet supported in this workflow.");
-  };
-
   const selectionCount = selectedArticles.length;
   
   const renderSkeletons = () => {
@@ -359,13 +354,13 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
             </Button>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled>
+                <Button variant="outline" size="sm">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Article
                 </Button>
               </DialogTrigger>
               <AddArticleDialog 
-                onAddArticle={handleAddArticle} 
+                onAddArticle={onAddArticle} 
                 onClose={() => setIsAddDialogOpen(false)} 
               />
             </Dialog>
@@ -404,25 +399,58 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   );
 }
 
-function AddArticleDialog({ onAddArticle, onClose }: { onAddArticle: (article: Omit<NewsArticle, 'id' | 'date' | 'summary' | 'text'>) => void, onClose: () => void }) {
-  const [newTitle, setNewTitle] = useState("");
-  const [newUrl, setNewUrl] = useState("");
-  const [newSource, setNewSource] = useState("");
-  const [newImageUrl, setNewImageUrl] = useState("");
+function AddArticleDialog({ onAddArticle, onClose }: { onAddArticle: (article: Omit<NewsArticle, 'id'>) => void, onClose: () => void }) {
+  const [articleUrl, setArticleUrl] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-  const handleAdd = () => {
-    if (newTitle && newUrl && newSource) {
+  const deriveSourceFromUrl = (value: string) => {
+    try {
+      const hostname = new URL(value).hostname;
+      return hostname.replace(/^www\./, "");
+    } catch (error) {
+      return "Custom Source";
+    }
+  };
+
+  const handleAdd = async () => {
+    const trimmedUrl = articleUrl.trim();
+    if (!trimmedUrl) {
+      toast({ title: "Missing URL", description: "Please provide a valid article link.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await extractArticleTextAction(trimmedUrl);
+      if (result.error) {
+        toast({ title: "Diffbot Error", description: result.error, variant: "destructive" });
+        return;
+      }
+
+      const resolvedUrl = result.resolvedUrl || trimmedUrl;
+      const title = result.title?.trim() || "Untitled Article";
+      const source = result.source?.trim() || deriveSourceFromUrl(resolvedUrl);
+      const date = new Date().toISOString().slice(0, 10);
+
       onAddArticle({
-        title: newTitle,
-        url: newUrl,
-        source: newSource,
-        imageUrl: newImageUrl,
+        title,
+        url: resolvedUrl,
+        source,
+        imageUrl: result.imageUrl,
+        summary: "",
+        text: result.text || "",
+        date,
       });
-      setNewTitle("");
-      setNewUrl("");
-      setNewSource("");
-      setNewImageUrl("");
+
+      toast({ title: "Article Added", description: "Diffbot pulled the article details successfully." });
+      setArticleUrl("");
       onClose();
+    } catch (error: any) {
+      console.error("Failed to add custom article:", error);
+      toast({ title: "Unexpected Error", description: error?.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -430,18 +458,34 @@ function AddArticleDialog({ onAddArticle, onClose }: { onAddArticle: (article: O
     <DialogContent>
       <DialogHeader>
         <DialogTitle>Add a Custom Article</DialogTitle>
+        <CardDescription>Provide a URL and we&apos;ll pull the headline, source, and text via Diffbot.</CardDescription>
       </DialogHeader>
       <div className="space-y-4 py-4">
         <div className="space-y-2">
-          <Label htmlFor="url">URL</Label>
-          <Input id="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://example.com/article" />
+          <Label htmlFor="custom-article-url">URL</Label>
+          <Input
+            id="custom-article-url"
+            type="url"
+            value={articleUrl}
+            onChange={(e) => setArticleUrl(e.target.value)}
+            placeholder="https://example.com/article"
+          />
         </div>
       </div>
       <DialogFooter>
         <DialogClose asChild>
-          <Button variant="outline">Cancel</Button>
+          <Button variant="outline" disabled={isSubmitting}>Cancel</Button>
         </DialogClose>
-        <Button onClick={handleAdd}>Add & Process Article</Button>
+        <Button onClick={handleAdd} disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader className="mr-2 h-4 w-4 animate-spin" />
+              Pulling Article
+            </>
+          ) : (
+            "Add & Process Article"
+          )}
+        </Button>
       </DialogFooter>
     </DialogContent>
   );

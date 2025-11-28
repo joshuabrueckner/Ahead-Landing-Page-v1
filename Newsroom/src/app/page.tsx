@@ -61,6 +61,17 @@ export default function Home() {
     setFetchTrigger(prev => prev + 1);
   };
 
+  const handleAddArticle = (article: Omit<NewsArticle, 'id'>) => {
+    setDisplayedArticles(prev => {
+      const nextId = prev.length > 0 ? Math.max(...prev.map(a => a.id)) + 1 : 0;
+      const newArticle: NewsArticle = {
+        id: nextId,
+        ...article,
+      };
+      return [newArticle, ...prev];
+    });
+  };
+
   // Effect to fetch initial data for products and quick headlines
   useEffect(() => {
     async function fetchInitialData() {
@@ -209,6 +220,7 @@ export default function Home() {
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
             maxDate={maxDate}
+            onAddArticle={handleAddArticle}
           />
           <ProductsSelection 
             products={products}

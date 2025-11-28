@@ -381,7 +381,7 @@ One-sentence summary:`,
   }
 }
 
-export async function extractArticleTextAction(articleUrl: string): Promise<{ text?: string, error?: string, imageUrl?: string }> {
+export async function extractArticleTextAction(articleUrl: string): Promise<{ text?: string; error?: string; imageUrl?: string; title?: string; source?: string; resolvedUrl?: string }> {
   const token = process.env.DIFFBOT_TOKEN;
   if (!token) {
     console.error("Diffbot token is not configured.");
@@ -392,7 +392,7 @@ export async function extractArticleTextAction(articleUrl: string): Promise<{ te
     token: token,
     url: articleUrl,
     paging: "false",
-    fields: "text,images"
+    fields: "title,text,siteName,pageUrl,images"
   });
 
   const diffbotUrl = `https://api.diffbot.com/v3/article?${params.toString()}`;
@@ -420,7 +420,10 @@ export async function extractArticleTextAction(articleUrl: string): Promise<{ te
 
     return { 
       text: articleObject.text || '', 
-      imageUrl: primaryImage?.url 
+      imageUrl: primaryImage?.url,
+      title: articleObject.title || '',
+      source: cleanSourceName(articleObject.siteName || articleObject.publisher || ''),
+      resolvedUrl: articleObject.pageUrl || articleUrl,
     };
 
   } catch (error: any) {
