@@ -120,7 +120,8 @@ const ArticleItem = ({
     isFeatured, 
     onSelect, 
     isSelectionDisabled, 
-    selectionIndex 
+    selectionIndex,
+    shouldExtract
 }: { 
     article: NewsArticle, 
     isSelected: boolean,
@@ -128,23 +129,29 @@ const ArticleItem = ({
     onSelect: (article: NewsArticle) => void,
     isSelectionDisabled: boolean
     selectionIndex: number;
+    shouldExtract: boolean;
 }) => {
     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
     const { toast } = useToast();
     const [extractedText, setExtractedText] = useState("");
     const [summary, setSummary] = useState("");
-    const [isExtracting, setIsExtracting] = useState(true);
+    const [isExtracting, setIsExtracting] = useState(false);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
+    const [hasBeenQueued, setHasBeenQueued] = useState(false);
     
-    // Auto-extract text and generate summary on mount using queue
+    // Auto-extract text and generate summary when shouldExtract becomes true
     useEffect(() => {
-        extractionQueue.add(article.url, (text, sum) => {
-            console.log('Article processed:', article.title, 'Summary:', sum);
-            setExtractedText(text);
-            setSummary(sum);
-            setIsExtracting(false);
-        });
-    }, [article.url]);
+        if (shouldExtract && !hasBeenQueued) {
+            setHasBeenQueued(true);
+            setIsExtracting(true);
+            extractionQueue.add(article.url, (text, sum) => {
+                console.log('Article processed:', article.title, 'Summary:', sum);
+                setExtractedText(text);
+                setSummary(sum);
+                setIsExtracting(false);
+            });
+        }
+    }, [shouldExtract, article.url, hasBeenQueued]);
     
     const handleShowText = () => {
         setIsTextDialogOpen(true);
@@ -204,8 +211,13 @@ const ArticleItem = ({
 
 export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   
   const selectedIds = new Set(selectedArticles.map(a => a.id));
+  
+  const handleStartExtraction = () => {
+    setIsExtractionStarted(true);
+  };
   
   const handleAddArticle = (newArticle: Omit<NewsArticle, 'id' | 'date' | 'summary' | 'text'>) => {
     // This function is not fully implemented in the current flow, as adding articles requires processing.
@@ -247,18 +259,28 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
               </CardDescription>
             </div>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" disabled>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Article
-              </Button>
-            </DialogTrigger>
-            <AddArticleDialog 
-              onAddArticle={handleAddArticle} 
-              onClose={() => setIsAddDialogOpen(false)} 
-            />
-          </Dialog>
+          <div className="flex gap-2">
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={handleStartExtraction}
+              disabled={isExtractionStarted || isLoading}
+            >
+              {isExtractionStarted ? "Extracting..." : "Extract & Summarize"}
+            </Button>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Article
+                </Button>
+              </DialogTrigger>
+              <AddArticleDialog 
+                onAddArticle={handleAddArticle} 
+                onClose={() => setIsAddDialogOpen(false)} 
+              />
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -277,6 +299,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 onSelect={setSelectedArticles}
                 isSelectionDisabled={!isSelected && selectionCount >= MAX_SELECTIONS}
                 selectionIndex={selectionIndex}
+                shouldExtract={isExtractionStarted}
               />
             );
           })}
