@@ -124,6 +124,44 @@ const cleanSourceName = (source?: string) => {
   return source.replace(/^\s*-\s*/g, "").trim();
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const stripSourceFromTitle = (title: string, source?: string) => {
+  let result = title?.trim() || "";
+  if (!result) return "";
+
+  if (source) {
+    const pattern = new RegExp(`\\s+-\\s+${escapeRegExp(source)}$`, "i");
+    if (pattern.test(result)) {
+      return result.replace(pattern, "").trim();
+    }
+  }
+
+  // Fallback: remove trailing " - Publication" when publication isn't known
+  const genericSuffix = /\s+-\s+[A-Za-z0-9 .,'&()-]{2,60}$/;
+  if (genericSuffix.test(result)) {
+    result = result.replace(genericSuffix, "").trim();
+  }
+  return result;
+};
+
+const normalizeFutureToolsDate = (rawDate?: string | null) => {
+  if (!rawDate) return null;
+  const trimmed = rawDate.trim();
+  if (!trimmed) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return trimmed.slice(0, 10);
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (!Number.isNaN(parsed)) {
+    return toISODate(new Date(parsed));
+  }
+
+  return null;
+};
+
 const resolveGoogleNewsLink = (link?: string) => {
   if (!link) return "";
   try {
@@ -171,9 +209,9 @@ const fetchNewsFromGoogleNewsRss = async (dateStr?: string): Promise<Omit<NewsAr
       : itemsArray;
 
     return filteredItems.slice(0, 15).map((item: any) => {
-      const title = extractText(item?.title) || "Untitled";
+      const source = cleanSourceName(extractText(item?.source) || "Google News") || "Google News";
+      const title = stripSourceFromTitle(extractText(item?.title) || "Untitled", source);
       const url = resolveGoogleNewsLink(extractText(item?.link));
-      const source = cleanSourceName(extractText(item?.source) || "Google News");
       const date = extractText(item?.pubDate) || "";
       const media = item?.["media:content"];
       const mediaEntries = Array.isArray(media) ? media : media ? [media] : [];
@@ -251,16 +289,21 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
     console.log(`Filtering Future Tools articles for date=${targetDate}`);
     
     const filteredArticles = articles.filter((article: any) => {
-        return article.date_iso === targetDate;
+        const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date);
+        return normalizedDate === targetDate;
     });
 
-    return filteredArticles.map((article: any) => ({
-      title: article.title,
-      url: article.url || article.link,
-      source: cleanSourceName(article.source),
-      date: article.date_iso,
-      imageUrl: undefined
-    }));
+    return filteredArticles.map((article: any) => {
+      const source = cleanSourceName(article.source) || "Future Tools";
+      const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date) || targetDate;
+      return {
+        title: stripSourceFromTitle(article.title?.trim() || "Untitled", source),
+        url: article.url || article.link,
+        source,
+        date: normalizedDate,
+        imageUrl: undefined
+      };
+    });
 
   } catch (error: any) {
     console.error("Error fetching news from Future Tools:", error);
