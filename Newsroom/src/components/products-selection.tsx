@@ -19,12 +19,13 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Plus, ArrowUp, Loader, Sparkles } from "lucide-react";
+import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +49,8 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [productSummaries, setProductSummaries] = useState<Record<string, string>>({});
   const [isGeneratingSummaries, setIsGeneratingSummaries] = useState(false);
+  const [regeneratingSummaries, setRegeneratingSummaries] = useState<Record<string, boolean>>({});
+  const [textDialogProduct, setTextDialogProduct] = useState<ProductLaunch | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -183,10 +186,53 @@ export default function ProductsSelection({ products: initialProducts, selectedP
         setSelectedProducts([...selectedProducts, productToAdd]);
     }
   };
+
+  const handleRegenerateSummary = async (product: ProductLaunch) => {
+    if (regeneratingSummaries[product.id]) return;
+
+    setRegeneratingSummaries(prev => ({ ...prev, [product.id]: true }));
+    try {
+      const result = await generateProductOutcomeSentenceAction({
+        name: product.name,
+        description: product.description,
+        url: product.url,
+      });
+
+      if (result.error) {
+        toast({
+          title: `Couldn't regenerate ${product.name}`,
+          description: result.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (result.summary) {
+        setProductSummaries(prev => ({
+          ...prev,
+          [product.id]: result.summary as string,
+        }));
+        toast({ title: `${product.name} updated`, description: "Gemini provided a fresh sentence." });
+      }
+    } catch (error: any) {
+      toast({
+        title: `Couldn't regenerate ${product.name}`,
+        description: error?.message || "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setRegeneratingSummaries(prev => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+    }
+  };
   
   const selectionCount = selectedProducts.length;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
@@ -300,6 +346,43 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                     <div className="flex items-center text-xs text-muted-foreground/80 mt-2 font-medium">
                         <ArrowUp className="w-3 h-3 mr-1 text-green-500" /> {(product.upvotes || 0).toLocaleString()} upvotes
                     </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="icon"
+                            className="h-9 w-9 rounded-full"
+                            aria-label={`Regenerate summary for ${product.name}`}
+                            onClick={() => handleRegenerateSummary(product)}
+                            disabled={!!regeneratingSummaries[product.id]}
+                          >
+                            {regeneratingSummaries[product.id] ? (
+                              <Loader className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Regenerate sentence</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="icon"
+                            className="h-9 w-9 rounded-full"
+                            aria-label={`Show extracted text for ${product.name}`}
+                            onClick={() => setTextDialogProduct(product)}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View extracted text</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
                 {index < products.length - 1 && <Separator className="mt-4" />}
@@ -312,6 +395,20 @@ export default function ProductsSelection({ products: initialProducts, selectedP
         <span>{selectionCount} of {MAX_SELECTIONS} products selected.</span>
       </CardFooter>
     </Card>
+    <Dialog open={!!textDialogProduct} onOpenChange={(open) => { if (!open) setTextDialogProduct(null); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Extracted Text</DialogTitle>
+          <DialogDescription>
+            Gemini context for {textDialogProduct?.name ?? "this product"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-4 max-h-[50vh] overflow-y-auto rounded-md bg-muted/60 p-4 text-sm leading-relaxed whitespace-pre-line">
+          {textDialogProduct?.description?.trim() || "No extracted text available for this product."}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
