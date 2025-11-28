@@ -2,8 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ahead</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ahead | Human Experts for AI Adoption &amp; Automation</title>
+  <meta name="description" content="Feeling lost with AI? Ahead connects you with vetted experts to build practical workflows, audit your tools, and scale adoption. Stop guessing. Start executing." />
+  <meta name="keywords" content="AI coaching, fractional AI officer, AI adoption strategy, workflow automation, AI audit, human-in-the-loop, AI experts, business process automation, AI implementation, Ahead AI" />
+  <link rel="canonical" href="https://jumpahead.ai/" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Ahead — The Human Interface for Navigating AI" />
+  <meta property="og:description" content="77% of professionals feel lost with AI. Ahead connects you with fluent experts who help you implement AI, optimize workflows, and drive real outcomes." />
+  <meta property="og:url" content="https://jumpahead.ai/" />
+  <meta property="og:image" content="public/ahead-splash-image.png" />
+  <meta property="og:image:alt" content="A moody, low-light shot of a man working late at a cluttered wooden desk, facing a vintage computer monitor displaying scrolling green code. The white &quot;ahead&quot; logo and compass icon are overlaid centrally against the warm, dark tones of the home office." />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Ahead — Human Experts for AI Adoption" />
+  <meta name="twitter:description" content="We connect the 77% of people who feel lost with the experts who are fluent in AI. Get practical guidance and real workflows." />
+  <meta name="twitter:image" content="public/ahead-splash-image.png" />
+
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,13 +40,53 @@
             },
             colors: {
               brand: {
-                black: '#1a1a1a',
-                offwhite: '#f9f9f9',
+                black: '#3f3a36',
+                offwhite: '#fdf9f1',
                 gray: '#666666',
               }
             }
           },
         },
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://jumpahead.ai/#organization",
+            "name": "Ahead",
+            "url": "https://jumpahead.ai/",
+            "logo": "https://jumpahead.ai/ahead-logo.png",
+            "founder": {
+              "@type": "Person",
+              "name": "Joshua Brueckner"
+            },
+            "description": "The human interface for navigating AI. Connecting experts with professionals for AI adoption and workflow automation."
+          },
+          {
+            "@type": "ProfessionalService",
+            "@id": "https://jumpahead.ai/#service",
+            "url": "https://jumpahead.ai/",
+            "name": "Ahead AI Coaching & Implementation",
+            "image": "https://jumpahead.ai/public/ahead-splash-image.png",
+            "priceRange": "$$",
+            "description": "Fractional AI Officer services, workflow audits, and on-demand AI coaching.",
+            "parentOrganization": { "@id": "https://jumpahead.ai/#organization" }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://jumpahead.ai/#website",
+            "url": "https://jumpahead.ai/",
+            "name": "Ahead",
+            "potentialAction": {
+              "@type": "SubscribeAction",
+              "target": "https://jumpahead.ai/#newsletter",
+              "name": "Get notified when Ahead launches"
+            }
+          }
+        ]
       }
     </script>
     <style>
@@ -48,8 +110,30 @@
         }
       </script>
     </head>
-  <body class="bg-white text-brand-black antialiased font-sans">
+  <body class="bg-brand-offwhite text-brand-black antialiased font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <!-- Netlify form (hidden) for static form detection -->
+    <form name="contact" netlify netlify-honeypot="bot-field" hidden>
+      <input type="hidden" name="form-name" value="contact" />
+      <p class="hidden">
+        <label>Don’t fill this out if you're human: <input name="bot-field" /></label>
+      </p>
+      <p>
+        <label>First Name <input type="text" name="firstName" /></label>
+      </p>
+      <p>
+        <label>Last Name <input type="text" name="lastName" /></label>
+      </p>
+      <p>
+        <label>Email <input type="email" name="email" /></label>
+      </p>
+      <p>
+        <label>Subject <input type="text" name="subject" /></label>
+      </p>
+      <p>
+        <label>Message <textarea name="message"></textarea></label>
+      </p>
+    </form>
   </body>
 </html>

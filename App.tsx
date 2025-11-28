@@ -19,7 +19,11 @@ const App: React.FC = () => {
 
       {/* Main Content - Centered Letter */}
       <main className="flex-grow overflow-y-auto no-scrollbar w-full relative flex flex-col items-center">
+<<<<<<< HEAD
   <div className="w-full max-w-5xl px-6 pb-8 md:px-12 md:pb-12 flex-grow flex flex-col justify-start" style={{ paddingTop: 'calc(0.5rem - 5px)' }}>
+=======
+  <div className="w-full max-w-5xl px-6 pb-8 md:px-12 md:pb-12 flex-grow flex flex-col justify-start" style={{ paddingTop: 'calc(0.5rem - 10px)' }}>
+>>>>>>> main
            <Letter />
         </div>
       </main>
