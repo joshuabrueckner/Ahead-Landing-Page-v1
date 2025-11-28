@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader, Newspaper, PlusCircle, Text } from "lucide-react";
+import { Loader, Newspaper, PlusCircle, Text, RefreshCw } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
@@ -159,6 +159,16 @@ const ArticleItem = ({
         setIsTextDialogOpen(true);
     };
 
+    const handleRetryExtraction = () => {
+        setIsExtracting(true);
+        extractionQueue.add(article.url, (text, sum) => {
+            console.log('Article re-processed:', article.title, 'Summary:', sum);
+            setExtractedText(text);
+            setSummary(sum);
+            setIsExtracting(false);
+        });
+    };
+
     const handleRegenerateSummary = async () => {
         if (!extractedText) return;
         setIsSummarizing(true);
@@ -220,6 +230,16 @@ const ArticleItem = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleRetryExtraction} 
+                        disabled={isExtracting} 
+                        title="Retry Extraction"
+                        className="h-8 w-8"
+                    >
+                        <RefreshCw className={cn("h-4 w-4", isExtracting && "animate-spin")} />
+                    </Button>
                     <Dialog open={isTextDialogOpen} onOpenChange={setIsTextDialogOpen}>
                         <Button variant="outline" size="sm" onClick={handleShowText} disabled={isExtracting}>
                             {isExtracting ? <Loader className="h-4 w-4 animate-spin" /> : <Text className="h-4 w-4" />}
