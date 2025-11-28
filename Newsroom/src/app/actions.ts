@@ -118,6 +118,12 @@ const normalizeArticleDate = (rawDate?: string | null): string | null => {
   return null;
 };
 
+const cleanSourceName = (source?: string) => {
+  if (!source) return "";
+  // Remove leading dash patterns like " - forbes.com"
+  return source.replace(/^\s*-\s*/g, "").trim();
+};
+
 const resolveGoogleNewsLink = (link?: string) => {
   if (!link) return "";
   try {
@@ -167,7 +173,7 @@ const fetchNewsFromGoogleNewsRss = async (dateStr?: string): Promise<Omit<NewsAr
     return filteredItems.slice(0, 15).map((item: any) => {
       const title = extractText(item?.title) || "Untitled";
       const url = resolveGoogleNewsLink(extractText(item?.link));
-      const source = extractText(item?.source) || "Google News";
+      const source = cleanSourceName(extractText(item?.source) || "Google News");
       const date = extractText(item?.pubDate) || "";
       const media = item?.["media:content"];
       const mediaEntries = Array.isArray(media) ? media : media ? [media] : [];
@@ -251,7 +257,7 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
     return filteredArticles.map((article: any) => ({
       title: article.title,
       url: article.url || article.link,
-      source: article.source,
+      source: cleanSourceName(article.source),
       date: article.date_iso,
       imageUrl: undefined
     }));
