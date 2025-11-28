@@ -286,9 +286,11 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
     setDateInput(selectedDate);
   }, [selectedDate]);
 
-  const handleDateSubmit = () => {
-    if (!dateInput) return;
-    onDateChange(dateInput);
+  const handleDateInputChange = (value: string) => {
+    setDateInput(value);
+    if (value) {
+      onDateChange(value);
+    }
   };
   
   const selectedIds = new Set(selectedArticles.map(a => a.id));
@@ -342,20 +344,10 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 <Input 
                     type="date" 
                     value={dateInput} 
-                    onChange={(e) => setDateInput(e.target.value)}
+                    onChange={(e) => handleDateInputChange(e.target.value)}
                     className="w-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
                     max={maxDate}
                 />
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={handleDateSubmit}
-                  className="rounded-none border-l"
-                  disabled={!dateInput}
-                  type="button"
-                >
-                  Go
-                </Button>
             </div>
             <Button 
               variant="default" 
