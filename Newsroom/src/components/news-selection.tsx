@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { NewsArticle } from "@/lib/data";
 import {
   Card,
@@ -33,6 +33,60 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 
 const MAX_SELECTIONS = 5;
+const CONCURRENT_EXTRACTIONS = 2;
+const EXTRACTION_DELAY = 1000; // 1 second delay between batches
+
+type ExtractionResult = {
+  text: string;
+  isExtracting: boolean;
+};
+
+// Global extraction queue manager
+class ExtractionQueue {
+  private queue: Array<{ url: string; callback: (text: string) => void }> = [];
+  private processing = false;
+  private activeExtractions = 0;
+
+  async add(url: string, callback: (text: string) => void) {
+    this.queue.push({ url, callback });
+    this.processQueue();
+  }
+
+  private async processQueue() {
+    if (this.processing) return;
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const batch = this.queue.splice(0, CONCURRENT_EXTRACTIONS);
+      
+      await Promise.all(
+        batch.map(async ({ url, callback }) => {
+          try {
+            const result = await extractArticleTextAction(url);
+            if (result.error) {
+              console.error("Auto-extraction failed:", result.error);
+              callback("Failed to extract article text.");
+            } else {
+              callback(result.text || "No text was extracted.");
+            }
+          } catch (error) {
+            console.error("Extraction error:", error);
+            callback("Failed to extract article text.");
+          }
+        })
+      );
+
+      // Wait before processing next batch
+      if (this.queue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, EXTRACTION_DELAY));
+      }
+    }
+
+    this.processing = false;
+  }
+}
+
+const extractionQueue = new ExtractionQueue();
 
 type NewsSelectionProps = {
   articles: NewsArticle[];
@@ -64,19 +118,12 @@ const ArticleItem = ({
     const [isExtracting, setIsExtracting] = useState(true);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
     
-    // Auto-extract text on mount
+    // Auto-extract text on mount using queue
     useEffect(() => {
-        const extractText = async () => {
-            const result = await extractArticleTextAction(article.url);
-            if (result.error) {
-                console.error("Auto-extraction failed:", result.error);
-                setExtractedText("Failed to extract article text.");
-            } else {
-                setExtractedText(result.text || "No text was extracted.");
-            }
+        extractionQueue.add(article.url, (text) => {
+            setExtractedText(text);
             setIsExtracting(false);
-        };
-        extractText();
+        });
     }, [article.url]);
     
     const handleShowText = () => {
