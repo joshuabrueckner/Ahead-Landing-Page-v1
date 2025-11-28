@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader, Newspaper, Text, RefreshCw, Sparkles, Plus } from "lucide-react";
+import { Loader, Newspaper, RefreshCw, Sparkles, Plus, RotateCcw, FileText } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
@@ -161,7 +161,7 @@ const ArticleItem = ({
     }, [shouldExtract, article.url, hasBeenQueued]);
     
     const handleShowText = () => {
-        setIsTextDialogOpen(true);
+      setIsTextDialogOpen(true);
     };
 
     const handleRetryExtraction = () => {
@@ -192,7 +192,9 @@ const ArticleItem = ({
                     title: "Success",
                     description: "Summary regenerated successfully.",
                 });
+              if (isTextDialogOpen) {
                 setIsTextDialogOpen(false);
+              }
             }
         } catch (error) {
             console.error("Error regenerating summary:", error);
@@ -206,7 +208,10 @@ const ArticleItem = ({
         }
     };
 
+    const inlineRegenerateDisabled = !extractedText || isSummarizing || isExtracting;
+
     return (
+        <TooltipProvider delayDuration={200}>
         <div className={cn(
           "p-2 transition-colors", 
           isFeatured && "bg-secondary rounded-lg"
@@ -235,20 +240,57 @@ const ArticleItem = ({
                     </div>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
-                    <Button 
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
                         variant="ghost" 
                         size="icon" 
                         onClick={handleRetryExtraction} 
                         disabled={isExtracting} 
-                        title="Retry Extraction"
+                        aria-label="Retry extraction"
                         className="h-8 w-8"
-                    >
+                      >
                         <RefreshCw className={cn("h-4 w-4", isExtracting && "animate-spin")} />
-                    </Button>
-                    <Dialog open={isTextDialogOpen} onOpenChange={setIsTextDialogOpen}>
-                        <Button variant="outline" size="sm" onClick={handleShowText} disabled={isExtracting}>
-                            {isExtracting ? <Loader className="h-4 w-4 animate-spin" /> : <Text className="h-4 w-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Retry extraction</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full border border-border/40 bg-secondary/30 text-muted-foreground hover:text-primary"
+                        aria-label="Regenerate summary"
+                        onClick={() => handleRegenerateSummary()}
+                        disabled={inlineRegenerateDisabled}
+                      >
+                        {isSummarizing ? (
+                          <Loader className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Regenerate summary</TooltipContent>
+                  </Tooltip>
+                  <Dialog open={isTextDialogOpen} onOpenChange={setIsTextDialogOpen}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 rounded-full text-muted-foreground"
+                          onClick={handleShowText}
+                          disabled={isExtracting}
+                          aria-label="View extracted text"
+                        >
+                          {isExtracting ? <Loader className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                         </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>View extracted text</TooltipContent>
+                    </Tooltip>
                         <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
                             <DialogHeader>
                                 <DialogTitle>Extracted Article Text</DialogTitle>
@@ -274,7 +316,8 @@ const ArticleItem = ({
                     )}
                 </div>
             </div>
-        </div>
+                </div>
+                </TooltipProvider>
     );
 };
 

@@ -337,9 +337,14 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                   </div>
                   <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
                     <div className="flex-1">
-                      <label htmlFor={`product-${product.id}`} className="font-semibold text-foreground hover:text-primary cursor-pointer leading-tight">
+                      <label htmlFor={`product-${product.id}`} className="text-foreground hover:text-primary cursor-pointer leading-tight">
                         <a href={product.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {product.tagline ? `${product.name}: ${product.tagline}` : product.name}
+                          <span className="font-semibold">{product.name}</span>
+                          {product.tagline ? (
+                            <span className="font-normal text-foreground">
+                              : <span className="text-muted-foreground font-normal">{product.tagline}</span>
+                            </span>
+                          ) : null}
                         </a>
                       </label>
                       { (productSummaries[product.id] || product.summary) && (
@@ -434,7 +439,7 @@ function AddProductDialog({ onAddProduct, onClose }: { onAddProduct: (product: O
     const trimmedUrl = newUrl.trim();
 
     if (!trimmedName || !trimmedDescription || !trimmedUrl) {
-      toast({ title: "Missing fields", description: "Please provide name, tagline (optional), description, and URL.", variant: "destructive" });
+      toast({ title: "Missing fields", description: "Please provide name, description, and URL (tagline optional).", variant: "destructive" });
       return;
     }
 
