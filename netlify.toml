@@ -3,6 +3,10 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[build.environment]
+  # Firebase API keys are safe for client-side use (protected by security rules)
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyALvyVK73VkgOkQUKMwQyvEycxFhVBjhjo"
+
 # Redirect /newsroom to a separate Netlify site
 # You'll need to deploy the Newsroom app separately and update this URL
 [[redirects]]
