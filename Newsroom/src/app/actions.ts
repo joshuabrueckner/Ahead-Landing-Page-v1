@@ -29,6 +29,7 @@ import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
 import { collection, addDoc, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
 import { ai } from "@/ai/genkit";
+import { load } from "cheerio";
 
 
 const getYesterdayDateString = () => {
@@ -63,8 +64,6 @@ const toISODate = (date: Date) => {
 const SERPAPI_NEWS_SEARCH_URL = "https://serpapi.com/search.json";
 const SERPAPI_MAX_RESULTS = 50;
 const FUTURE_TOOLS_NEWS_URL = "https://www.futuretools.io/news";
-const PARSE_BOT_FETCH_ENDPOINT = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/fetch_news_page";
-const PARSE_BOT_EXTRACT_ENDPOINT = "https://api.parse.bot/scraper/e4e7a0bc-53da-47fd-950c-8fdeb377fe1e/extract_articles";
 
 const normalizeArticleDate = (rawDate?: string | null): string | null => {
   if (!rawDate) return null;
@@ -157,6 +156,15 @@ const normalizeFutureToolsDate = (rawDate?: string | null) => {
     return trimmed.slice(0, 10);
   }
 
+  const dotSeparatedMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2})$/);
+  if (dotSeparatedMatch) {
+    const month = dotSeparatedMatch[1].padStart(2, "0");
+    const day = dotSeparatedMatch[2].padStart(2, "0");
+    const yearSuffix = parseInt(dotSeparatedMatch[3], 10);
+    const year = yearSuffix >= 70 ? 1900 + yearSuffix : 2000 + yearSuffix;
+    return `${year}-${month}-${day}`;
+  }
+
   const parsed = Date.parse(trimmed);
   if (!Number.isNaN(parsed)) {
     return toISODate(new Date(parsed));
@@ -243,94 +251,56 @@ const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle,
 
 
 const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
-  const apiKey = process.env.PARSE_BOT_API_KEY;
-  if (!apiKey) {
-    console.warn("PARSE_BOT_API_KEY is not defined. Skipping Future Tools fetch.");
-    return [];
-  }
-
   const targetDate = dateStr || getYesterdayDateStringISO();
-  console.log(`Fetching Future Tools articles for date=${targetDate}`);
-
-  let htmlContent: string | null = null;
+  console.log(`Scraping Future Tools for date=${targetDate}`);
 
   try {
-    const fetchResponse = await fetch(PARSE_BOT_FETCH_ENDPOINT, {
-      method: "POST",
+    const response = await fetch(FUTURE_TOOLS_NEWS_URL, {
+      cache: "no-store",
       headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "X-API-Key": apiKey,
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 (compatible; AheadBot/1.0; +https://getahead.ai)",
       },
-      body: JSON.stringify({ url: FUTURE_TOOLS_NEWS_URL }),
     });
 
-    if (fetchResponse.ok) {
-      const payload = await fetchResponse.json();
-      htmlContent = payload?.html_content ?? null;
-    } else {
-      const errorBody = await fetchResponse.text();
-      console.error(`Parse.bot fetch_news_page failed: ${fetchResponse.status} - ${errorBody}`);
+    if (!response.ok) {
+      throw new Error(`Future Tools request failed: ${response.status} ${response.statusText}`);
     }
-  } catch (error) {
-    console.error("Error calling fetch_news_page:", error);
-  }
 
-  if (!htmlContent) {
-    try {
-      const fallbackResponse = await fetch(FUTURE_TOOLS_NEWS_URL, {
-        cache: "no-store",
-        headers: { Accept: "text/html" },
-      });
-      if (fallbackResponse.ok) {
-        htmlContent = await fallbackResponse.text();
+    const html = await response.text();
+    const $ = load(html);
+    const articles: Omit<NewsArticle, "id" | "summary" | "text">[] = [];
+
+    $(".news-listing .news-item").each((_, element) => {
+      const container = $(element);
+      const dateText = container.find(".text-block-30").first().text().trim();
+      const normalizedDate = normalizeFutureToolsDate(dateText);
+      if (!normalizedDate || normalizedDate !== targetDate) {
+        return;
       }
-    } catch (error) {
-      console.error("Direct Future Tools fetch failed:", error);
-    }
-  }
 
-  if (!htmlContent) {
-    return [];
-  }
+      const anchor = container.find("a").first();
+      const url = anchor.attr("href")?.trim();
+      if (!url) {
+        return;
+      }
 
-  try {
-    const extractResponse = await fetch(PARSE_BOT_EXTRACT_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify({ html_content: htmlContent }),
-    });
+      const title = container.find(".text-block-27").first().text().trim() || "Untitled";
+      const sourceRaw = container.find(".text-block-28").first().text().trim();
+      const source = cleanSourceName(sourceRaw || "Future Tools") || "Future Tools";
 
-    if (!extractResponse.ok) {
-      const errorBody = await extractResponse.text();
-      throw new Error(`Parse.bot extract_articles failed: ${extractResponse.status} - ${errorBody}`);
-    }
-
-    const payload = await extractResponse.json();
-    const articles = Array.isArray(payload?.articles) ? payload.articles : [];
-
-    const filteredArticles = articles.filter((article: any) => {
-      const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date || article.date_text);
-      return normalizedDate === targetDate;
-    });
-
-    return filteredArticles.map((article: any) => {
-      const source = cleanSourceName(article.source || article.source_domain || "Future Tools") || "Future Tools";
-      const normalizedDate = normalizeFutureToolsDate(article.date_iso || article.date || article.date_text) || targetDate;
-      return {
-        title: stripSourceFromTitle(article.title?.trim() || "Untitled", source),
-        url: article.url || article.link,
+      articles.push({
+        title: stripSourceFromTitle(title, source),
+        url,
         source,
         date: normalizedDate,
         imageUrl: undefined,
-      };
+      });
     });
-  } catch (error: any) {
-    console.error("Error extracting Future Tools articles:", error);
+
+    return articles;
+  } catch (error) {
+    console.error("Error scraping Future Tools articles:", error);
     return [];
   }
 };
