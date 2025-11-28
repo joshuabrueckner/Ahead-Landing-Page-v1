@@ -29,9 +29,18 @@ export default function Home() {
     return `${year}-${month}-${day}`;
   };
 
+  const getTodayDateStringISO = () => {
+    const nowInPT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const year = nowInPT.getFullYear();
+    const month = String(nowInPT.getMonth() + 1).padStart(2, '0');
+    const day = String(nowInPT.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [displayedArticles, setDisplayedArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(getYesterdayDateStringISO());
+  const [maxDate] = useState<string>(getTodayDateStringISO());
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const [products, setProducts] = useState<ProductLaunch[]>([]);
@@ -199,6 +208,7 @@ export default function Home() {
             onReloadArticle={() => {}}
             selectedDate={selectedDate}
             onDateChange={handleDateChange}
+            maxDate={maxDate}
           />
           <ProductsSelection 
             products={products}

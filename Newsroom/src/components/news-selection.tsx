@@ -115,6 +115,7 @@ type NewsSelectionProps = {
   onReloadArticle: (article: NewsArticle) => void;
   selectedDate: string;
   onDateChange: (date: string) => void;
+  maxDate: string;
 };
 
 const ArticleItem = ({ 
@@ -276,7 +277,7 @@ const ArticleItem = ({
 };
 
 
-export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange }: NewsSelectionProps) {
+export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
@@ -286,6 +287,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   }, [selectedDate]);
 
   const handleDateSubmit = () => {
+    if (!dateInput) return;
     onDateChange(dateInput);
   };
   
@@ -336,14 +338,24 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
             </div>
           </div>
           <div className="flex gap-2 items-center">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center border rounded-md overflow-hidden">
                 <Input 
                     type="date" 
                     value={dateInput} 
                     onChange={(e) => setDateInput(e.target.value)}
-                    className="w-auto"
+                    className="w-auto border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    max={maxDate}
                 />
-                <Button variant="default" size="sm" onClick={handleDateSubmit}>Go</Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleDateSubmit}
+                  className="rounded-none border-l"
+                  disabled={!dateInput}
+                  type="button"
+                >
+                  Go
+                </Button>
             </div>
             <Button 
               variant="default" 
