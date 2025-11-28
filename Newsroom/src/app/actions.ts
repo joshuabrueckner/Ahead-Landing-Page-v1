@@ -63,6 +63,63 @@ const formatDateForSerpApi = (dateStr: string) => {
     return `${month}/${day}/${year}`;
 };
 
+const toISODate = (date: Date) => date.toISOString().slice(0, 10);
+
+const normalizeArticleDate = (rawDate?: string | null): string | null => {
+  if (!rawDate) return null;
+  const trimmed = rawDate.trim();
+  if (!trimmed) return null;
+
+  const lower = trimmed.toLowerCase();
+
+  if (lower === "today") {
+    return toISODate(new Date());
+  }
+
+  if (lower === "yesterday") {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return toISODate(d);
+  }
+
+  const relativeMatch = lower.match(/(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago/);
+  if (relativeMatch) {
+    const value = parseInt(relativeMatch[1], 10);
+    const unit = relativeMatch[2];
+    const d = new Date();
+    switch (unit) {
+      case "minute":
+        d.setMinutes(d.getMinutes() - value);
+        break;
+      case "hour":
+        d.setHours(d.getHours() - value);
+        break;
+      case "day":
+        d.setDate(d.getDate() - value);
+        break;
+      case "week":
+        d.setDate(d.getDate() - value * 7);
+        break;
+      case "month":
+        d.setMonth(d.getMonth() - value);
+        break;
+      case "year":
+        d.setFullYear(d.getFullYear() - value);
+        break;
+    }
+    return toISODate(d);
+  }
+
+  // Handle formats like "Nov 25, 2025" or "Nov. 25, 2025"
+  const sanitized = trimmed.replace(/\./g, "");
+  const parsed = Date.parse(sanitized);
+  if (!Number.isNaN(parsed)) {
+    return toISODate(new Date(parsed));
+  }
+
+  return null;
+};
+
 const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
   const apiKey = process.env.SERPAPI_KEY;
   if (!apiKey) {
@@ -96,8 +153,14 @@ const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle,
     if (!newsResults || newsResults.length === 0) {
       return [];
     }
+    const filteredResults = dateStr
+      ? newsResults.filter((article: any) => {
+          const normalized = normalizeArticleDate(article.date);
+          return normalized ? normalized === dateStr : true;
+        })
+      : newsResults;
 
-    return newsResults.map((article: any) => ({
+    return filteredResults.map((article: any) => ({
       title: article.title,
       url: article.link,
       source: article.source,
