@@ -28,7 +28,7 @@ import {
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
 import { collection, addDoc, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
-import { getJson } from "serpapi";
+import { xml2js } from "xml-js";
 import { ai } from "@/ai/genkit";
 
 
@@ -56,14 +56,12 @@ const getYesterdayDateStringISO = () => {
     return `${year}-${month}-${day}`;
 };
 
-const formatDateForSerpApi = (dateStr: string) => {
-    // Input: YYYY-MM-DD
-    // Output: MM/DD/YYYY
-    const [year, month, day] = dateStr.split('-');
-    return `${month}/${day}/${year}`;
+const toISODate = (date: Date) => {
+  const pacific = new Date(date.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+  return pacific.toISOString().slice(0, 10);
 };
 
-const toISODate = (date: Date) => date.toISOString().slice(0, 10);
+const GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB/sections/CAQiQ0NCQVNMQW9JTDIwdk1EZGpNWFlTQW1WdUdnSlZVeUlOQ0FRYUNRb0hMMjB2TUcxcmVpb0pFZ2N2YlM4d2JXdDZLQUEqKggAKiYICiIgQ0JBU0Vnb0lMMjB2TURkak1YWVNBbVZ1R2dKVlV5Z0FQAVAB?hl=en-US&gl=US&ceid=US%3Aen";
 
 const normalizeArticleDate = (rawDate?: string | null): string | null => {
   if (!rawDate) return null;
@@ -120,56 +118,72 @@ const normalizeArticleDate = (rawDate?: string | null): string | null => {
   return null;
 };
 
-const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
-  const apiKey = process.env.SERPAPI_KEY;
-  if (!apiKey) {
-    throw new Error("SERPAPI_KEY is not defined.");
+const resolveGoogleNewsLink = (link?: string) => {
+  if (!link) return "";
+  try {
+    const url = new URL(link);
+    const articleUrl = url.searchParams.get("url");
+    return articleUrl || link;
+  } catch (error) {
+    return link;
   }
+};
 
-  let tbsParam = "qdr:d,sbd:1"; // Default: past 24 hours, sorted by date
+const extractText = (value: any): string => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value._cdata ?? value._text ?? "";
+};
 
-  if (dateStr) {
-      const formattedDate = formatDateForSerpApi(dateStr);
-      // cdr:1 enables custom date range
-      // cd_min and cd_max set the range (inclusive)
-      // sbd:1 sorts by date to ensure we get the latest articles for that day
-      tbsParam = `cdr:1,cd_min:${formattedDate},cd_max:${formattedDate},sbd:1`;
-  }
-  
-  console.log(`Fetching news from SerpApi with tbs=${tbsParam} for date=${dateStr}`);
+const fetchNewsFromGoogleNewsRss = async (dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[]> => {
+  console.log(`Fetching news from Google News RSS for date=${dateStr}`);
 
   try {
-    const response = await getJson({
-      engine: "google_news",
-      q: "AI",
-      api_key: apiKey,
-      tbs: tbsParam,
-      num: "15",
-      scoring: "1", // 0=relevance, 1=date per SerpApi docs
+    const response = await fetch(GOOGLE_NEWS_RSS_URL, {
+      headers: { Accept: "application/rss+xml" },
+      cache: "no-store",
     });
 
-    const newsResults = response.news_results;
-
-    if (!newsResults || newsResults.length === 0) {
-      return [];
+    if (!response.ok) {
+      throw new Error(`Google News RSS error: ${response.status} ${response.statusText}`);
     }
-    const filteredResults = dateStr
-      ? newsResults.filter((article: any) => {
-          const normalized = normalizeArticleDate(article.date);
-          return normalized ? normalized === dateStr : true;
-        })
-      : newsResults;
 
-    return filteredResults.map((article: any) => ({
-      title: article.title,
-      url: article.link,
-      source: article.source,
-      date: article.date,
-      imageUrl: article.thumbnail,
-    })).slice(0, 15);
+    const xml = await response.text();
+    const parsed = xml2js(xml, { compact: true, trim: true });
+    const rawItems = parsed?.rss?.channel?.item;
+    const itemsArray = Array.isArray(rawItems)
+      ? rawItems
+      : rawItems
+      ? [rawItems]
+      : [];
+
+    const filteredItems = dateStr
+      ? itemsArray.filter((item: any) => {
+          const normalized = normalizeArticleDate(extractText(item?.pubDate));
+          return normalized ? normalized === dateStr : false;
+        })
+      : itemsArray;
+
+    return filteredItems.slice(0, 15).map((item: any) => {
+      const title = extractText(item?.title) || "Untitled";
+      const url = resolveGoogleNewsLink(extractText(item?.link));
+      const source = extractText(item?.source) || "Google News";
+      const date = extractText(item?.pubDate) || "";
+      const media = item?.["media:content"];
+      const mediaEntries = Array.isArray(media) ? media : media ? [media] : [];
+      const imageUrl = mediaEntries.find((entry: any) => entry?._attributes?.url)?._attributes?.url;
+
+      return {
+        title,
+        url,
+        source,
+        date,
+        imageUrl,
+      };
+    });
   } catch (error: any) {
-    console.error("Error fetching news from SerpApi:", error.message);
-    throw new Error(`SerpApi request failed: ${error.message}`);
+    console.error("Error fetching news from Google News RSS:", error);
+    throw new Error(error?.message || "Google News RSS request failed");
   }
 };
 
@@ -250,15 +264,15 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
 
 export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<NewsArticle, 'id' | 'summary' | 'text'>[] | { error: string }> {
   try {
-    const [serpApiArticles, futureToolsArticles] = await Promise.all([
-      fetchNewsFromSerpApi(dateStr).catch(e => {
-        console.error("SerpApi fetch failed:", e);
+    const [rssArticles, futureToolsArticles] = await Promise.all([
+      fetchNewsFromGoogleNewsRss(dateStr).catch(e => {
+        console.error("Google News RSS fetch failed:", e);
         return [];
       }),
       fetchNewsFromFutureTools(dateStr)
     ]);
 
-    const allArticles = [...serpApiArticles, ...futureToolsArticles];
+    const allArticles = [...rssArticles, ...futureToolsArticles];
     
     if (allArticles.length === 0) {
         return { error: "Failed to fetch articles from all sources." };
