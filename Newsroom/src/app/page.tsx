@@ -192,12 +192,15 @@ export default function Home() {
   }, [selectedArticles, featuredArticle]);
 
   const handleNext = () => {
-    // Temporarily disable as processing is removed
-    // router.push("/refine");
-    toast({
-        title: "Feature In Progress",
-        description: "Article processing is being rebuilt.",
-    });
+    if (!areAllRequirementsMet) {
+      toast({
+        variant: "destructive",
+        title: "Selections incomplete",
+        description: "Choose 5 news stories, 3 products, and an AI tip to continue.",
+      });
+      return;
+    }
+    router.push("/refine");
   };
 
   return (
