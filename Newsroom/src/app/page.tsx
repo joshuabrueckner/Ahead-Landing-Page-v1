@@ -50,6 +50,7 @@ export default function Home() {
   useEffect(() => {
     async function fetchInitialData() {
       setIsLoading(true);
+      setDisplayedArticles([]); // Clear articles to show loading state
       
       const headlinesPromise = getArticleHeadlinesAction(selectedDate);
       const productsPromise = getTopAIProductsAction();

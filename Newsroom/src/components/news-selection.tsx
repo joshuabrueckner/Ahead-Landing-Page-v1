@@ -279,6 +279,15 @@ const ArticleItem = ({
 export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
+  const [dateInput, setDateInput] = useState(selectedDate);
+
+  useEffect(() => {
+    setDateInput(selectedDate);
+  }, [selectedDate]);
+
+  const handleDateSubmit = () => {
+    onDateChange(dateInput);
+  };
   
   const selectedIds = new Set(selectedArticles.map(a => a.id));
   
@@ -327,12 +336,15 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
             </div>
           </div>
           <div className="flex gap-2 items-center">
-            <Input 
-                type="date" 
-                value={selectedDate} 
-                onChange={(e) => onDateChange(e.target.value)}
-                className="w-auto"
-            />
+            <div className="flex items-center gap-2">
+                <Input 
+                    type="date" 
+                    value={dateInput} 
+                    onChange={(e) => setDateInput(e.target.value)}
+                    className="w-auto"
+                />
+                <Button variant="secondary" size="sm" onClick={handleDateSubmit}>Go</Button>
+            </div>
             <Button 
               variant="default" 
               size="sm" 
