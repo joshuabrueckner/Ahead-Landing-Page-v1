@@ -32,6 +32,7 @@ export default function Home() {
   const [displayedArticles, setDisplayedArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(getYesterdayDateStringISO());
+  const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const [products, setProducts] = useState<ProductLaunch[]>([]);
   
@@ -45,6 +46,11 @@ export default function Home() {
     featuredArticle !== null &&
     selectedProducts.length === 3 &&
     selectedTip !== "";
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    setFetchTrigger(prev => prev + 1);
+  };
 
   // Effect to fetch initial data for products and quick headlines
   useEffect(() => {
@@ -78,7 +84,7 @@ export default function Home() {
     }
     fetchInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, selectedDate]);
+  }, [toast, selectedDate, fetchTrigger]);
   
   
   const handleSelect = (article: NewsArticle) => {
@@ -183,7 +189,7 @@ export default function Home() {
             isLoading={isLoading && displayedArticles.length === 0}
             onReloadArticle={() => {}}
             selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
+            onDateChange={handleDateChange}
           />
           <ProductsSelection 
             products={products}

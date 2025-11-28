@@ -343,7 +343,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                     onChange={(e) => setDateInput(e.target.value)}
                     className="w-auto"
                 />
-                <Button variant="secondary" size="sm" onClick={handleDateSubmit}>Go</Button>
+                <Button variant="default" size="sm" onClick={handleDateSubmit}>Go</Button>
             </div>
             <Button 
               variant="default" 
