@@ -91,6 +91,36 @@ export async function getArticleHeadlinesAction(): Promise<Omit<NewsArticle, 'id
   }
 }
 
+export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
+  try {
+    const result = await ai.generate({
+      model: 'googleai/gemini-2.0-flash-exp',
+      prompt: `You are a helpful assistant that summarizes AI news articles for people who are not fully up-to-speed on all things AI.
+
+Given the article text below, write ONE clear, accessible sentence that explains what this article is about. The summary should:
+- Be written in plain language that anyone can understand
+- Avoid jargon or explain technical terms simply
+- Focus on the main point or takeaway
+- Be conversational and human
+
+Article text:
+${articleText.slice(0, 3000)}
+
+One-sentence summary:`,
+    });
+
+    const summary = result.text?.trim();
+    if (!summary) {
+      return { error: "Failed to generate summary" };
+    }
+
+    return { summary };
+  } catch (error: any) {
+    console.error("Error generating summary:", error);
+    return { error: error.message || "Failed to generate summary" };
+  }
+}
+
 export async function extractArticleTextAction(articleUrl: string): Promise<{ text?: string, error?: string, imageUrl?: string }> {
   const token = process.env.DIFFBOT_TOKEN;
   if (!token) {

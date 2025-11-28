@@ -28,7 +28,7 @@ import { Loader, Newspaper, PlusCircle, Text } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
-import { extractArticleTextAction } from "@/app/actions";
+import { extractArticleTextAction, generateArticleOneSentenceSummary } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 
@@ -43,11 +43,10 @@ type ExtractionResult = {
 
 // Global extraction queue manager
 class ExtractionQueue {
-  private queue: Array<{ url: string; callback: (text: string) => void }> = [];
+  private queue: Array<{ url: string; callback: (text: string, summary: string) => void }> = [];
   private processing = false;
-  private activeExtractions = 0;
 
-  async add(url: string, callback: (text: string) => void) {
+  async add(url: string, callback: (text: string, summary: string) => void) {
     this.queue.push({ url, callback });
     this.processQueue();
   }
@@ -57,26 +56,41 @@ class ExtractionQueue {
     this.processing = true;
 
     while (this.queue.length > 0) {
-      const batch = this.queue.splice(0, CONCURRENT_EXTRACTIONS);
-      
-      await Promise.all(
-        batch.map(async ({ url, callback }) => {
-          try {
-            const result = await extractArticleTextAction(url);
-            if (result.error) {
-              console.error("Auto-extraction failed:", result.error);
-              callback("Failed to extract article text.");
-            } else {
-              callback(result.text || "No text was extracted.");
-            }
-          } catch (error) {
-            console.error("Extraction error:", error);
-            callback("Failed to extract article text.");
-          }
-        })
-      );
+      const item = this.queue.shift();
+      if (!item) continue;
 
-      // Wait before processing next batch
+      try {
+        // Extract article text
+        const result = await extractArticleTextAction(item.url);
+        let text = "";
+        let summary = "";
+
+        if (result.error) {
+          console.error("Auto-extraction failed:", result.error);
+          text = "Failed to extract article text.";
+          summary = "";
+        } else {
+          text = result.text || "No text was extracted.";
+          
+          // Generate summary from the extracted text
+          if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
+            const summaryResult = await generateArticleOneSentenceSummary(text);
+            if (summaryResult.error) {
+              console.error("Summary generation failed:", summaryResult.error);
+              summary = "";
+            } else {
+              summary = summaryResult.summary || "";
+            }
+          }
+        }
+
+        item.callback(text, summary);
+      } catch (error) {
+        console.error("Extraction error:", error);
+        item.callback("Failed to extract article text.", "");
+      }
+
+      // Wait before processing next article
       if (this.queue.length > 0) {
         await new Promise(resolve => setTimeout(resolve, EXTRACTION_DELAY));
       }
@@ -115,13 +129,15 @@ const ArticleItem = ({
     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
     const { toast } = useToast();
     const [extractedText, setExtractedText] = useState("");
+    const [summary, setSummary] = useState("");
     const [isExtracting, setIsExtracting] = useState(true);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
     
-    // Auto-extract text on mount using queue
+    // Auto-extract text and generate summary on mount using queue
     useEffect(() => {
-        extractionQueue.add(article.url, (text) => {
+        extractionQueue.add(article.url, (text, sum) => {
             setExtractedText(text);
+            setSummary(sum);
             setIsExtracting(false);
         });
     }, [article.url]);
@@ -151,6 +167,9 @@ const ArticleItem = ({
                     <label htmlFor={`article-select-${article.id}`} className={cn("font-semibold text-foreground hover:text-primary cursor-pointer leading-tight", isSelectionDisabled && 'cursor-not-allowed')}>
                         {article.title}
                     </label>
+                    {summary && !isExtracting && (
+                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{summary}</p>
+                    )}
                     <div className="text-xs text-muted-foreground/80 flex items-center gap-2 mt-1">
                         <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">{sourceName}</a>
                     </div>
