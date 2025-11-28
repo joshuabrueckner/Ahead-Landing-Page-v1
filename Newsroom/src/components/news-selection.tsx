@@ -33,8 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 
 const MAX_SELECTIONS = 5;
-const CONCURRENT_EXTRACTIONS = 2;
-const EXTRACTION_DELAY = 1000; // 1 second delay between batches
+const CONCURRENT_EXTRACTIONS = 1;
+const EXTRACTION_DELAY = 2000; // 2 second delay between requests
 
 type ExtractionResult = {
   text: string;
