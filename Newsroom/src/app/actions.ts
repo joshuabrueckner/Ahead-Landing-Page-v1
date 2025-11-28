@@ -87,7 +87,8 @@ const fetchNewsFromSerpApi = async (dateStr?: string): Promise<Omit<NewsArticle,
       q: "AI",
       api_key: apiKey,
       tbs: tbsParam,
-      num: "15"
+      num: "15",
+      scoring: "1", // 0=relevance, 1=date per SerpApi docs
     });
 
     const newsResults = response.news_results;
