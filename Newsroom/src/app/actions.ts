@@ -389,9 +389,14 @@ export async function extractArticleTextAction(articleUrl: string): Promise<{ te
   }
 
   const params = new URLSearchParams({
-    token: token,
+    const summary = result.text?.trim();
+    if (!summary) {
+      return { error: "Failed to generate summary" };
+    }
+
+    const lowercased = summary.charAt(0).toLowerCase() + summary.slice(1);
     url: articleUrl,
-    paging: "false",
+    return lowercased;
     fields: "title,text,siteName,pageUrl,images"
   });
 
@@ -413,7 +418,6 @@ export async function extractArticleTextAction(articleUrl: string): Promise<{ te
     const articleObject = data?.objects?.[0];
 
     if (!articleObject) {
-      return { error: `No article object found in Diffbot response for ${articleUrl}` };
     }
 
     const primaryImage = articleObject.images?.find((img: any) => img.primary);
@@ -425,12 +429,12 @@ export async function extractArticleTextAction(articleUrl: string): Promise<{ te
       source: cleanSourceName(articleObject.siteName || articleObject.publisher || ''),
       resolvedUrl: articleObject.pageUrl || articleUrl,
     };
+            const summary = result.text?.trim();
+            if (!summary) {
+              return { error: "Failed to generate summary" };
+            }
 
-  } catch (error: any) {
-    console.error(`Failed to fetch or parse article from Diffbot for ${articleUrl}:`, error);
-    return { error: `Request to Diffbot failed: ${error.message}` };
-  }
-}
+            return { summary };
 
 export async function getAITipAction(
   input: GenerateAITipInput
@@ -536,7 +540,11 @@ Respond with only the sentence.`;
     });
 
     const summary = result.text?.trim();
-    return summary || null;
+    if (!summary) {
+      return null;
+    }
+
+    return summary.charAt(0).toLowerCase() + summary.slice(1);
   } catch (error) {
     console.error(`Failed to generate product summary for ${name}:`, error);
     return null;

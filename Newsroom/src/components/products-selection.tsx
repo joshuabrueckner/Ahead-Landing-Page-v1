@@ -82,36 +82,44 @@ export default function ProductsSelection({ products: initialProducts, selectedP
 
     setIsGeneratingSummaries(true);
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    const chunkSize = 3;
+    const pauseMs = 1000;
+    let abort = false;
 
-    for (const product of queue) {
-      console.log(`[Products] Generating summary for: ${product.name}`);
-      try {
-        const result = await generateProductOutcomeSentenceAction({
-          name: product.name,
-          description: product.description,
-          url: product.url,
-        });
+    for (let i = 0; i < queue.length && !abort; i += chunkSize) {
+      const batch = queue.slice(i, i + chunkSize);
+      await Promise.all(batch.map(async (product) => {
+        console.log(`[Products] Generating summary for: ${product.name}`);
+        try {
+          const result = await generateProductOutcomeSentenceAction({
+            name: product.name,
+            description: product.description,
+            url: product.url,
+          });
 
-        if (result.error) {
-          toast({ title: `Couldn't summarize ${product.name}`, description: result.error, variant: "destructive" });
-          if (/429|quota/i.test(result.error)) {
-            break;
+          if (result.error) {
+            toast({ title: `Couldn't summarize ${product.name}`, description: result.error, variant: "destructive" });
+            if (/429|quota/i.test(result.error)) {
+              abort = true;
+            }
+          } else if (result.summary) {
+            setProductSummaries(prev => ({
+              ...prev,
+              [product.id]: result.summary as string,
+            }));
           }
-        } else if (result.summary) {
-          setProductSummaries(prev => ({
-            ...prev,
-            [product.id]: result.summary as string,
-          }));
+        } catch (error: any) {
+          const message = error?.message || "Unexpected error";
+          toast({ title: `Couldn't summarize ${product.name}`, description: message, variant: "destructive" });
+          if (/429|quota/i.test(message)) {
+            abort = true;
+          }
         }
-      } catch (error: any) {
-        const message = error?.message || "Unexpected error";
-        toast({ title: `Couldn't summarize ${product.name}`, description: message, variant: "destructive" });
-        if (/429|quota/i.test(message)) {
-          break;
-        }
-      }
+      }));
 
-      await delay(2000); // faster cadence (Gemini only)
+      if (!abort && i + chunkSize < queue.length) {
+        await delay(pauseMs);
+      }
     }
 
     setIsGeneratingSummaries(false);
