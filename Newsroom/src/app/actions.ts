@@ -605,13 +605,15 @@ export async function getTopAIProductsAction(dateStr?: string): Promise<ProductL
 
         const products = data.data.posts.edges.map((edge: any) => {
           const name = (edge.node.name || '').replace(emojiRegex, '').trim();
-          const rawDescription = edge.node.description || edge.node.tagline || '';
-          const description = rawDescription.replace(emojiRegex, '').trim();
+          const tagline = (edge.node.tagline || '').replace(emojiRegex, '').trim();
+          const rawDescription = edge.node.description || '';
+          const description = (rawDescription || edge.node.tagline || '').replace(emojiRegex, '').trim();
 
             return {
                 id: edge.node.id,
                 name: name,
-                description: description, // We'll generate summaries later if needed
+            description: description,
+            tagline: tagline || undefined,
                 upvotes: edge.node.votesCount || 0,
                 url: (edge.node.website || '').split('?')[0],
             };

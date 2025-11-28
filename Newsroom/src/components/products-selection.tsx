@@ -337,14 +337,16 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                   </div>
                   <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
                     <div className="flex-1">
-                      <label htmlFor={`product-${product.id}`} className="font-semibold text-foreground hover:text-primary cursor-pointer">
+                      <label htmlFor={`product-${product.id}`} className="font-semibold text-foreground hover:text-primary cursor-pointer leading-tight">
                         <a href={product.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {product.name}
+                          {product.tagline ? `${product.name}: ${product.tagline}` : product.name}
                         </a>
                       </label>
-                      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                        {productSummaries[product.id] || product.summary || product.description}
-                      </p>
+                      { (productSummaries[product.id] || product.summary) && (
+                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                          {productSummaries[product.id] || product.summary}
+                        </p>
+                      )}
                       <div className="flex items-center text-xs text-muted-foreground/80 mt-2 font-medium">
                           <ArrowUp className="w-3 h-3 mr-1 text-green-500" /> {(product.upvotes || 0).toLocaleString()} upvotes
                       </div>
@@ -407,7 +409,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4 max-h-[50vh] overflow-y-auto rounded-md bg-muted/60 p-4 text-sm leading-relaxed whitespace-pre-line">
-          {textDialogProduct?.description?.trim() || "No extracted text available for this product."}
+          {textDialogProduct?.description?.trim() || textDialogProduct?.tagline || "No extracted text available for this product."}
         </div>
       </DialogContent>
     </Dialog>
@@ -419,6 +421,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
 
 function AddProductDialog({ onAddProduct, onClose }: { onAddProduct: (product: Omit<ProductLaunch, 'id' | 'upvotes'>) => void, onClose: () => void }) {
   const [newName, setNewName] = useState("");
+  const [newTagline, setNewTagline] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -426,11 +429,12 @@ function AddProductDialog({ onAddProduct, onClose }: { onAddProduct: (product: O
 
   const handleAdd = async () => {
     const trimmedName = newName.trim();
+    const trimmedTagline = newTagline.trim();
     const trimmedDescription = newDescription.trim();
     const trimmedUrl = newUrl.trim();
 
     if (!trimmedName || !trimmedDescription || !trimmedUrl) {
-      toast({ title: "Missing fields", description: "Please provide name, description, and URL.", variant: "destructive" });
+      toast({ title: "Missing fields", description: "Please provide name, tagline (optional), description, and URL.", variant: "destructive" });
       return;
     }
 
@@ -448,11 +452,13 @@ function AddProductDialog({ onAddProduct, onClose }: { onAddProduct: (product: O
 
       onAddProduct({
         name: trimmedName,
+        tagline: trimmedTagline || undefined,
         description: trimmedDescription,
         url: trimmedUrl,
         summary: summaryResult.summary || trimmedDescription,
       });
       setNewName("");
+      setNewTagline("");
       setNewDescription("");
       setNewUrl("");
       onClose();
@@ -475,8 +481,12 @@ function AddProductDialog({ onAddProduct, onClose }: { onAddProduct: (product: O
           <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Input id="description" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+          <Label htmlFor="tagline">Tagline (shown next to name)</Label>
+          <Input id="tagline" value={newTagline} onChange={(e) => setNewTagline(e.target.value)} placeholder="e.g. YouTube video insights for all" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="description">Gemini context (kept private)</Label>
+          <Input id="description" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Detail how the product works" />
         </div>
          <div className="space-y-2">
           <Label htmlFor="url">URL</Label>

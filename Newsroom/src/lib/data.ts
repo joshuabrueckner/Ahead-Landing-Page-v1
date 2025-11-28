@@ -14,6 +14,7 @@ export type ProductLaunch = {
   id: string; // From Algolia objectID
   name: string;
   description: string;
+  tagline?: string;
   url: string;
   upvotes: number;
   summary?: string;
