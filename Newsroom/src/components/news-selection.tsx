@@ -71,15 +71,18 @@ class ExtractionQueue {
           summary = "";
         } else {
           text = result.text || "No text was extracted.";
+          console.log('Extracted text length:', text.length);
           
           // Generate summary from the extracted text
           if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
+            console.log('Generating summary for:', item.url);
             const summaryResult = await generateArticleOneSentenceSummary(text);
             if (summaryResult.error) {
               console.error("Summary generation failed:", summaryResult.error);
               summary = "";
             } else {
               summary = summaryResult.summary || "";
+              console.log('Generated summary:', summary);
             }
           }
         }
@@ -136,6 +139,7 @@ const ArticleItem = ({
     // Auto-extract text and generate summary on mount using queue
     useEffect(() => {
         extractionQueue.add(article.url, (text, sum) => {
+            console.log('Article processed:', article.title, 'Summary:', sum);
             setExtractedText(text);
             setSummary(sum);
             setIsExtracting(false);
