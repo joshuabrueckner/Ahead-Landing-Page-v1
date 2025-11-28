@@ -270,6 +270,7 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
     const html = await response.text();
     const $ = load(html);
     const articles: Omit<NewsArticle, "id" | "summary" | "text">[] = [];
+    const seenUrls = new Set<string>();
 
     $(".news-listing .news-item").each((_, element) => {
       const container = $(element);
@@ -280,10 +281,23 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
       }
 
       const anchor = container.find("a").first();
-      const url = anchor.attr("href")?.trim();
-      if (!url) {
+      const rawUrl = anchor.attr("href")?.trim();
+      if (!rawUrl) {
         return;
       }
+
+      let resolvedUrl: string;
+      try {
+        resolvedUrl = rawUrl.startsWith("http") ? rawUrl : new URL(rawUrl, FUTURE_TOOLS_NEWS_URL).toString();
+      } catch (error) {
+        console.error("Failed to resolve Future Tools URL", rawUrl, error);
+        return;
+      }
+
+      if (seenUrls.has(resolvedUrl)) {
+        return;
+      }
+      seenUrls.add(resolvedUrl);
 
       const title = container.find(".text-block-27").first().text().trim() || "Untitled";
       const sourceRaw = container.find(".text-block-28").first().text().trim();
@@ -291,7 +305,7 @@ const fetchNewsFromFutureTools = async (dateStr?: string): Promise<Omit<NewsArti
 
       articles.push({
         title: stripSourceFromTitle(title, source),
-        url,
+        url: resolvedUrl,
         source,
         date: normalizedDate,
         imageUrl: undefined,
