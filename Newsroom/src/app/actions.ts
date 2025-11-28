@@ -614,21 +614,7 @@ export async function getTopAIProductsAction(dateStr?: string): Promise<ProductL
             };
         });
 
-        const enrichedProducts = await Promise.all(
-          products.map(async (product: ProductLaunch) => {
-            const summary = await generateProductOutcomeSentence({
-              name: product.name,
-              description: product.description,
-              url: product.url,
-            });
-            return {
-              ...product,
-              summary: summary || product.description,
-            };
-          })
-        );
-
-        return enrichedProducts;
+        return products;
 
     } catch (error: any) {
         console.error("Error fetching Product Hunt data:", error);
