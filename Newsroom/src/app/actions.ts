@@ -95,7 +95,7 @@ export async function getArticleHeadlinesAction(): Promise<Omit<NewsArticle, 'id
 export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
   try {
     const result = await ai.generate({
-      model: 'googleai/gemini-2.5-pro-preview',
+      model: 'googleai/gemini-3-pro-preview',
       prompt: `You are a helpful assistant that summarizes AI news articles for people who are not fully up-to-speed on all things AI.
 
 Given the article text below, write ONE clear, accessible sentence that explains what this article is about. The summary should:
