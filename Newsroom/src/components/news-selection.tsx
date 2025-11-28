@@ -370,7 +370,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       size="icon"
                       onClick={handleDateButtonClick}
                       className="h-10 w-10 rounded-full font-semibold"
@@ -405,7 +405,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" aria-label="Add article">
+                      <Button variant="default" size="icon" className="h-10 w-10 rounded-full" aria-label="Add article">
                         <Plus className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>

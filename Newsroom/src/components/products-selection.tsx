@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ProductLaunch } from "@/lib/data";
 import {
   Card,
@@ -24,8 +24,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, PlusCircle, ArrowUp } from "lucide-react";
+import { Rocket, Plus, ArrowUp } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const MAX_SELECTIONS = 3;
 
@@ -33,11 +34,16 @@ type ProductsSelectionProps = {
   products: ProductLaunch[];
   selectedProducts: ProductLaunch[];
   setSelectedProducts: (products: ProductLaunch[]) => void;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
+  maxDate: string;
 };
 
-export default function ProductsSelection({ products: initialProducts, selectedProducts, setSelectedProducts }: ProductsSelectionProps) {
+export default function ProductsSelection({ products: initialProducts, selectedProducts, setSelectedProducts, selectedDate, onDateChange, maxDate }: ProductsSelectionProps) {
   const [products, setProducts] = useState<ProductLaunch[]>(initialProducts);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dateInput, setDateInput] = useState(selectedDate);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     // This effect ensures that if selected products are loaded from localStorage,
@@ -47,6 +53,36 @@ export default function ProductsSelection({ products: initialProducts, selectedP
         .sort((a,b) => (b.upvotes || 0) - (a.upvotes || 0));
     setProducts(uniqueProducts);
   }, [initialProducts, selectedProducts]);
+
+  useEffect(() => {
+    setDateInput(selectedDate);
+  }, [selectedDate]);
+
+  const handleDateInputChange = (value: string) => {
+    setDateInput(value);
+    if (value) {
+      onDateChange(value);
+    }
+  };
+
+  const handleDateButtonClick = () => {
+    if (dateInputRef.current) {
+      const input = dateInputRef.current as HTMLInputElement & { showPicker?: () => void };
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    }
+  };
+
+  const dayLabel = (() => {
+    if (!dateInput) return "--";
+    const parts = dateInput.split("-");
+    const dayPart = parts[2];
+    if (!dayPart) return "--";
+    return String(parseInt(dayPart, 10));
+  })();
 
   const selectedIds = new Set(selectedProducts.map(p => p.id));
 
@@ -94,18 +130,51 @@ export default function ProductsSelection({ products: initialProducts, selectedP
               </CardDescription>
             </div>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <AddProductDialog 
-                onAddProduct={handleAddProduct}
-                onClose={() => setIsDialogOpen(false)}
-            />
-          </Dialog>
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-2">
+              <div>
+                <Input
+                  ref={dateInputRef}
+                  type="date"
+                  value={dateInput}
+                  onChange={(e) => handleDateInputChange(e.target.value)}
+                  className="sr-only"
+                  max={maxDate}
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="icon"
+                      onClick={handleDateButtonClick}
+                      className="h-10 w-10 rounded-full font-semibold"
+                      aria-label="Jump to date"
+                    >
+                      {dayLabel}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Jump to date</TooltipContent>
+                </Tooltip>
+              </div>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                      <Button variant="default" size="icon" className="h-10 w-10 rounded-full" aria-label="Add product">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Add product</TooltipContent>
+                </Tooltip>
+                <AddProductDialog 
+                    onAddProduct={handleAddProduct}
+                    onClose={() => setIsDialogOpen(false)}
+                />
+              </Dialog>
+            </div>
+          </TooltipProvider>
         </div>
       </CardHeader>
       <CardContent>

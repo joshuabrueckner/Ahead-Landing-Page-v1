@@ -22,8 +22,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Lightbulb, PlusCircle } from "lucide-react";
+import { Lightbulb, Plus } from "lucide-react";
 import { Separator } from "./ui/separator";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const initialTips = [
   "Start with small, well-defined AI projects to build momentum and gain experience before tackling more complex initiatives.",
@@ -66,14 +67,19 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
               <CardDescription>Select one tip for the newsletter.</CardDescription>
             </div>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Tip
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
+          <TooltipProvider delayDuration={200}>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DialogTrigger asChild>
+                    <Button variant="default" size="icon" className="h-10 w-10 rounded-full" aria-label="Add tip">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Add tip</TooltipContent>
+              </Tooltip>
+              <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add a Custom Tip</DialogTitle>
               </DialogHeader>
@@ -89,8 +95,9 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
                 </DialogClose>
                 <Button onClick={handleAddTip}>Add Tip</Button>
               </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </TooltipProvider>
         </div>
       </CardHeader>
       <CardContent>

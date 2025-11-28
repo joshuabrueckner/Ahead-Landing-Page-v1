@@ -44,6 +44,8 @@ export default function Home() {
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const [products, setProducts] = useState<ProductLaunch[]>([]);
+  const [selectedProductDate, setSelectedProductDate] = useState<string>(getYesterdayDateStringISO());
+  const [productFetchTrigger, setProductFetchTrigger] = useState(0);
   
   const [selectedArticles, setSelectedArticles] = useState<NewsArticle[]>([]);
   const [featuredArticle, setFeaturedArticle] = useState<NewsArticle | null>(null);
@@ -59,6 +61,11 @@ export default function Home() {
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
     setFetchTrigger(prev => prev + 1);
+  };
+
+  const handleProductDateChange = (date: string) => {
+    setSelectedProductDate(date);
+    setProductFetchTrigger(prev => prev + 1);
   };
 
   const handleAddArticle = (article: Omit<NewsArticle, 'id'>) => {
@@ -88,9 +95,7 @@ export default function Home() {
           return data;
         })
         .catch((error) => ({ error: error.message }));
-      const productsPromise = getTopAIProductsAction();
-
-      const [headlinesResult, productsResult] = await Promise.all([headlinesPromise, productsPromise]);
+      const headlinesResult = await headlinesPromise;
 
       if ('error' in headlinesResult) {
         toast({ variant: "destructive", title: "Failed to fetch headlines", description: headlinesResult.error });
@@ -103,17 +108,24 @@ export default function Home() {
         }));
         setDisplayedArticles(articlesWithIds);
       }
-
-      if ('error' in productsResult) {
-        toast({ variant: "destructive", title: "Failed to fetch products", description: productsResult.error });
-      } else {
-        setProducts(productsResult);
-      }
       setIsLoading(false);
     }
     fetchInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, selectedDate, fetchTrigger]);
+
+  useEffect(() => {
+    async function fetchProductsData() {
+      const productsResult = await getTopAIProductsAction(selectedProductDate);
+      if ('error' in productsResult) {
+        toast({ variant: "destructive", title: "Failed to fetch products", description: productsResult.error });
+      } else {
+        setProducts(productsResult);
+      }
+    }
+
+    fetchProductsData();
+  }, [toast, selectedProductDate, productFetchTrigger]);
   
   
   const handleSelect = (article: NewsArticle) => {
@@ -226,6 +238,9 @@ export default function Home() {
             products={products}
             selectedProducts={selectedProducts}
             setSelectedProducts={setSelectedProducts}
+            selectedDate={selectedProductDate}
+            onDateChange={handleProductDateChange}
+            maxDate={maxDate}
           />
           <AiTipSection 
             selectedTip={selectedTip}

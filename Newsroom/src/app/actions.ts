@@ -514,7 +514,7 @@ const getYesterdayDateStringForProductHunt = () => {
 
 const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
 
-export async function getTopAIProductsAction(): Promise<ProductLaunch[] | { error: string }> {
+export async function getTopAIProductsAction(dateStr?: string): Promise<ProductLaunch[] | { error: string }> {
     const { PRODUCT_HUNT_API_KEY, PRODUCT_HUNT_API_SECRET } = process.env;
     if (!PRODUCT_HUNT_API_KEY || !PRODUCT_HUNT_API_SECRET) {
         console.warn('Product Hunt API credentials are not configured. Skipping product fetch.');
@@ -523,11 +523,11 @@ export async function getTopAIProductsAction(): Promise<ProductLaunch[] | { erro
 
     try {
         const token = await getProductHuntToken();
-        const yesterday = getYesterdayDateStringForProductHunt();
+        const targetDate = dateStr || getYesterdayDateStringForProductHunt();
         
         const query = `
             query GetTopPosts {
-                posts(postedAfter: "${yesterday}T00:00:00.000Z", postedBefore: "${yesterday}T23:59:59.999Z", order: VOTES, first: 10, topic: "artificial-intelligence") {
+                posts(postedAfter: "${targetDate}T00:00:00.000Z", postedBefore: "${targetDate}T23:59:59.999Z", order: VOTES, first: 10, topic: "artificial-intelligence") {
                     edges {
                         node {
                             id
