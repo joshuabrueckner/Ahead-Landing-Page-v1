@@ -24,9 +24,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Plus, ArrowUp } from "lucide-react";
+import { Rocket, Plus, ArrowUp, Loader } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { generateProductOutcomeSentenceAction } from "@/app/actions";
 
 const MAX_SELECTIONS = 3;
 
@@ -203,7 +205,9 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                         {product.name}
                       </a>
                     </label>
-                    <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                      {product.summary || product.description}
+                    </p>
                     <div className="flex items-center text-xs text-muted-foreground/80 mt-2 font-medium">
                         <ArrowUp className="w-3 h-3 mr-1 text-green-500" /> {(product.upvotes || 0).toLocaleString()} upvotes
                     </div>
@@ -224,49 +228,86 @@ export default function ProductsSelection({ products: initialProducts, selectedP
 
 
 function AddProductDialog({ onAddProduct, onClose }: { onAddProduct: (product: Omit<ProductLaunch, 'id' | 'upvotes'>) => void, onClose: () => void }) {
-    const [newName, setNewName] = useState("");
-    const [newDescription, setNewDescription] = useState("");
-    const [newUrl, setNewUrl] = useState("");
-  
-    const handleAdd = () => {
-      if (newName && newDescription && newUrl) {
-        onAddProduct({
-            name: newName,
-            description: newDescription,
-            url: newUrl,
-        });
-        setNewName("");
-        setNewDescription("");
-        setNewUrl("");
-        onClose();
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const handleAdd = async () => {
+    const trimmedName = newName.trim();
+    const trimmedDescription = newDescription.trim();
+    const trimmedUrl = newUrl.trim();
+
+    if (!trimmedName || !trimmedDescription || !trimmedUrl) {
+      toast({ title: "Missing fields", description: "Please provide name, description, and URL.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const summaryResult = await generateProductOutcomeSentenceAction({
+        name: trimmedName,
+        description: trimmedDescription,
+        url: trimmedUrl,
+      });
+
+      if (summaryResult.error) {
+        toast({ title: "Gemini error", description: summaryResult.error, variant: "destructive" });
       }
-    };
-  
-    return (
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a Custom Product</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Input id="description" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
-          </div>
-           <div className="space-y-2">
-            <Label htmlFor="url">URL</Label>
-            <Input id="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
-          </div>
+
+      onAddProduct({
+        name: trimmedName,
+        description: trimmedDescription,
+        url: trimmedUrl,
+        summary: summaryResult.summary || trimmedDescription,
+      });
+      setNewName("");
+      setNewDescription("");
+      setNewUrl("");
+      onClose();
+    } catch (error: any) {
+      console.error("Failed to add custom product:", error);
+      toast({ title: "Unexpected error", description: error?.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Add a Custom Product</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Name</Label>
+          <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} />
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <Button onClick={handleAdd}>Add Product</Button>
-        </DialogFooter>
-      </DialogContent>
-    );
-  }
+        <div className="space-y-2">
+          <Label htmlFor="description">Description</Label>
+          <Input id="description" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+        </div>
+         <div className="space-y-2">
+          <Label htmlFor="url">URL</Label>
+          <Input id="url" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
+        </div>
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="outline" disabled={isSubmitting}>Cancel</Button>
+        </DialogClose>
+        <Button onClick={handleAdd} disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader className="mr-2 h-4 w-4 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            "Add Product"
+          )}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}

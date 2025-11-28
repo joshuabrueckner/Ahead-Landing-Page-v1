@@ -16,6 +16,7 @@ export type ProductLaunch = {
   description: string;
   url: string;
   upvotes: number;
+  summary?: string;
 };
 
 // This is now just initial data for products, news is fetched from AI.

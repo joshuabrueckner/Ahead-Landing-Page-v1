@@ -512,6 +512,43 @@ const getYesterdayDateStringForProductHunt = () => {
     return `${year}-${month}-${day}`;
 }
 
+type ProductSummaryInput = {
+  name: string;
+  description?: string;
+  url?: string;
+};
+
+const generateProductOutcomeSentence = async ({ name, description, url }: ProductSummaryInput): Promise<string | null> => {
+  const context = description?.trim() || "";
+  const urlContext = url ? `Product URL: ${url}` : "";
+  const prompt = `You are an expert copywriter for Ahead. Your task is to write a single, short, and highly practical sentence that completes the following structure: "${name} helps you..."
+
+Follow these rules:
+1. Focus on the outcome or job-to-be-done for a mid-career non-technical professional.
+2. Use warm, jargon-free language that feels empowering.
+3. Be direct and actionable, starting immediately after the product name.
+4. Keep it to one sentence totaling <= 25 words.
+
+Product context:
+${context || "No description provided."}
+${urlContext}
+
+Respond with only the completed sentence.`;
+
+  try {
+    const result = await ai.generate({
+      model: 'googleai/gemini-3-pro-preview',
+      prompt,
+    });
+
+    const summary = result.text?.trim();
+    return summary || null;
+  } catch (error) {
+    console.error(`Failed to generate product summary for ${name}:`, error);
+    return null;
+  }
+};
+
 const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
 
 export async function getTopAIProductsAction(dateStr?: string): Promise<ProductLaunch[] | { error: string }> {
@@ -577,12 +614,34 @@ export async function getTopAIProductsAction(dateStr?: string): Promise<ProductL
             };
         });
 
-        return products;
+        const enrichedProducts = await Promise.all(
+          products.map(async (product: ProductLaunch) => {
+            const summary = await generateProductOutcomeSentence({
+              name: product.name,
+              description: product.description,
+              url: product.url,
+            });
+            return {
+              ...product,
+              summary: summary || product.description,
+            };
+          })
+        );
+
+        return enrichedProducts;
 
     } catch (error: any) {
         console.error("Error fetching Product Hunt data:", error);
         return { error: error.message || "Failed to fetch top AI products." };
     }
+}
+
+export async function generateProductOutcomeSentenceAction(input: ProductSummaryInput): Promise<{ summary?: string; error?: string }> {
+  const summary = await generateProductOutcomeSentence(input);
+  if (!summary) {
+    return { error: "Failed to generate product summary." };
+  }
+  return { summary };
 }
 
 
