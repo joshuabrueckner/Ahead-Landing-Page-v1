@@ -3,10 +3,10 @@
 // with your Firebase project's configuration by the Firebase CLI.
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyALvyVK73VkgOkQUKMwQyvEycxFhVBjhjo",
-  authDomain: "studio-62613658-60f1b.firebaseapp.com",
-  projectId: "studio-62613658-60f1b",
-  storageBucket: "studio-62613658-60f1b.appspot.com",
-  messagingSenderId: "1085274238970",
-  appId: "1:1085274238970:web:00e9fc4c0f06d47aaffe43"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
