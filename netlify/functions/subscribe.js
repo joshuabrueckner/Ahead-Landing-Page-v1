@@ -73,6 +73,66 @@ const normalizeSubscriberPath = (value) => {
   return cleaned || 'contacts/create';
 };
 
+const { initializeApp, getApps } = require('firebase/app');
+const { getFirestore, addDoc, collection, serverTimestamp } = require('firebase/firestore');
+
+let firestoreInstance;
+
+const getFirebaseConfig = () => ({
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+});
+
+const getFirestoreInstance = () => {
+  if (firestoreInstance) {
+    return firestoreInstance;
+  }
+
+  const config = getFirebaseConfig();
+  if (!config.apiKey || !config.projectId || !config.appId) {
+    console.warn('Firebase configuration is incomplete. Skipping Firestore write.');
+    return null;
+  }
+
+  const app = getApps().length ? getApps()[0] : initializeApp(config);
+  firestoreInstance = getFirestore(app);
+  return firestoreInstance;
+};
+
+const recordSubscriber = async ({ email, name, source, metadata }) => {
+  const db = getFirestoreInstance();
+  if (!db) return;
+
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  const docData = {
+    email: normalizedEmail,
+    isSubscribed: true,
+    source: source || 'landing-page',
+    subscribedAt: serverTimestamp(),
+  };
+
+  const trimmedName = (name || '').trim();
+  if (trimmedName) {
+    docData.name = trimmedName;
+  }
+
+  if (metadata && Object.keys(metadata).length > 0) {
+    docData.metadata = metadata;
+  }
+
+  try {
+    await addDoc(collection(db, 'newsletterSubscribers'), docData);
+  } catch (error) {
+    console.error('Failed to record subscriber in Firestore:', error);
+  }
+};
+
 const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { message: 'Method not allowed' });
@@ -88,6 +148,8 @@ const handler = async (event) => {
   const email = body?.email;
   const firstName = body?.firstName || body?.first_name || body?.firstname;
   const lastName = body?.lastName || body?.last_name || body?.lastname;
+  const source = body?.source || 'landing-page';
+  const metadata = body?.metadata && typeof body.metadata === 'object' ? body.metadata : undefined;
   if (!email || typeof email !== 'string') {
     return jsonResponse(400, { message: 'Missing email' });
   }
@@ -136,6 +198,9 @@ const handler = async (event) => {
         body: JSON.stringify({ message: 'Loops API error', detail, hint, endpoint }),
       };
     }
+
+    const name = [firstName, lastName].filter(Boolean).join(' ').trim();
+    await recordSubscriber({ email, name, source, metadata });
 
     return jsonResponse(200, { ok: true, loops: json });
   } catch (err) {

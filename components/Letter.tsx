@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { addSubscriberToFirestore } from '../lib/subscribers';
 
 export const Letter: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,13 +15,12 @@ export const Letter: React.FC = () => {
       const res = await fetch('/.netlify/functions/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail }),
+        body: JSON.stringify({ email: trimmedEmail, source: 'letter-inline' }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.message || 'Subscription failed');
       }
-      await addSubscriberToFirestore({ email: trimmedEmail, source: 'letter-inline' });
       setStatus('success');
       setEmail('');
     } catch (err: any) {
@@ -101,16 +99,6 @@ export const Letter: React.FC = () => {
         throw new Error(text || 'Submission failed');
       }
 
-      await addSubscriberToFirestore({
-        email: contact.email,
-        name: `${contact.firstName} ${contact.lastName}`.trim(),
-        source: 'contact-form',
-        metadata: {
-          subject: contact.subject,
-          message: contact.message,
-        },
-      });
-
       setContactStatus('success');
       // clear form
       // attempt to add to Loops (subscribe) but don't fail the primary flow if this errors
@@ -118,7 +106,16 @@ export const Letter: React.FC = () => {
         await fetch('/.netlify/functions/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: contact.email, firstName: contact.firstName, lastName: contact.lastName }),
+          body: JSON.stringify({
+            email: contact.email,
+            firstName: contact.firstName,
+            lastName: contact.lastName,
+            source: 'contact-form',
+            metadata: {
+              subject: contact.subject,
+              message: contact.message,
+            },
+          }),
         });
       } catch (err) {
         console.error('Loops subscribe failed', err);

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { NewsletterFormProps } from '../types';
-import { addSubscriberToFirestore } from '../lib/subscribers';
 
 export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const [email, setEmail] = useState('');
@@ -73,7 +72,7 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
       const res = await fetch('/.netlify/functions/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, source: 'newsletter-footer' }),
       });
 
       if (!res.ok) {
@@ -83,8 +82,6 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
         (error as Error & { statusCode?: number }).statusCode = res.status;
         throw error;
       }
-
-      await addSubscriberToFirestore({ email, source: 'newsletter-footer' });
 
       setError('');
       setIsSubmitted(true);
