@@ -21,6 +21,10 @@ export const Letter: React.FC = () => {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.message || 'Subscription failed');
       }
+      const result = await res.json().catch(() => ({}));
+      if (!result?.firestoreRecorded) {
+        console.warn('Newsletter subscribe succeeded but Firestore write missing.', result);
+      }
       setStatus('success');
       setEmail('');
     } catch (err: any) {
@@ -103,7 +107,7 @@ export const Letter: React.FC = () => {
       // clear form
       // attempt to add to Loops (subscribe) but don't fail the primary flow if this errors
       try {
-        await fetch('/.netlify/functions/subscribe', {
+        const resp = await fetch('/.netlify/functions/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -117,6 +121,10 @@ export const Letter: React.FC = () => {
             },
           }),
         });
+        const data = await resp.json().catch(() => ({}));
+        if (!data?.firestoreRecorded) {
+          console.warn('Contact form recorded in Loops but not Firestore.', data);
+        }
       } catch (err) {
         console.error('Loops subscribe failed', err);
       }

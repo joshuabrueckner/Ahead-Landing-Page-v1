@@ -78,13 +78,16 @@ const { getFirestore, addDoc, collection, serverTimestamp } = require('firebase/
 
 let firestoreInstance;
 
+const readEnv = (key) =>
+  process.env[`FIREBASE_${key}`] || process.env[`NEXT_PUBLIC_FIREBASE_${key}`] || process.env[key];
+
 const getFirebaseConfig = () => ({
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: readEnv('API_KEY'),
+  authDomain: readEnv('AUTH_DOMAIN'),
+  projectId: readEnv('PROJECT_ID'),
+  storageBucket: readEnv('STORAGE_BUCKET'),
+  messagingSenderId: readEnv('MESSAGING_SENDER_ID'),
+  appId: readEnv('APP_ID'),
 });
 
 const getFirestoreInstance = () => {
@@ -93,8 +96,19 @@ const getFirestoreInstance = () => {
   }
 
   const config = getFirebaseConfig();
-  if (!config.apiKey || !config.projectId || !config.appId) {
-    console.warn('Firebase configuration is incomplete. Skipping Firestore write.');
+  const missingKeys = Object.entries({
+    apiKey: config.apiKey,
+    authDomain: config.authDomain,
+    projectId: config.projectId,
+    storageBucket: config.storageBucket,
+    messagingSenderId: config.messagingSenderId,
+    appId: config.appId,
+  })
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missingKeys.length) {
+    console.warn('Firebase configuration is incomplete. Skipping Firestore write. Missing:', missingKeys);
     return null;
   }
 
@@ -105,10 +119,10 @@ const getFirestoreInstance = () => {
 
 const recordSubscriber = async ({ email, name, source, metadata }) => {
   const db = getFirestoreInstance();
-  if (!db) return;
+  if (!db) return false;
 
   const normalizedEmail = (email || '').trim().toLowerCase();
-  if (!normalizedEmail) return;
+  if (!normalizedEmail) return false;
 
   const docData = {
     email: normalizedEmail,
@@ -128,8 +142,11 @@ const recordSubscriber = async ({ email, name, source, metadata }) => {
 
   try {
     await addDoc(collection(db, 'newsletterSubscribers'), docData);
+    console.log('Firestore: recorded subscriber', normalizedEmail, 'from', docData.source);
+    return true;
   } catch (error) {
     console.error('Failed to record subscriber in Firestore:', error);
+    return false;
   }
 };
 
@@ -200,9 +217,9 @@ const handler = async (event) => {
     }
 
     const name = [firstName, lastName].filter(Boolean).join(' ').trim();
-    await recordSubscriber({ email, name, source, metadata });
+    const firestoreRecorded = await recordSubscriber({ email, name, source, metadata });
 
-    return jsonResponse(200, { ok: true, loops: json });
+    return jsonResponse(200, { ok: true, loops: json, firestoreRecorded });
   } catch (err) {
     return jsonResponse(500, { message: err?.message || 'Internal error' });
   }

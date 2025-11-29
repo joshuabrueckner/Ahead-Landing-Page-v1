@@ -82,6 +82,10 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
         (error as Error & { statusCode?: number }).statusCode = res.status;
         throw error;
       }
+      const result = await res.json().catch(() => ({}));
+      if (!result?.firestoreRecorded) {
+        console.warn('Footer subscribe stored in Loops but not Firestore.', result);
+      }
 
       setError('');
       setIsSubmitted(true);
