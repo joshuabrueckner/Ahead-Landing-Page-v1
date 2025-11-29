@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import type { GenerateNewsletterEmailContentOutput } from '@/ai/flows/generate-newsletter-email-content';
 import { sendToLoopsAction } from '../actions';
 import { useToast } from '@/hooks/use-toast';
+import { getBasePath, withBasePath } from '@/lib/base-path';
 
 function generateHtml(content: GenerateNewsletterEmailContentOutput, subject: string, introSentence: string) {
   let html = `<div style="font-family: Arial, Helvetica, sans-serif; color: #333; max-width: 600px; margin: 0 auto; background-color: #fdf9f1; padding: 20px;">`;
@@ -66,6 +67,7 @@ export default function PreviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [content, setContent] = useState<GenerateNewsletterEmailContentOutput | null>(null);
+  const [basePath, setBasePath] = useState<string>(() => getBasePath());
 
   useEffect(() => {
     const storedPreview = localStorage.getItem('newsletterPreview');
@@ -77,13 +79,20 @@ export default function PreviewPage() {
         setIntroSentence(parsedIntro || '');
       } catch (e) {
         console.error("Failed to parse newsletter preview from localStorage", e);
-        router.push('/refine');
+        router.push(withBasePath('/refine', getBasePath()));
       }
     } else {
-      router.push('/refine');
+      router.push(withBasePath('/refine', getBasePath()));
     }
     setIsLoading(false);
   }, [router]);
+
+  useEffect(() => {
+    const resolved = getBasePath();
+    if (resolved !== basePath) {
+      setBasePath(resolved);
+    }
+  }, [basePath]);
 
   useEffect(() => {
     if (content) {
@@ -139,7 +148,7 @@ export default function PreviewPage() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => router.push('/refine')} disabled={isSending}>
+            <Button variant="outline" onClick={() => router.push(withBasePath('/refine', getBasePath()))} disabled={isSending}>
                 Back to Edit
             </Button>
             <Button onClick={handleSend} disabled={isSending}>

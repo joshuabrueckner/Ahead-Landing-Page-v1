@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import type { GenerateNewsletterEmailContentOutput } from '@/ai/flows/generate-newsletter-email-content';
 import { Textarea } from '@/components/ui/textarea';
+import { getBasePath, withBasePath } from '@/lib/base-path';
 
 type EditableFieldProps = {
   label: string;
@@ -78,6 +79,7 @@ function EditableField({ label, value, onChange, isTextArea, prefix }: EditableF
 export default function RefinePage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [basePath, setBasePath] = useState<string>(() => getBasePath());
   const [selections, setSelections] = useState<{
     selectedArticles: NewsArticle[];
     featuredArticle: NewsArticle | null;
@@ -99,12 +101,19 @@ export default function RefinePage() {
         }
         setSelections(parsed);
       } catch (e) {
-        router.push('/');
+        router.push(withBasePath('/', getBasePath()));
       }
     } else {
-      router.push('/');
+      router.push(withBasePath('/', getBasePath()));
     }
   }, [router]);
+
+  useEffect(() => {
+    const resolved = getBasePath();
+    if (resolved !== basePath) {
+      setBasePath(resolved);
+    }
+  }, [basePath]);
 
   const handleGenerateContent = useCallback(async (currentSelections: any) => {
     if (!currentSelections) return;
@@ -244,7 +253,7 @@ export default function RefinePage() {
       introSentence: generatedIntro,
     };
     localStorage.setItem("newsletterPreview", JSON.stringify(previewData));
-    router.push("/preview");
+    router.push(withBasePath('/preview', getBasePath()));
   };
 
   const handleFieldChange = (
@@ -306,7 +315,7 @@ export default function RefinePage() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => router.push('/')}>
+            <Button variant="outline" onClick={() => router.push(withBasePath('/', getBasePath()))}> 
               Back
             </Button>
             <Button disabled={isGenerating || !generatedContent} onClick={handlePreview}>

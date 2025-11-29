@@ -12,10 +12,12 @@ import { Button } from "@/components/ui/button";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { getTopAIProductsAction } from "./actions";
 import { useToast } from "@/hooks/use-toast";
+import { buildApiPath, getBasePath, withBasePath } from "@/lib/base-path";
 
 export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
+  const [basePath, setBasePath] = useState<string>(() => getBasePath());
   
   const getYesterdayDateStringISO = () => {
     const nowInPT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
@@ -97,13 +99,22 @@ export default function Home() {
     });
   };
 
+  useEffect(() => {
+    const resolved = getBasePath();
+    if (resolved !== basePath) {
+      setBasePath(resolved);
+    }
+  }, [basePath]);
+
   // Effect to fetch initial data for products and quick headlines
   useEffect(() => {
     async function fetchInitialData() {
       setIsLoading(true);
       setDisplayedArticles([]); // Clear articles to show loading state
-      
-      const articlesUrl = selectedDate ? `/api/articles?date=${selectedDate}` : "/api/articles";
+      const runtimeBasePath = getBasePath();
+      const articlesUrl = selectedDate
+        ? buildApiPath(`/api/articles?date=${selectedDate}`, runtimeBasePath)
+        : buildApiPath("/api/articles", runtimeBasePath);
       const headlinesPromise = fetch(articlesUrl, { cache: "no-store" })
         .then(async (res) => {
           const data = await res.json();
@@ -232,7 +243,7 @@ export default function Home() {
       });
       return;
     }
-    router.push("/refine");
+    router.push(withBasePath("/refine", getBasePath()));
   };
 
   return (
@@ -247,7 +258,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <Button variant="outline" asChild>
-                <Link href="/subscribers">Subscribers</Link>
+              <Link href={withBasePath("/subscribers", basePath)}>Subscribers</Link>
             </Button>
             <Button disabled={!areAllRequirementsMet} onClick={handleNext}>
                 Next

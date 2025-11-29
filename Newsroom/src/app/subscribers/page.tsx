@@ -11,6 +11,7 @@ import { addSubscriberAction, getSubscribersAction } from '../actions';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
+import { getBasePath, withBasePath } from '@/lib/base-path';
 
 type Subscriber = {
   email: string;
@@ -25,6 +26,7 @@ export default function SubscribersPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [basePath, setBasePath] = useState<string>(() => getBasePath());
 
   useEffect(() => {
     const fetchSubscribers = async () => {
@@ -43,6 +45,13 @@ export default function SubscribersPage() {
     };
     fetchSubscribers();
   }, [toast]);
+
+  useEffect(() => {
+    const resolved = getBasePath();
+    if (resolved !== basePath) {
+      setBasePath(resolved);
+    }
+  }, [basePath]);
 
   const handleAddSubscriber = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,8 +88,8 @@ export default function SubscribersPage() {
               Subscriber Management
             </h1>
           </div>
-           <Button variant="outline" asChild>
-              <Link href="/">Back to Newsroom</Link>
+            <Button variant="outline" asChild>
+              <Link href={withBasePath('/', basePath)}>Back to Newsroom</Link>
            </Button>
         </div>
       </header>
