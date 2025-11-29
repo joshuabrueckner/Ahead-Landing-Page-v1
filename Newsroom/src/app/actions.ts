@@ -699,6 +699,7 @@ export async function sendToLoopsAction(
         body: JSON.stringify({
           eventName: "sendDailyNewsletter",
           email: subscriber.email,
+          firstName: subscriber.name,
           ...eventProperties,
           RecipientName: subscriber.name || '',
         }),
@@ -709,6 +710,7 @@ export async function sendToLoopsAction(
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
+          console.error(`[sendToLoopsAction] Loops API Error for ${subscriber.email}:`, errorData);
         } catch (parseError) {
           // Ignore JSON parsing errors and fall back to default message
         }
@@ -716,6 +718,8 @@ export async function sendToLoopsAction(
       }
 
       const responseData = await response.json();
+      console.log(`[sendToLoopsAction] Success for ${subscriber.email}:`, responseData);
+
       if (!responseData?.success) {
         throw new Error('Loops API responded without success flag.');
       }
