@@ -651,8 +651,9 @@ export async function sendToLoopsAction(
      return { success: false, error: subscribers.error };
   }
 
-  if (subscribers.length === 0) {
-    return { success: false, error: "No subscribers found." };
+  const activeSubscribers = subscribers.filter((subscriber) => subscriber.isSubscribed !== false && !!subscriber.email);
+  if (activeSubscribers.length === 0) {
+    return { success: false, error: "No active subscribers found." };
   }
 
   const eventProperties = {
@@ -683,33 +684,58 @@ export async function sendToLoopsAction(
     AheadTip: content.aheadTip,
   };
 
-  try {
-    // Using transactional endpoint to send to multiple contacts
-    const response = await fetch('https://app.loops.so/api/v1/transactional', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        transactionalId: "clzxbx64w0004z86n4p9o7d1u", // Daily Newsletter Transactional ID
-        contacts: subscribers.map(s => ({ email: s.email })),
-        dataVariables: eventProperties
-      }),
-    });
+  const failedRecipients: { email: string; reason: string }[] = [];
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to send event to Loops');
+  for (const subscriber of activeSubscribers) {
+    try {
+      const response = await fetch('https://app.loops.so/api/v1/transactional', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionalId: "clzxbx64w0004z86n4p9o7d1u", // Daily Newsletter Transactional ID
+          email: subscriber.email,
+          dataVariables: {
+            ...eventProperties,
+            RecipientName: subscriber.name || '',
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to send event to Loops';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          // Ignore JSON parsing errors and fall back to default message
+        }
+        throw new Error(errorMessage);
+      }
+
+      const responseData = await response.json();
+      if (!responseData?.success) {
+        throw new Error('Loops API responded without success flag.');
+      }
+    } catch (error: any) {
+      console.error(`Error sending to Loops for ${subscriber.email}:`, error);
+      failedRecipients.push({ email: subscriber.email, reason: error.message || 'Unknown error' });
     }
-
-    const responseData = await response.json();
-    return { success: responseData.success };
-
-  } catch (error: any) {
-    console.error('Error sending to Loops:', error);
-    return { success: false, error: error.message || 'An unknown error occurred.' };
   }
+
+  if (failedRecipients.length === activeSubscribers.length) {
+    const reasons = failedRecipients.slice(0, 3).map((entry) => `${entry.email}: ${entry.reason}`).join('; ');
+    return { success: false, error: `Failed to send newsletter to all subscribers. ${reasons}` };
+  }
+
+  if (failedRecipients.length > 0) {
+    const reasons = failedRecipients.slice(0, 3).map((entry) => `${entry.email}: ${entry.reason}`).join('; ');
+    return { success: false, error: `Sent newsletter to ${activeSubscribers.length - failedRecipients.length} subscribers, but ${failedRecipients.length} failed. ${reasons}` };
+  }
+
+  return { success: true };
 }
 
 export async function addSubscriberAction({ email, name }: { email: string, name: string }): Promise<{ success: boolean; error?: string }> {
