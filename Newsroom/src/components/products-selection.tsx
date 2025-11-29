@@ -39,9 +39,10 @@ type ProductsSelectionProps = {
   selectedDate: string;
   onDateChange: (date: string) => void;
   maxDate: string;
+  onProductSummaryUpdate: (productId: string, summary: string) => void;
 };
 
-export default function ProductsSelection({ products: initialProducts, selectedProducts, setSelectedProducts, selectedDate, onDateChange, maxDate }: ProductsSelectionProps) {
+export default function ProductsSelection({ products: initialProducts, selectedProducts, setSelectedProducts, selectedDate, onDateChange, maxDate, onProductSummaryUpdate }: ProductsSelectionProps) {
   const [products, setProducts] = useState<ProductLaunch[]>(initialProducts);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);

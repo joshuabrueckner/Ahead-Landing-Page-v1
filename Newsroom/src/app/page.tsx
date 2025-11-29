@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppLogo } from "@/components/icons";
@@ -51,6 +51,18 @@ export default function Home() {
   const [featuredArticle, setFeaturedArticle] = useState<NewsArticle | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<ProductLaunch[]>([]);
   const [selectedTip, setSelectedTip] = useState<string>("");
+
+  const handleArticleSummaryUpdate = useCallback((articleId: number, summary: string) => {
+    const normalized = (summary || "").trim();
+    setDisplayedArticles(prev => prev.map(article => article.id === articleId ? { ...article, summary: normalized } : article));
+    setSelectedArticles(prev => prev.map(article => article.id === articleId ? { ...article, summary: normalized } : article));
+  }, []);
+
+  const handleProductSummaryUpdate = useCallback((productId: string, summary: string) => {
+    const normalized = (summary || "").trim();
+    setProducts(prev => prev.map(product => product.id === productId ? { ...product, summary: normalized } : product));
+    setSelectedProducts(prev => prev.map(product => product.id === productId ? { ...product, summary: normalized } : product));
+  }, []);
   
   const areAllRequirementsMet = 
     selectedArticles.length === 5 &&
@@ -236,6 +248,7 @@ export default function Home() {
             onDateChange={handleDateChange}
             maxDate={maxDate}
             onAddArticle={handleAddArticle}
+            onArticleSummaryUpdate={handleArticleSummaryUpdate}
           />
           <ProductsSelection 
             products={products}
@@ -244,6 +257,7 @@ export default function Home() {
             selectedDate={selectedProductDate}
             onDateChange={handleProductDateChange}
             maxDate={maxDate}
+            onProductSummaryUpdate={handleProductSummaryUpdate}
           />
           <AiTipSection 
             selectedTip={selectedTip}

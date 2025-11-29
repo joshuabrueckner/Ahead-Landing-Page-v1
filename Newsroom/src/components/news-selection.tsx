@@ -118,6 +118,7 @@ type NewsSelectionProps = {
   onDateChange: (date: string) => void;
   maxDate: string;
   onAddArticle: (article: Omit<NewsArticle, 'id'>) => void;
+  onArticleSummaryUpdate: (articleId: number, summary: string) => void;
 };
 
 const ArticleItem = ({ 
@@ -127,7 +128,8 @@ const ArticleItem = ({
     onSelect, 
     isSelectionDisabled, 
     selectionIndex,
-    shouldExtract
+  shouldExtract,
+  onSummaryUpdate,
 }: { 
     article: NewsArticle, 
     isSelected: boolean,
@@ -135,16 +137,21 @@ const ArticleItem = ({
     onSelect: (article: NewsArticle) => void,
     isSelectionDisabled: boolean
     selectionIndex: number;
-    shouldExtract: boolean;
+  shouldExtract: boolean;
+  onSummaryUpdate: (articleId: number, summary: string) => void;
 }) => {
     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
     const { toast } = useToast();
     const [extractedText, setExtractedText] = useState("");
-    const [summary, setSummary] = useState("");
+  const [summary, setSummary] = useState(article.summary || "");
     const [isExtracting, setIsExtracting] = useState(false);
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
     const [hasBeenQueued, setHasBeenQueued] = useState(false);
+
+  useEffect(() => {
+    setSummary(article.summary || "");
+  }, [article.summary]);
     
     // Auto-extract text and generate summary when shouldExtract becomes true
     useEffect(() => {
@@ -154,11 +161,13 @@ const ArticleItem = ({
             extractionQueue.add(article.url, (text, sum) => {
                 console.log('Article processed:', article.title, 'Summary:', sum);
                 setExtractedText(text);
-                setSummary(sum);
+        const normalized = (sum || "").trim();
+        setSummary(normalized);
+        onSummaryUpdate(article.id, normalized);
                 setIsExtracting(false);
             });
         }
-    }, [shouldExtract, article.url, hasBeenQueued]);
+  }, [shouldExtract, article.url, hasBeenQueued, article.id, onSummaryUpdate]);
     
     const handleShowText = () => {
       setIsTextDialogOpen(true);
@@ -169,7 +178,9 @@ const ArticleItem = ({
         extractionQueue.add(article.url, (text, sum) => {
             console.log('Article re-processed:', article.title, 'Summary:', sum);
             setExtractedText(text);
-            setSummary(sum);
+          const normalized = (sum || "").trim();
+          setSummary(normalized);
+          onSummaryUpdate(article.id, normalized);
             setIsExtracting(false);
         });
     };
@@ -187,7 +198,9 @@ const ArticleItem = ({
                     variant: "destructive",
                 });
             } else {
-                setSummary(result.summary || "");
+                const regenerated = (result.summary || "").trim();
+                setSummary(regenerated);
+                onSummaryUpdate(article.id, regenerated);
                 toast({
                     title: "Success",
                     description: "Summary regenerated successfully.",
@@ -307,7 +320,7 @@ const ArticleItem = ({
 };
 
 
-export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate, onAddArticle }: NewsSelectionProps) {
+export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate, onAddArticle, onArticleSummaryUpdate }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
@@ -466,6 +479,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 isSelectionDisabled={!isSelected && selectionCount >= MAX_SELECTIONS}
                 selectionIndex={selectionIndex}
                 shouldExtract={isExtractionStarted}
+                onSummaryUpdate={onArticleSummaryUpdate}
               />
             );
           })}
