@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,14 +16,6 @@ export default function PasswordPage() {
   const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [basePath, setBasePath] = useState<string>(() => getBasePath());
-
-  useEffect(() => {
-    const resolved = getBasePath();
-    if (resolved !== basePath) {
-      setBasePath(resolved);
-    }
-  }, [basePath]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -34,7 +26,8 @@ export default function PasswordPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(buildApiPath("/api/authenticate", basePath), {
+      const runtimeBasePath = getBasePath();
+      const response = await fetch(buildApiPath("/api/authenticate", runtimeBasePath), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
@@ -46,7 +39,7 @@ export default function PasswordPage() {
       }
 
       const fromParam = searchParams.get("from") || "/";
-      const destination = withBasePath(fromParam, basePath);
+  const destination = withBasePath(fromParam, runtimeBasePath);
       router.replace(destination);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Access denied", description: error.message });
