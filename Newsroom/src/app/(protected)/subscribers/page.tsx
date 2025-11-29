@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { addSubscriberAction, getSubscribersAction } from '../actions';
+import { addSubscriberAction, getSubscribersAction } from '../../actions';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
