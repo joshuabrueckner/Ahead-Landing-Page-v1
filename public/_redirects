@@ -1,0 +1,2 @@
+/newsroom    https://newsroom-ahead.netlify.app/    200
+/newsroom/*  https://newsroom-ahead.netlify.app/:splat  200
