@@ -700,8 +700,10 @@ export async function sendToLoopsAction(
           eventName: "sendDailyNewsletter",
           email: subscriber.email,
           firstName: subscriber.name,
-          ...eventProperties,
-          RecipientName: subscriber.name || '',
+          eventProperties: {
+            ...eventProperties,
+            RecipientName: subscriber.name || '',
+          },
         }),
       });
 
