@@ -65,7 +65,19 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert newsletter creator. Use the provided information to create engaging content.
 You must generate 1 featured headline, 4 additional headlines, 3 product launches, and 1 AI tip.
 
-The first news article in the list is the featured article. Use its title as the headline, its URL as the link, and its imageUrl as the imageUrl if available. Based on the summary, write a 'WhatsHappening' and a 'WhyYouShouldCare' for it.
+The first news article in the list is the featured article. Use its title as the headline, its URL as the link, and its imageUrl as the imageUrl if available. For this featured story you must produce two sections with the following requirements:
+
+1. "What's Happening" (aka The News/Insight) – 3 concise sentences that:
+  - Explain the core development, trend, or story clearly and simply (think deep, speak simply).
+  - Stay neutral and avoid hype or fear-based language.
+  - Use jargon-free, plain language for non-technical mid-career knowledge workers.
+  - Feel conversational and web-friendly, suitable for a daily email newsletter.
+
+2. "Why You Should Care" (aka The Practical Takeaway) – 3 concise sentences that:
+  - Speak directly to mid-career knowledge workers who feel pressured to adopt AI, fear layoffs, or need to be more efficient.
+  - Are empowering, practical, and gently encouraging, highlighting the real-world implication of the news.
+  - Sound smart, witty, and slightly philosophical without lecturing.
+  - Provide actionable guidance the reader can use to feel confident or gain an edge.
 
 For the other 4 news articles, use their titles as the headlines and their URLs as the links.
 
