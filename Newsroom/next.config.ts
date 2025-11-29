@@ -1,10 +1,10 @@
 
 import type {NextConfig} from 'next';
 
-const isProd = process.env.NODE_ENV === 'production';
+const resolvedAssetPrefix = process.env.NEXT_PUBLIC_NEWSROOM_ASSET_PREFIX?.replace(/\/$/, '');
 
 const nextConfig: NextConfig = {
-  assetPrefix: isProd ? 'https://newsroom-ahead.netlify.app' : undefined,
+  assetPrefix: resolvedAssetPrefix || undefined,
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
