@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { addSubscriberToFirestore } from '../lib/subscribers';
 
 export const Letter: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -7,19 +8,21 @@ export const Letter: React.FC = () => {
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) return;
     setStatus('loading');
     setErrorMsg('');
     try {
       const res = await fetch('/.netlify/functions/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: trimmedEmail }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.message || 'Subscription failed');
       }
+      await addSubscriberToFirestore({ email: trimmedEmail, source: 'letter-inline' });
       setStatus('success');
       setEmail('');
     } catch (err: any) {
@@ -97,6 +100,16 @@ export const Letter: React.FC = () => {
         const text = await res.text().catch(() => '');
         throw new Error(text || 'Submission failed');
       }
+
+      await addSubscriberToFirestore({
+        email: contact.email,
+        name: `${contact.firstName} ${contact.lastName}`.trim(),
+        source: 'contact-form',
+        metadata: {
+          subject: contact.subject,
+          message: contact.message,
+        },
+      });
 
       setContactStatus('success');
       // clear form
