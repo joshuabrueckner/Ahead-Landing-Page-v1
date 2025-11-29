@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -10,29 +10,9 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Lightbulb, Plus } from "lucide-react";
-import { Separator } from "./ui/separator";
+import { Lightbulb, Sparkles, Loader2 } from "lucide-react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-
-const initialTips = [
-  "Start with small, well-defined AI projects to build momentum and gain experience before tackling more complex initiatives.",
-  "Ensure your training data is clean, diverse, and representative of the real-world scenarios your AI will encounter.",
-  "Regularly audit your AI models for bias and fairness to ensure they are making equitable decisions.",
-  "Implement a human-in-the-loop system for critical AI applications to allow for manual review and intervention.",
-  "Focus on the user experience (UX) of your AI-powered features. A powerful model is useless if it's not intuitive to use.",
-];
 
 type AiTipSectionProps = {
   selectedTip: string;
@@ -40,19 +20,53 @@ type AiTipSectionProps = {
 };
 
 export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSectionProps) {
-  const [tips, setTips] = useState<string[]>(initialTips);
-  const [newTip, setNewTip] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [tipDraft, setTipDraft] = useState(selectedTip ?? "");
+  const [isTransforming, setIsTransforming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAddTip = () => {
-    if (newTip.trim()) {
-      const updatedTips = [newTip.trim(), ...tips];
-      setTips(updatedTips);
-      setSelectedTip(newTip.trim());
-      setNewTip("");
-      setIsDialogOpen(false);
+  useEffect(() => {
+    setTipDraft(selectedTip ?? "");
+  }, [selectedTip]);
+
+  const handleManualChange = (value: string) => {
+    setTipDraft(value);
+    setSelectedTip(value);
+    setError(null);
+  };
+
+  const handleTransform = async () => {
+    if (!tipDraft.trim()) {
+      setError("Add some context before transforming the tip.");
+      return;
+    }
+
+    setIsTransforming(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/transform-tip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: tipDraft }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data?.tip) {
+        throw new Error(data?.error || "Failed to transform tip.");
+      }
+
+      setTipDraft(data.tip);
+      setSelectedTip(data.tip);
+    } catch (err: any) {
+      setError(err?.message || "Unable to transform tip right now.");
+    } finally {
+      setIsTransforming(false);
     }
   };
+
+  const charCount = tipDraft.length;
+  const exceedsTarget = charCount > 300;
 
   return (
     <Card>
@@ -64,61 +78,50 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
             </div>
             <div>
               <CardTitle className="text-xl font-headline">Daily AI Tip</CardTitle>
-              <CardDescription>Select one tip for the newsletter.</CardDescription>
+              <CardDescription>
+                Paste your raw notes, then use AI to polish them into a confident, sub-300 character tip.
+              </CardDescription>
             </div>
           </div>
           <TooltipProvider delayDuration={200}>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DialogTrigger asChild>
-                    <Button variant="default" size="icon" className="h-10 w-10 rounded-full" aria-label="Add tip">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Add tip</TooltipContent>
-              </Tooltip>
-              <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add a Custom Tip</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tip">Your AI Tip</Label>
-                  <Textarea id="tip" value={newTip} onChange={(e) => setNewTip(e.target.value)} placeholder="Enter your custom tip here..." />
-                </div>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
-                </DialogClose>
-                <Button onClick={handleAddTip}>Add Tip</Button>
-              </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  className="h-10 rounded-full px-4 flex items-center gap-2"
+                  onClick={handleTransform}
+                  disabled={isTransforming}
+                >
+                  {isTransforming ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {isTransforming ? "Transforming" : "Polish with AI"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Gemini will rewrite this tip within 300 characters.</TooltipContent>
+            </Tooltip>
           </TooltipProvider>
         </div>
       </CardHeader>
-      <CardContent>
-        <RadioGroup value={selectedTip} onValueChange={setSelectedTip}>
-          <div className="space-y-4">
-            {tips.map((tip, index) => (
-              <div key={index}>
-                <div className="flex items-center gap-4">
-                  <RadioGroupItem value={tip} id={`tip-${index}`} className="mt-1" />
-                  <Label htmlFor={`tip-${index}`} className="font-normal text-foreground leading-snug cursor-pointer">
-                    {tip}
-                  </Label>
-                </div>
-                {index < tips.length - 1 && <Separator className="mt-4" />}
-              </div>
-            ))}
-          </div>
-        </RadioGroup>
+      <CardContent className="space-y-4">
+        <Textarea
+          value={tipDraft}
+          onChange={(event) => handleManualChange(event.target.value)}
+          placeholder="Paste meeting notes, messy drafts, or yesterday's automation win..."
+          rows={5}
+        />
       </CardContent>
-      <CardFooter className="bg-secondary/50 p-4 border-t text-sm text-muted-foreground flex justify-center">
-        <span>{selectedTip ? "1 of 1 tip selected." : "No tip selected."}</span>
+      <CardFooter className="bg-secondary/50 p-4 border-t text-sm text-muted-foreground flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <span className={exceedsTarget ? "text-destructive font-medium" : undefined}>
+          {`Characters: ${charCount}${exceedsTarget ? " (trim closer to 300)" : " / target 300"}`}
+        </span>
+        {error && <span className="text-destructive">{error}</span>}
+        {!error && selectedTip && !exceedsTarget && (
+          <span className="text-foreground">Tip ready for the newsletter.</span>
+        )}
+        {!selectedTip && !error && <span>No tip set yet.</span>}
       </CardFooter>
     </Card>
   );

@@ -446,6 +446,50 @@ export async function getAITipAction(
   }
 }
 
+export async function transformAiTipAction(rawText: string): Promise<{ tip?: string; error?: string }> {
+  const trimmed = rawText?.trim();
+  if (!trimmed) {
+    return { error: "Please provide some text to transform." };
+  }
+
+  const instructions = `You are an expert content writer for Ahead, a platform focused on making AI practical for non-technical knowledge workers. Transform the provided information into a single, concise "Daily AI Tip".
+
+Requirements:
+1. <= 300 characters (including spaces).
+2. Jargon-free, plain language.
+3. Highly actionable with a specific instruction someone can try immediately.
+4. Focus on helping the reader feel confident and efficient using AI tools.
+5. Keep the tone calm, encouraging, and empowering.
+
+Source material:
+"""
+${trimmed.slice(0, 4000)}
+"""
+
+Respond with only the transformed tip (no preamble, no quotes).`;
+
+  try {
+    const result = await ai.generate({
+      model: 'googleai/gemini-3-pro-preview',
+      prompt: instructions,
+    });
+
+    const tip = result.text?.trim();
+    if (!tip) {
+      return { error: "Gemini returned an empty tip." };
+    }
+
+    if (tip.length > 320) {
+      return { tip: tip.slice(0, 320).trim() };
+    }
+
+    return { tip };
+  } catch (error: any) {
+    console.error('Error transforming AI tip:', error);
+    return { error: error.message || 'Failed to transform AI tip.' };
+  }
+}
+
 export async function generateEmailAction(
   input: GenerateNewsletterEmailContentInput
 ): Promise<GenerateNewsletterEmailContentOutput | { error: string }> {
