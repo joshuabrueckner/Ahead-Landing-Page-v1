@@ -73,6 +73,33 @@ const normalizeSubscriberPath = (value) => {
   return cleaned || 'contacts/create';
 };
 
+const DEFAULT_LOOPS_MAILING_LIST_ID = (process.env.LOOPS_PRIMARY_LIST_ID || 'cmigcnppr0kdk0i0h7gmd8ir5').trim();
+
+const normalizeMailingLists = (value) => {
+  if (!value) return [];
+
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+    ? value.split(',')
+    : [value];
+
+  return raw
+    .map((entry) => {
+      if (typeof entry === 'string') return entry.trim();
+      if (entry == null) return '';
+      return String(entry).trim();
+    })
+    .filter(Boolean);
+};
+
+const resolveMailingLists = (value) => {
+  const normalized = normalizeMailingLists(value);
+  const set = new Set(normalized);
+  if (DEFAULT_LOOPS_MAILING_LIST_ID) set.add(DEFAULT_LOOPS_MAILING_LIST_ID);
+  return Array.from(set);
+};
+
 const { initializeApp, getApps } = require('firebase/app');
 const { getFirestore, addDoc, collection, serverTimestamp } = require('firebase/firestore');
 
@@ -167,6 +194,7 @@ const handler = async (event) => {
   const lastName = body?.lastName || body?.last_name || body?.lastname;
   const source = body?.source || 'landing-page';
   const metadata = body?.metadata && typeof body.metadata === 'object' ? body.metadata : undefined;
+  const mailingLists = resolveMailingLists(body?.mailingLists);
   if (!email || typeof email !== 'string') {
     return jsonResponse(400, { message: 'Missing email' });
   }
@@ -187,6 +215,7 @@ const handler = async (event) => {
     const payload = { email };
     if (firstName) payload.firstName = firstName;
     if (lastName) payload.lastName = lastName;
+    if (mailingLists.length) payload.mailingLists = mailingLists;
 
     const res = await fetch(endpoint, {
       method: 'POST',

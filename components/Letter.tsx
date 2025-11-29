@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+const LOOPS_MAILING_LIST_ID = 'cmigcnppr0kdk0i0h7gmd8ir5';
+
 export const Letter: React.FC = () => {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -15,7 +17,11 @@ export const Letter: React.FC = () => {
       const res = await fetch('/.netlify/functions/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, source: 'letter-inline' }),
+        body: JSON.stringify({
+          email: trimmedEmail,
+          source: 'letter-inline',
+          mailingLists: [LOOPS_MAILING_LIST_ID],
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -119,6 +125,7 @@ export const Letter: React.FC = () => {
               subject: contact.subject,
               message: contact.message,
             },
+            mailingLists: [LOOPS_MAILING_LIST_ID],
           }),
         });
         const data = await resp.json().catch(() => ({}));

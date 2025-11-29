@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { NewsletterFormProps } from '../types';
 
+const LOOPS_MAILING_LIST_ID = 'cmigcnppr0kdk0i0h7gmd8ir5';
+
 export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -72,7 +74,11 @@ export const Newsletter: React.FC<NewsletterFormProps> = ({ onSubmit }) => {
       const res = await fetch('/.netlify/functions/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, source: 'newsletter-footer' }),
+        body: JSON.stringify({
+          email,
+          source: 'newsletter-footer',
+          mailingLists: [LOOPS_MAILING_LIST_ID],
+        }),
       });
 
       if (!res.ok) {
