@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 const AUTH_COOKIE_NAME = "newsroom_auth";
+const STATIC_BASE_PATH = process.env.NEXT_PUBLIC_NEWSROOM_BASE_PATH?.replace(/\/$/, "") ?? "";
 
 function getRequestedPath() {
   const headerList = headers();
@@ -32,6 +33,13 @@ function getRequestedPath() {
   return "/";
 }
 
+function deriveBasePath(requestedPath: string) {
+  if (STATIC_BASE_PATH) {
+    return STATIC_BASE_PATH;
+  }
+  return requestedPath.startsWith("/newsroom") ? "/newsroom" : "";
+}
+
 export default function ProtectedLayout({ children }: { children: ReactNode }) {
   const cookieStore = cookies();
   const authCookie = cookieStore.get(AUTH_COOKIE_NAME)?.value;
@@ -41,7 +49,9 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
   }
 
   const requestedPath = getRequestedPath();
+  const basePath = deriveBasePath(requestedPath);
   const searchSuffix = requestedPath ? `?from=${encodeURIComponent(requestedPath)}` : "";
+  const passwordPath = basePath ? `${basePath}/password` : "/password";
 
-  redirect(`/password${searchSuffix}`);
+  redirect(`${passwordPath}${searchSuffix}`);
 }
