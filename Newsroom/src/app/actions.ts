@@ -688,19 +688,17 @@ export async function sendToLoopsAction(
 
   for (const subscriber of activeSubscribers) {
     try {
-      const response = await fetch('https://app.loops.so/api/v1/transactional', {
+      const response = await fetch('https://app.loops.so/api/v1/events/send', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transactionalId: "clzxbx64w0004z86n4p9o7d1u", // Daily Newsletter Transactional ID
+          eventName: "sendDailyNewsletter",
           email: subscriber.email,
-          dataVariables: {
-            ...eventProperties,
-            RecipientName: subscriber.name || '',
-          },
+          ...eventProperties,
+          RecipientName: subscriber.name || '',
         }),
       });
 
