@@ -684,6 +684,8 @@ export async function sendToLoopsAction(
     AheadTip: content.aheadTip,
   };
 
+  console.log("[sendToLoopsAction] Event Properties Payload:", JSON.stringify(eventProperties, null, 2));
+
   const failedRecipients: { email: string; reason: string }[] = [];
 
   for (const subscriber of activeSubscribers) {
