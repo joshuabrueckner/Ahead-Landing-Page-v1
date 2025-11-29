@@ -75,29 +75,41 @@ const normalizeSubscriberPath = (value) => {
 
 const DEFAULT_LOOPS_MAILING_LIST_ID = (process.env.LOOPS_PRIMARY_LIST_ID || 'cmigcnppr0kdk0i0h7gmd8ir5').trim();
 
-const normalizeMailingLists = (value) => {
-  if (!value) return [];
+const assignMailingList = (target, id, state = true) => {
+  const trimmedId = (id || '').trim();
+  if (!trimmedId) return;
+  if (state === null) {
+    target[trimmedId] = null;
+    return;
+  }
 
-  const raw = Array.isArray(value)
-    ? value
-    : typeof value === 'string'
-    ? value.split(',')
-    : [value];
-
-  return raw
-    .map((entry) => {
-      if (typeof entry === 'string') return entry.trim();
-      if (entry == null) return '';
-      return String(entry).trim();
-    })
-    .filter(Boolean);
+  target[trimmedId] = state === false ? false : true;
 };
 
 const resolveMailingLists = (value) => {
-  const normalized = normalizeMailingLists(value);
-  const set = new Set(normalized);
-  if (DEFAULT_LOOPS_MAILING_LIST_ID) set.add(DEFAULT_LOOPS_MAILING_LIST_ID);
-  return Array.from(set);
+  const lists = {};
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => {
+      if (typeof entry === 'object' && entry && !Array.isArray(entry)) {
+        Object.entries(entry).forEach(([id, state]) => assignMailingList(lists, id, state));
+        return;
+      }
+      assignMailingList(lists, entry, true);
+    });
+  } else if (value && typeof value === 'object') {
+    Object.entries(value).forEach(([id, state]) => assignMailingList(lists, id, state));
+  } else if (typeof value === 'string') {
+    value.split(',').forEach((id) => assignMailingList(lists, id, true));
+  } else if (value != null) {
+    assignMailingList(lists, String(value), true);
+  }
+
+  if (DEFAULT_LOOPS_MAILING_LIST_ID && !(DEFAULT_LOOPS_MAILING_LIST_ID in lists)) {
+    assignMailingList(lists, DEFAULT_LOOPS_MAILING_LIST_ID, true);
+  }
+
+  return lists;
 };
 
 const { initializeApp, getApps } = require('firebase/app');
@@ -215,7 +227,7 @@ const handler = async (event) => {
     const payload = { email };
     if (firstName) payload.firstName = firstName;
     if (lastName) payload.lastName = lastName;
-    if (mailingLists.length) payload.mailingLists = mailingLists;
+    if (Object.keys(mailingLists).length) payload.mailingLists = mailingLists;
 
     const res = await fetch(endpoint, {
       method: 'POST',
