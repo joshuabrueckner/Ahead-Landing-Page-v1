@@ -133,15 +133,18 @@ export default function RefinePage() {
 
     try {
       const { selectedArticles, selectedProducts, selectedTip, featuredArticle } = currentSelections;
-      
-      const sortedArticles = [...selectedArticles].sort((a, b) => {
-        if (a.id === featuredArticle?.id) return -1;
-        if (b.id === featuredArticle?.id) return 1;
-        return 0;
-      });
+
+      const sortedArticles = featuredArticle
+        ? [featuredArticle, ...selectedArticles.filter(article => article.id !== featuredArticle.id)]
+        : [...selectedArticles];
 
       const emailInput = {
-        newsArticles: sortedArticles.map(({ title, summary, url, imageUrl }: NewsArticle) => ({ title, summary, url, imageUrl: imageUrl || undefined })),
+        newsArticles: sortedArticles.map(({ title, summary, url, imageUrl }: NewsArticle) => ({
+          title,
+          summary: (summary && summary.trim()) ? summary : title,
+          url,
+          imageUrl: imageUrl || undefined,
+        })),
         productLaunches: selectedProducts.map(({ name, description, url }: ProductLaunch) => ({ name, description, url })),
         aiTip: selectedTip,
       };
@@ -151,18 +154,52 @@ export default function RefinePage() {
       if ('error' in contentResult) {
         throw new Error(contentResult.error);
       }
+
+      const quickHitArticles = sortedArticles.slice(1);
+      const overriddenHeadlines = contentResult.headlines.map((headline, index) => {
+        const article = quickHitArticles[index];
+        const summaryText = article?.summary?.trim();
+        if (article && summaryText) {
+          return {
+            ...headline,
+            headline: summaryText,
+            link: article.url,
+          };
+        }
+        return headline;
+      });
+
+      const overriddenLaunches = contentResult.launches.map((launch, index) => {
+        const product = selectedProducts[index];
+        const sentenceText = product?.summary?.trim();
+        if (product && sentenceText) {
+          return {
+            ...launch,
+            name: product.name,
+            link: product.url,
+            sentence: sentenceText,
+          };
+        }
+        return launch;
+      });
+
+      const refinedContent = {
+        ...contentResult,
+        headlines: overriddenHeadlines,
+        launches: overriddenLaunches,
+      };
+
+      setGeneratedContent(refinedContent);
       
-      setGeneratedContent(contentResult);
-      
-      if (contentResult.featuredHeadline.headline) {
-        const subjectPromise = generateSubjectLineAction({ headline: contentResult.featuredHeadline.headline });
-        const introPromise = generateIntroSentenceAction({ headline: contentResult.featuredHeadline.headline });
+      if (refinedContent.featuredHeadline.headline) {
+        const subjectPromise = generateSubjectLineAction({ headline: refinedContent.featuredHeadline.headline });
+        const introPromise = generateIntroSentenceAction({ headline: refinedContent.featuredHeadline.headline });
 
         const [subjectResult, introResult] = await Promise.all([subjectPromise, introPromise]);
 
         if ('error' in subjectResult) {
            console.warn("Could not generate subject line:", subjectResult.error);
-           setGeneratedSubject(contentResult.featuredHeadline.headline.substring(0, 50));
+           setGeneratedSubject(refinedContent.featuredHeadline.headline.substring(0, 50));
         } else {
           setGeneratedSubject(subjectResult.subject);
         }

@@ -56,13 +56,19 @@ export default function Home() {
     const normalized = (summary || "").trim();
     setDisplayedArticles(prev => prev.map(article => article.id === articleId ? { ...article, summary: normalized } : article));
     setSelectedArticles(prev => prev.map(article => article.id === articleId ? { ...article, summary: normalized } : article));
-  }, []);
+    setFeaturedArticle(prev => {
+      if (prev?.id === articleId) {
+        return { ...prev, summary: normalized };
+      }
+      return prev;
+    });
+  }, [setDisplayedArticles, setSelectedArticles, setFeaturedArticle]);
 
   const handleProductSummaryUpdate = useCallback((productId: string, summary: string) => {
     const normalized = (summary || "").trim();
     setProducts(prev => prev.map(product => product.id === productId ? { ...product, summary: normalized } : product));
     setSelectedProducts(prev => prev.map(product => product.id === productId ? { ...product, summary: normalized } : product));
-  }, []);
+  }, [setProducts, setSelectedProducts]);
   
   const areAllRequirementsMet = 
     selectedArticles.length === 5 &&
@@ -166,6 +172,20 @@ export default function Home() {
         // Only restore selections if the articles are present
         if (parsed.selectedArticles && displayedArticles.length > 0) {
             const availableArticles = parsed.selectedArticles.filter((sa: NewsArticle) => displayedArticles.some(da => da.id === sa.id));
+            if (availableArticles.length > 0) {
+              setDisplayedArticles(prev => {
+                let changed = false;
+                const updated = prev.map(article => {
+                  const stored = availableArticles.find((sa: NewsArticle) => sa.id === article.id);
+                  if (stored?.summary && stored.summary !== article.summary) {
+                    changed = true;
+                    return { ...article, summary: stored.summary };
+                  }
+                  return article;
+                });
+                return changed ? updated : prev;
+              });
+            }
             setSelectedArticles(availableArticles);
         }
         if (parsed.selectedProducts) setSelectedProducts(parsed.selectedProducts);

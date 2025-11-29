@@ -53,6 +53,15 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const [textDialogProduct, setTextDialogProduct] = useState<ProductLaunch | null>(null);
   const { toast } = useToast();
 
+  const persistProductSummary = (productId: string, summaryValue: string) => {
+    const normalized = (summaryValue || "").trim();
+    setProductSummaries(prev => ({
+      ...prev,
+      [productId]: normalized,
+    }));
+    onProductSummaryUpdate(productId, normalized);
+  };
+
   useEffect(() => {
     // This effect ensures that if selected products are loaded from localStorage,
     // they are included in the main list.
@@ -106,10 +115,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
               abort = true;
             }
           } else if (result.summary) {
-            setProductSummaries(prev => ({
-              ...prev,
-              [product.id]: result.summary as string,
-            }));
+            persistProductSummary(product.id, result.summary as string);
           }
         } catch (error: any) {
           const message = error?.message || "Unexpected error";
@@ -182,6 +188,9 @@ export default function ProductsSelection({ products: initialProducts, selectedP
         ...newProduct,
     };
     setProducts(prev => [productToAdd, ...prev]);
+    if (productToAdd.summary) {
+      persistProductSummary(productToAdd.id, productToAdd.summary);
+    }
     if(selectedProducts.length < MAX_SELECTIONS) {
         setSelectedProducts([...selectedProducts, productToAdd]);
     }
@@ -208,10 +217,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
       }
 
       if (result.summary) {
-        setProductSummaries(prev => ({
-          ...prev,
-          [product.id]: result.summary as string,
-        }));
+        persistProductSummary(product.id, result.summary as string);
         toast({ title: `${product.name} updated`, description: "Gemini provided a fresh sentence." });
       }
     } catch (error: any) {
