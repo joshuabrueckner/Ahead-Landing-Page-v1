@@ -28,6 +28,10 @@ export const withBasePath = (path: string, override?: string) => {
     return prefix || "/";
   }
 
+  if (normalizedPath.startsWith(prefix)) {
+    return normalizedPath;
+  }
+
   return `${prefix}${normalizedPath}`;
 };
 

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { GenerateNewsletterEmailContentOutput } from '@/ai/flows/generate-newsletter-email-content';
-import { sendToLoopsAction } from '../actions';
+import { sendToLoopsAction } from '../../actions';
 import { useToast } from '@/hooks/use-toast';
 import { getBasePath, withBasePath } from '@/lib/base-path';
 

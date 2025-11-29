@@ -10,7 +10,7 @@ import ProductsSelection from "@/components/products-selection";
 import AiTipSection from "@/components/ai-tip-section";
 import { Button } from "@/components/ui/button";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
-import { getTopAIProductsAction } from "./actions";
+import { getTopAIProductsAction } from "../actions";
 import { useToast } from "@/hooks/use-toast";
 import { buildApiPath, getBasePath, withBasePath } from "@/lib/base-path";
 
