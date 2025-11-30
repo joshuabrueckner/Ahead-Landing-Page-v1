@@ -30,22 +30,22 @@ function generateHtml(content: GenerateNewsletterEmailContentOutput, subject: st
   html += `<h2 style="color: #333;">${content.featuredHeadline.headline}</h2>`;
   if (content.featuredHeadline.imageUrl) {
     html += `<p><img src="${content.featuredHeadline.imageUrl}" alt="${content.featuredHeadline.headline}" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px;" /></p>`;
-    html += `<p style="font-size: 14px; color: #666; text-align: center;"><a href="${content.featuredHeadline.link}" style="color: #666; text-decoration: none;">Image source</a></p>`;
+    html += `<p style="font-size: 14px; color: #666; text-align: center;"><a href="${content.featuredHeadline.link}" target="_blank" rel="noopener noreferrer" style="color: #666; text-decoration: none;">Image source</a></p>`;
   }
-  html += `<h3 style="font-size: 16px; font-weight: bold; margin-top: 20px; margin-bottom: 8px;">What's Happening</h3><p style="font-size: 16px; line-height: 1.6;">${content.featuredHeadline.whatsHappening}</p>`;
+  html += `<h3 style="font-size: 16px; font-weight: bold; margin-top: 20px; margin-bottom: 8px;">What's Happening</h3><p style="font-size: 16px; line-height: 1.6;">${content.featuredHeadline.whatsHappening} <a href="${content.featuredHeadline.link}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; font-weight: bold;">Read →</a></p>`;
   html += `<h3 style="font-size: 16px; font-weight: bold; margin-top: 20px; margin-bottom: 8px;">Why You Should Care</h3><p style="font-size: 16px; line-height: 1.6;">${content.featuredHeadline.whyYouShouldCare}</p>`;
 
   // Other Headlines
   html += "<h2 style=\"font-size: 20px; font-weight: bold; margin-top: 32px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;\">Quick Hits</h2><ul>";
   content.headlines.forEach(h => {
-    html += `<li style="margin-bottom: 12px; font-size: 16px;">${h.headline} <a href="${h.link}" style="color: #1a73e8; text-decoration: none;">Read →</a></li>`;
+    html += `<li style="margin-bottom: 12px; font-size: 16px;">${h.headline} <a href="${h.link}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; font-weight: bold;">Read →</a></li>`;
   });
   html += '</ul>';
 
   // Launches
   html += '<h2 style=\"font-size: 20px; font-weight: bold; margin-top: 32px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px;\">Trending AI Launches</h2><ul>';
   content.launches.forEach(l => {
-    html += `<li style="margin-bottom: 12px; font-size: 16px;"><b><a href="${l.link}" style="color: #1a73e8; text-decoration: none;">${l.name}</a></b> ${l.sentence}</li>`;
+    html += `<li style="margin-bottom: 12px; font-size: 16px;"><b><a href="${l.link}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">${l.name}</a></b> ${l.sentence}</li>`;
   });
   html += '</ul>';
 
