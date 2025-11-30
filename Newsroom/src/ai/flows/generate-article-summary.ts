@@ -40,31 +40,27 @@ const generateArticleSummaryFlow = ai.defineFlow(
       // Use ai.generate directly with plain text output for speed and reliability
       const result = await ai.generate({
         model: 'googleai/gemini-2.0-flash',
-        prompt: `You are an expert AI news curator for Ahead, a platform that helps mid-career knowledge workers master AI. Your goal is to make complex AI news simple, relevant, and actionable for non-technical professionals who feel pressured and lost with AI.
+        prompt: `Write a 100-150 character summary of this AI news article. COUNT YOUR CHARACTERS - this limit is STRICT.
 
-Given the article text below, write ONE single, clear, and concise sentence that explains the article's main takeaway for the everyday knowledge worker.
+RULES:
+- MUST be 100-150 characters (count spaces too)
+- Include one company/person/statistic
+- Start with the key insight, no preamble
+- Plain language, no jargon
+- Focus on why it matters to non-technical professionals
 
-**The summary MUST:**
-1.  **Length Constraint:** Be strictly between 100 and 150 characters (including spaces). This is a critical requirement for a quick, punchy read.
-2.  **Include a Data Hook:** The sentence must incorporate a key company name, person, or a specific figure/statistic from the article to grab attention and lead with impact.
-3.  **Be Direct and Human:** Conversational, engaging, and sound like a person wrote it—start directly with the insight, avoiding phrases like "This article explains," "The news covers," or "This research shows."
-4.  **Jargon-Free:** Written in plain language. If a technical term is absolutely necessary, explain it simply.
-5.  **Focus on the 'So What':** Center the summary on the impact or immediate relevance to the user's work, future, or understanding of the AI landscape (Action-Oriented/Impact Focused).
+EXAMPLES (note the length):
+"Researchers found that tricking AI chatbots into ignoring safety rules is possible by phrasing your request as a poem." (123 chars)
+"Microsoft and Google's race to dominate AI is starting to slow down, showing the market for new tools is leveling off." (129 chars)
+"The FTC is warning parents about new AI-powered toys that lack safety rules and can sometimes have inappropriate conversations." (145 chars)
 
-**Target Audience Context:** The reader is a non-technical professional (e.g., Marketing Manager, Ops Lead) who is trying to understand how to adopt AI to stay competitive and efficient.
+ARTICLE:
+${input.text.slice(0, 6000)}
 
-**Good Examples:**
-* Researchers found that tricking AI chatbots into ignoring safety rules is possible by phrasing your request as a poem. (123 characters)
-* Microsoft and Google's race to dominate AI is starting to slow down, showing the market for new tools is leveling off. (129 characters)
-* The FTC is warning parents about new AI-powered toys that lack safety rules and can sometimes have inappropriate conversations. (145 characters)
-
-**Article:**
-${input.text.slice(0, 8000)}
-
-Respond with ONLY the summary sentence, nothing else.`,
+Write ONLY the summary (100-150 characters):`,
         config: {
-          temperature: 0.3,
-          maxOutputTokens: 100,
+          temperature: 0.2,
+          maxOutputTokens: 60,
         },
       });
       
@@ -78,11 +74,17 @@ Respond with ONLY the summary sentence, nothing else.`,
       summary = summary.replace(/^["']|["']$/g, '').trim();
       summary = summary.replace(/^(Summary:|Here's|Here is|The summary:)\s*/i, '').trim();
       
-      // Ensure it doesn't exceed 150 characters
+      // Strictly enforce 150 character max - truncate at word boundary
       if (summary.length > 150) {
-        const truncated = summary.slice(0, 147);
+        // Find last complete word within 147 chars (leaving room for ...)
+        let truncated = summary.slice(0, 147);
         const lastSpace = truncated.lastIndexOf(' ');
-        summary = lastSpace > 80 ? truncated.slice(0, lastSpace) + '...' : truncated + '...';
+        if (lastSpace > 100) {
+          summary = truncated.slice(0, lastSpace) + '...';
+        } else {
+          // If no good word boundary, just cut and add ellipsis
+          summary = truncated + '...';
+        }
       }
       
       return { summary };
