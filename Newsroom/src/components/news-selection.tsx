@@ -251,7 +251,7 @@ const ArticleItem = ({
                   <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">{sourceName}</a>
                 </div>
               </div>
-              <div className="flex items-center gap-2 sm:ml-auto">
+              <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-[184px] justify-end">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -397,7 +397,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
             </div>
           </div>
           <TooltipProvider delayDuration={200}>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center w-full sm:w-[184px] justify-end">
               <div>
                 <Input 
                   ref={dateInputRef}
