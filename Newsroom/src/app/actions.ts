@@ -1,8 +1,6 @@
 
 "use server";
 
-export const maxDuration = 60;
-
 import {
   generateAITip,
   GenerateAITipInput,

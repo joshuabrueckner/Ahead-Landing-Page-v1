@@ -2,6 +2,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+export const maxDuration = 60;
+
 const AUTH_COOKIE_NAME = "newsroom_auth";
 const STATIC_BASE_PATH = process.env.NEXT_PUBLIC_NEWSROOM_BASE_PATH?.replace(/\/$/, "") ?? "";
 const PROXY_BASE_PATH = process.env.NEWSROOM_PROXY_BASE_PATH?.replace(/\/$/, "") ?? "/newsroom";
