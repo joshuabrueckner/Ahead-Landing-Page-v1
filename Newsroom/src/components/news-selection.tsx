@@ -35,79 +35,79 @@ import { ScrollArea } from "./ui/scroll-area";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const MAX_SELECTIONS = 5;
-const CONCURRENT_EXTRACTIONS = 3; // Process 3 articles at a time
-const EXTRACTION_DELAY = 1000; // 1 second delay between batches
+const EXTRACTION_DELAY = 15000; // 15 seconds between extractions to respect Diffbot rate limits
 
 type ExtractionResult = {
   text: string;
   isExtracting: boolean;
 };
 
-// Global extraction queue manager with parallel processing
+// Global extraction queue manager with overlapped processing:
+// - Extractions happen ONE at a time (sequential) with 15s delay
+// - Summarization happens in parallel with the next extraction
 class ExtractionQueue {
   private queue: Array<{ url: string; callback: (text: string, summary: string) => void }> = [];
   private processing = false;
-  private activeCount = 0;
 
   async add(url: string, callback: (text: string, summary: string) => void) {
     this.queue.push({ url, callback });
     this.processQueue();
   }
 
-  private async processItem(item: { url: string; callback: (text: string, summary: string) => void }) {
-    this.activeCount++;
-    try {
-      // Extract article text
-      const result = await extractArticleTextAction(item.url);
-      let text = "";
-      let summary = "";
-
-      if (result.error) {
-        console.error("Auto-extraction failed:", result.error);
-        text = "Failed to extract article text.";
-        summary = "";
-      } else {
-        text = result.text || "No text was extracted.";
-        
-        // Generate summary from the extracted text (runs in parallel with other extractions)
-        if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
-          const summaryResult = await generateArticleOneSentenceSummary(text);
-          if (!summaryResult.error) {
-            summary = summaryResult.summary || "";
-          }
-        }
-      }
-
-      item.callback(text, summary);
-    } catch (error) {
-      console.error("Extraction error:", error);
-      item.callback("Failed to extract article text.", "");
-    } finally {
-      this.activeCount--;
-    }
-  }
-
   private async processQueue() {
     if (this.processing) return;
     this.processing = true;
 
+    // Track pending summarization promises so they can complete in the background
+    const pendingSummaries: Promise<void>[] = [];
+
     while (this.queue.length > 0) {
-      // Process up to CONCURRENT_EXTRACTIONS items at once
-      const batch: Array<{ url: string; callback: (text: string, summary: string) => void }> = [];
-      while (batch.length < CONCURRENT_EXTRACTIONS && this.queue.length > 0) {
-        const item = this.queue.shift();
-        if (item) batch.push(item);
+      const item = this.queue.shift();
+      if (!item) continue;
+
+      try {
+        // Step 1: Extract article text (this is the rate-limited operation)
+        const result = await extractArticleTextAction(item.url);
+        let text = "";
+
+        if (result.error) {
+          console.error("Auto-extraction failed:", result.error);
+          text = "Failed to extract article text.";
+          item.callback(text, "");
+        } else {
+          text = result.text || "No text was extracted.";
+          
+          // Step 2: Start summarization in the background (non-blocking)
+          // This allows the next extraction to start while summarization runs
+          if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
+            const summaryPromise = (async () => {
+              try {
+                const summaryResult = await generateArticleOneSentenceSummary(text);
+                const summary = summaryResult.error ? "" : (summaryResult.summary || "");
+                item.callback(text, summary);
+              } catch (err) {
+                console.error("Summary generation error:", err);
+                item.callback(text, "");
+              }
+            })();
+            pendingSummaries.push(summaryPromise);
+          } else {
+            item.callback(text, "");
+          }
+        }
+      } catch (error) {
+        console.error("Extraction error:", error);
+        item.callback("Failed to extract article text.", "");
       }
 
-      // Process batch in parallel
-      await Promise.all(batch.map(item => this.processItem(item)));
-
-      // Small delay between batches to be respectful to APIs
+      // Delay before the next extraction (but summarization continues in background)
       if (this.queue.length > 0) {
         await new Promise(resolve => setTimeout(resolve, EXTRACTION_DELAY));
       }
     }
 
+    // Wait for any remaining summaries to complete before marking processing as done
+    await Promise.all(pendingSummaries);
     this.processing = false;
   }
 }
