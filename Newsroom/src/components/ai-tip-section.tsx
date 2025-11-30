@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Lightbulb, Sparkles, Loader } from "lucide-react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { transformAiTipAction } from "@/app/actions";
 
 type AiTipSectionProps = {
   selectedTip: string;
@@ -44,20 +45,16 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
     setError(null);
 
     try {
-      const response = await fetch("/api/transform-tip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: tipDraft }),
-      });
+      const result = await transformAiTipAction(tipDraft);
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok || !data?.tip) {
-        throw new Error(data?.error || "Failed to transform tip.");
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      setTipDraft(data.tip);
-      setSelectedTip(data.tip);
+      if (result.tip) {
+        setTipDraft(result.tip);
+        setSelectedTip(result.tip);
+      }
     } catch (err: any) {
       setError(err?.message || "Unable to transform tip right now.");
     } finally {
@@ -119,10 +116,6 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
           {`Characters: ${charCount}${exceedsTarget ? " (trim closer to 300)" : " / target 300"}`}
         </span>
         {error && <span className="text-destructive">{error}</span>}
-        {!error && selectedTip && !exceedsTarget && (
-          <span className="text-foreground">Tip ready for the newsletter.</span>
-        )}
-        {!selectedTip && !error && <span>No tip set yet.</span>}
       </CardFooter>
     </Card>
   );
