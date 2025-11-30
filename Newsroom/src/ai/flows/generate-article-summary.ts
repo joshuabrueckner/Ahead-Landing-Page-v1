@@ -40,20 +40,31 @@ const generateArticleSummaryFlow = ai.defineFlow(
       // Use ai.generate directly with plain text output for speed and reliability
       const result = await ai.generate({
         model: 'googleai/gemini-2.0-flash',
-        prompt: `Summarize this AI news article in ONE sentence (max 150 characters) for busy professionals.
+        prompt: `You are an expert AI news curator for Ahead, a platform that helps mid-career knowledge workers master AI. Your goal is to make complex AI news simple, relevant, and actionable for non-technical professionals who feel pressured and lost with AI.
 
-The sentence must:
-- State the key fact or announcement
-- Mention important names (companies, products, people)
-- Be clear and jargon-free
+Given the article text below, write ONE single, clear, and concise sentence that explains the article's main takeaway for the everyday knowledge worker.
 
-Article:
+**The summary MUST:**
+1.  **Length Constraint:** Be strictly between 100 and 150 characters (including spaces). This is a critical requirement for a quick, punchy read.
+2.  **Include a Data Hook:** The sentence must incorporate a key company name, person, or a specific figure/statistic from the article to grab attention and lead with impact.
+3.  **Be Direct and Human:** Conversational, engaging, and sound like a person wrote it—start directly with the insight, avoiding phrases like "This article explains," "The news covers," or "This research shows."
+4.  **Jargon-Free:** Written in plain language. If a technical term is absolutely necessary, explain it simply.
+5.  **Focus on the 'So What':** Center the summary on the impact or immediate relevance to the user's work, future, or understanding of the AI landscape (Action-Oriented/Impact Focused).
+
+**Target Audience Context:** The reader is a non-technical professional (e.g., Marketing Manager, Ops Lead) who is trying to understand how to adopt AI to stay competitive and efficient.
+
+**Good Examples:**
+* Researchers found that tricking AI chatbots into ignoring safety rules is possible by phrasing your request as a poem. (123 characters)
+* Microsoft and Google's race to dominate AI is starting to slow down, showing the market for new tools is leveling off. (129 characters)
+* The FTC is warning parents about new AI-powered toys that lack safety rules and can sometimes have inappropriate conversations. (145 characters)
+
+**Article:**
 ${input.text.slice(0, 8000)}
 
 Respond with ONLY the summary sentence, nothing else.`,
         config: {
           temperature: 0.3,
-          maxOutputTokens: 80,
+          maxOutputTokens: 100,
         },
       });
       
