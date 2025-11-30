@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { GenerateNewsletterEmailContentOutput } from '@/ai/flows/generate-newsletter-email-content';
-import { sendToLoopsAction } from '../../actions';
+import { sendToLoopsAction, sendTestEmailAction } from '../../actions';
 import { useToast } from '@/hooks/use-toast';
 import { getBasePath, withBasePath } from '@/lib/base-path';
 
@@ -66,6 +66,7 @@ export default function PreviewPage() {
   const [htmlContent, setHtmlContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
   const [content, setContent] = useState<GenerateNewsletterEmailContentOutput | null>(null);
   const [basePath, setBasePath] = useState<string>(() => getBasePath());
 
@@ -129,6 +130,21 @@ export default function PreviewPage() {
     }
   };
 
+  const handleSendTest = async () => {
+    if (!content) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Content not loaded.' });
+      return;
+    }
+    setIsSendingTest(true);
+    const result = await sendTestEmailAction(subject, introSentence, content);
+    setIsSendingTest(false);
+    if (result.success) {
+      toast({ title: 'Test Sent', description: 'Test email sent to joshua@jumpahead.ai' });
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.error || 'Failed to send test email.' });
+    }
+  };
+
   if (isLoading || !content) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -148,10 +164,14 @@ export default function PreviewPage() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => router.push(withBasePath('/refine', getBasePath()))} disabled={isSending}>
+            <Button variant="outline" onClick={() => router.push(withBasePath('/refine', getBasePath()))} disabled={isSending || isSendingTest}>
                 Back to Edit
             </Button>
-            <Button onClick={handleSend} disabled={isSending}>
+            <Button variant="secondary" onClick={handleSendTest} disabled={isSending || isSendingTest}>
+              {isSendingTest ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Send Test Email
+            </Button>
+            <Button onClick={handleSend} disabled={isSending || isSendingTest}>
               {isSending ? (
                 <Loader className="mr-2 h-4 w-4 animate-spin" />
               ) : (

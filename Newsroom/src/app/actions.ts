@@ -788,6 +788,87 @@ export async function sendToLoopsAction(
   return { success: true };
 }
 
+export async function sendTestEmailAction(
+  subject: string,
+  introSentence: string,
+  content: GenerateNewsletterEmailContentOutput,
+  recipientEmail: string = "joshua@jumpahead.ai"
+): Promise<{ success: boolean; error?: string }> {
+  const apiKey = process.env.LOOPS_API_KEY;
+  if (!apiKey) {
+    return { success: false, error: 'Loops API key is not configured.' };
+  }
+
+  const eventProperties = {
+    Subject: subject,
+    Intro: introSentence,
+    Headline1: content.featuredHeadline.headline,
+    Headline1Image: content.featuredHeadline.imageUrl || '',
+    Headline1Link: content.featuredHeadline.link,
+    WhatsHappening: content.featuredHeadline.whatsHappening,
+    WhyYouShouldCare: content.featuredHeadline.whyYouShouldCare,
+    Headline2: content.headlines[0]?.headline || '',
+    Headline2Link: content.headlines[0]?.link || '',
+    Headline3: content.headlines[1]?.headline || '',
+    Headline3Link: content.headlines[1]?.link || '',
+    Headline4: content.headlines[2]?.headline || '',
+    Headline4Link: content.headlines[2]?.link || '',
+    Headline5: content.headlines[3]?.headline || '',
+    Headline5Link: content.headlines[3]?.link || '',
+    LaunchName1: content.launches[0]?.name || '',
+    LaunchLink1: content.launches[0]?.link || '',
+    LaunchSentence1: content.launches[0]?.sentence || '',
+    LaunchName2: content.launches[1]?.name || '',
+    LaunchLink2: content.launches[1]?.link || '',
+    LaunchSentence2: content.launches[1]?.sentence || '',
+    LaunchName3: content.launches[2]?.name || '',
+    LaunchLink3: content.launches[2]?.link || '',
+    LaunchSentence3: content.launches[2]?.sentence || '',
+    AheadTip: content.aheadTip,
+  };
+
+  try {
+    const response = await fetch('https://app.loops.so/api/v1/events/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        eventName: "sendDailyNewsletter",
+        email: recipientEmail,
+        firstName: "Test User",
+        eventProperties: {
+          ...eventProperties,
+          RecipientName: "Test User",
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to send test email to Loops';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+        console.error(`[sendTestEmailAction] Loops API Error for ${recipientEmail}:`, errorData);
+      } catch (parseError) {
+        // Ignore JSON parsing errors
+      }
+      return { success: false, error: errorMessage };
+    }
+
+    const responseData = await response.json();
+    if (!responseData?.success) {
+      return { success: false, error: 'Loops API responded without success flag.' };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error(`Error sending test email to ${recipientEmail}:`, error);
+    return { success: false, error: error.message || 'Unknown error' };
+  }
+}
+
 export async function addSubscriberAction({ email, name }: { email: string, name: string }): Promise<{ success: boolean; error?: string }> {
   try {
     const subscribersCollection = collection(db, 'newsletterSubscribers');
