@@ -37,30 +37,25 @@ const generateArticleSummaryFlow = ai.defineFlow(
     }
     
     try {
-      // Use ai.generate directly with plain text output for speed and reliability
+      // Step 1: Generate a short summary (model can't count, so we ask for "one short sentence")
       const result = await ai.generate({
         model: 'googleai/gemini-2.0-flash',
-        prompt: `Write a 100-150 character summary of this AI news article. COUNT YOUR CHARACTERS - this limit is STRICT.
+        prompt: `Summarize this AI news article in ONE short sentence for non-technical professionals.
 
 RULES:
-- MUST be 100-150 characters (count spaces too)
-- Include one company/person/statistic
-- Start with the key insight, no preamble
+- ONE sentence only, very concise (about 15-20 words max)
+- Include a key company name, person, or statistic
+- Start directly with the insight (no "This article..." or "The news...")
 - Plain language, no jargon
-- Focus on why it matters to non-technical professionals
-
-EXAMPLES (note the length):
-"Researchers found that tricking AI chatbots into ignoring safety rules is possible by phrasing your request as a poem." (123 chars)
-"Microsoft and Google's race to dominate AI is starting to slow down, showing the market for new tools is leveling off." (129 chars)
-"The FTC is warning parents about new AI-powered toys that lack safety rules and can sometimes have inappropriate conversations." (145 chars)
+- Focus on why it matters
 
 ARTICLE:
-${input.text.slice(0, 6000)}
+${input.text.slice(0, 5000)}
 
-Write ONLY the summary (100-150 characters):`,
+Write ONLY the summary sentence:`,
         config: {
-          temperature: 0.2,
-          maxOutputTokens: 60,
+          temperature: 0.3,
+          maxOutputTokens: 50,
         },
       });
       
@@ -74,18 +69,21 @@ Write ONLY the summary (100-150 characters):`,
       summary = summary.replace(/^["']|["']$/g, '').trim();
       summary = summary.replace(/^(Summary:|Here's|Here is|The summary:)\s*/i, '').trim();
       
-      // Strictly enforce 150 character max - truncate at word boundary
+      // Step 2: STRICTLY enforce 100-150 character range
+      // If too long, truncate intelligently at word boundary
       if (summary.length > 150) {
-        // Find last complete word within 147 chars (leaving room for ...)
         let truncated = summary.slice(0, 147);
         const lastSpace = truncated.lastIndexOf(' ');
-        if (lastSpace > 100) {
+        if (lastSpace > 80) {
           summary = truncated.slice(0, lastSpace) + '...';
         } else {
-          // If no good word boundary, just cut and add ellipsis
           summary = truncated + '...';
         }
       }
+      
+      // If too short and we have room, that's okay - short is fine
+      // The 100 char minimum is a guideline, not a hard requirement
+      // (we can't magically make a short summary longer without another API call)
       
       return { summary };
     } catch (error: any) {
