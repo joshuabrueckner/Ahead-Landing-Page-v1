@@ -367,6 +367,7 @@ export default function RefinePage() {
                           alt={displayContent.featuredHeadline.headline || "Featured Article Image"} 
                           fill 
                           className="object-cover bg-muted"
+                          unoptimized
                         />
                       </div>
                       <EditableField 
