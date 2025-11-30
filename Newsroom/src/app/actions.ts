@@ -25,6 +25,10 @@ import {
   GenerateIntroSentenceInput,
   GenerateIntroSentenceOutput,
 } from "@/ai/flows/generate-intro-sentence";
+import {
+  generateProductSummary,
+  GenerateProductSummaryInput,
+} from "@/ai/flows/generate-product-summary";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
 import { collection, addDoc, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
@@ -543,35 +547,6 @@ type ProductSummaryInput = {
   url?: string;
 };
 
-const generateProductOutcomeSentence = async ({ name, description, url }: ProductSummaryInput): Promise<string | null> => {
-  const context = (description?.trim() || "").slice(0, 3000);
-  const prompt = `You are an expert copywriter for Ahead. Write one short, highly practical sentence that explains how this product helps a mid-career, non-technical professional. Do NOT mention the product name or brand. Start directly with the outcome or action (e.g., "Helps you...", "Turns..."). Keep it warm, jargon-free, and \<= 25 words.
-
-Product name: ${name}
-Product context: ${context || "No description provided."}
-
-Respond with only the sentence.`;
-
-  try {
-    const result = await ai.generate({
-      model: 'googleai/gemini-3-pro-preview',
-      prompt,
-    });
-
-    const summary = result.text?.trim();
-    if (!summary) {
-      return null;
-    }
-
-    return summary.charAt(0).toLowerCase() + summary.slice(1);
-  } catch (error) {
-    console.error(`Failed to generate product summary for ${name}:`, error);
-    return null;
-  }
-};
-
-const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
-
 export async function getTopAIProductsAction(dateStr?: string): Promise<ProductLaunch[] | { error: string }> {
     const { PRODUCT_HUNT_API_KEY, PRODUCT_HUNT_API_SECRET } = process.env;
     if (!PRODUCT_HUNT_API_KEY || !PRODUCT_HUNT_API_SECRET) {
@@ -648,11 +623,19 @@ export async function getTopAIProductsAction(dateStr?: string): Promise<ProductL
 }
 
 export async function generateProductOutcomeSentenceAction(input: ProductSummaryInput): Promise<{ summary?: string; error?: string }> {
-  const summary = await generateProductOutcomeSentence(input);
-  if (!summary) {
-    return { error: "Failed to generate product summary." };
+  try {
+    const result = await generateProductSummary({
+      name: input.name,
+      description: (input.description?.trim() || "").slice(0, 3000),
+    });
+    if (!result.summary) {
+      return { error: "Failed to generate product summary." };
+    }
+    return { summary: result.summary.charAt(0).toLowerCase() + result.summary.slice(1) };
+  } catch (error: any) {
+    console.error(`Failed to generate product summary for ${input.name}:`, error);
+    return { error: error.message || "Failed to generate product summary." };
   }
-  return { summary };
 }
 
 

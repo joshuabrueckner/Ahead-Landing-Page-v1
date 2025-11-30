@@ -31,19 +31,16 @@ const prompt = ai.definePrompt({
   name: 'generateProductSummaryPrompt',
   input: {schema: GenerateProductSummaryInputSchema},
   output: {schema: GenerateProductSummaryOutputSchema},
-  prompt: `You are an expert copywriter. Your task is to complete a sentence that starts with the product's name.
-Given a product name and a short description/tagline, write a short, explanatory phrase that completes the sentence "[Product Name]...".
-The phrase should start with a lowercase verb and clearly and concisely explain what the product does. Do not repeat the product name.
-The output should be purely explanatory and avoid marketing jargon or hype.
+  prompt: `You are an expert copywriter for Ahead. Write one short, highly practical sentence that explains how this product helps a mid-career, non-technical professional. Do NOT mention the product name or brand. Start directly with the outcome or action (e.g., "Helps you...", "Turns..."). Keep it warm, jargon-free, and <= 25 words.
 
-Example:
-Product Name: Fluently Accent Guru
-Description: An app to find your English accent.
-Output: identifies your English accent in 30 seconds.
+Product name: {{name}}
+Product context: {{description}}
 
-Product Name: {{name}}
-Description: {{description}}
-`,
+Respond with only the sentence.`,
+  config: {
+    temperature: 0.4,
+    maxOutputTokens: 100,
+  },
 });
 
 const generateProductSummaryFlow = ai.defineFlow(
@@ -53,9 +50,6 @@ const generateProductSummaryFlow = ai.defineFlow(
     outputSchema: GenerateProductSummaryOutputSchema,
   },
   async input => {
-    if (!input.description) {
-        return { summary: input.name };
-    }
     const {output} = await prompt(input);
     return output!;
   }
