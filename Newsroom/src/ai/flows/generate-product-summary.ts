@@ -31,23 +31,24 @@ const prompt = ai.definePrompt({
   name: 'generateProductSummaryPrompt',
   input: {schema: GenerateProductSummaryInputSchema},
   output: {schema: GenerateProductSummaryOutputSchema},
-  prompt: `You are an expert copywriter for Ahead. Write a single, short, and highly practical sentence that completes the structure: "[Product Name] helps you..."
+  prompt: `You are an expert copywriter for Ahead. Write a single sentence that completes the structure: "[Product Name] [your sentence]"
 
-The sentence serves as a concise description for a mid-career knowledge worker (like a Marketing Manager or Ops Lead) who is non-technical, feels pressured by AI, and is looking for tools that provide immediate, tangible results.
+The sentence will appear directly after the product name in a newsletter for mid-career knowledge workers who are non-technical and looking for AI tools with immediate, tangible results.
 
 **Requirements:**
-1. **Focus on the Outcome:** Describe the *benefit* or *practical job-to-be-done* the tool solves, not technical features.
-2. **Be Jargon-Free:** Use plain, accessible language that is warm and empowering.
-3. **Be Direct and Actionable:** Start immediately with "helps you..." (do NOT include the product name).
-4. **Keep it concise:** Maximum 20 words.
+1. **State what it is AND the benefit** - Clearly explain what the tool does and why it matters.
+2. **Be Jargon-Free:** Use plain, accessible language.
+3. **Vary your sentence starters** - Use different openings like "turns...", "lets you...", "makes it easy to...", "automatically...", "saves you time by...", "gives you...", etc. Do NOT always start with "helps you".
+4. **NEVER start with the product name** - The product name is already shown separately.
+5. **Maximum 100 characters** - Do not exceed this limit. Do not truncate.
 
 Product name: {{name}}
 Product context: {{description}}
 
-IMPORTANT: You MUST respond with a valid JSON object in this exact format: {"summary": "helps you [rest of sentence]"}
+IMPORTANT: You MUST respond with a valid JSON object in this exact format: {"summary": "your sentence here"}
 Do not include any other text, markdown, or explanation outside the JSON object.`,
   config: {
-    temperature: 0.4,
+    temperature: 0.5,
     maxOutputTokens: 100,
   },
 });
