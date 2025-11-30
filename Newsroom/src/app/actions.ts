@@ -348,20 +348,46 @@ export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<
 }
 
 export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
-  const prompt = `You are an expert editor. Summarize the following article text into a single, compelling sentence that captures the main point.
-  
-  Article Text:
-  """
-  ${articleText.slice(0, 10000)}
-  """`;
-
   try {
     const result = await ai.generate({
-      model: 'googleai/gemini-3-pro-preview',
-      prompt,
-    });    const summary = result.text?.trim();
+      model: 'googleai/gemini-2.0-flash',
+      prompt: `Summarize this AI news article in ONE short sentence for non-technical professionals.
+
+RULES:
+- ONE sentence only, very concise (about 15-20 words max)
+- Include a key company name, person, or statistic
+- Start directly with the insight (no "This article..." or "The news...")
+- Plain language, no jargon
+- Focus on why it matters
+
+ARTICLE:
+${articleText.slice(0, 5000)}
+
+Write ONLY the summary sentence:`,
+      config: {
+        temperature: 0.3,
+        maxOutputTokens: 50,
+      },
+    });
+    
+    let summary = result.text?.trim() || '';
     if (!summary) {
       return { error: "Failed to generate summary" };
+    }
+
+    // Clean up the response
+    summary = summary.replace(/^["']|["']$/g, '').trim();
+    summary = summary.replace(/^(Summary:|Here's|Here is|The summary:)\s*/i, '').trim();
+    
+    // STRICTLY enforce 150 character max
+    if (summary.length > 150) {
+      let truncated = summary.slice(0, 147);
+      const lastSpace = truncated.lastIndexOf(' ');
+      if (lastSpace > 80) {
+        summary = truncated.slice(0, lastSpace) + '...';
+      } else {
+        summary = truncated + '...';
+      }
     }
 
     return { summary };
