@@ -346,30 +346,8 @@ export async function generateArticleOneSentenceSummary(articleText: string): Pr
   try {
     const result = await ai.generate({
       model: 'googleai/gemini-3-pro-preview',
-      prompt: `You are an expert AI news curator for Ahead, a platform that helps mid-career knowledge workers master AI. Your goal is to make complex AI news simple, relevant, and actionable for non-technical professionals who feel pressured and lost with AI.
-
-Given the article text below, write ONE single, clear, and concise sentence that explains the article's main takeaway for the everyday knowledge worker.
-
-The summary **MUST** be:
-1.  **Direct and Human:** Conversational, engaging, and sound like a person wrote it—start directly with the insight, avoiding phrases like "This article explains," "The news covers," or "This research shows."
-2.  **Jargon-Free:** Written in plain language. If a technical term is absolutely necessary, explain it briefly and simply.
-3.  **Action-Oriented/Impact Focused:** Center the summary on the impact or immediate relevance to the user's work, future, or understanding of the AI landscape (i.e., focus on the 'So what?').
-
-**Target Audience Context:** The reader is a non-technical professional (e.g., Marketing Manager, Ops Lead) who is trying to understand how to adopt AI to stay competitive and efficient.
-
---
-**Good Examples:**
-* Researchers discovered that you can trick AI chatbots into ignoring their safety rules and answering dangerous questions simply by phrasing your request as a poem.
-* New data shows that the rush for businesses to start using AI is beginning to slow down and level off, regardless of how big or small the company is.
-* Experts are warning parents to be careful with AI-powered toys this holiday season because they currently lack safety rules and can sometimes have inappropriate or harmful conversations with children.
-
-Article text:
-${articleText.slice(0, 3000)}
-
-One-sentence summary:`,
-    });
-
-    const summary = result.text?.trim();
+      prompt,
+    });    const summary = result.text?.trim();
     if (!summary) {
       return { error: "Failed to generate summary" };
     }

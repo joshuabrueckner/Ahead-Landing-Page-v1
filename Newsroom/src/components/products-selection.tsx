@@ -94,7 +94,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
 
     setIsGeneratingSummaries(true);
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    const chunkSize = 5;
+    const chunkSize = 2;
     const pauseMs = 500;
     let abort = false;
 
