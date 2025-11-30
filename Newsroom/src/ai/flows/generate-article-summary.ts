@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -26,45 +25,6 @@ export async function generateArticleSummary(input: GenerateArticleSummaryInput)
   return generateArticleSummaryFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateArticleSummaryPrompt',
-  input: {schema: GenerateArticleSummaryInputSchema},
-  output: {schema: GenerateArticleSummaryOutputSchema},
-  prompt: `Analyze the following article text for an audience of mid-career knowledge workers and small business owners who feel pressured to adopt AI.
-
-The summary must be a single, high-impact sentence that:
-1. Clearly states the article's factual core.
-2. Mentions key names/concepts (e.g., OpenAI, Gemini, Agentic AI, Regulation).
-3. Immediately translates the news into an empowering takeaway that addresses job security, job readiness, efficiency, or cost-cutting.
-4. Uses accessible, human-readable language. The tone should be inspired by 'Let’s make this make sense,' but DO NOT include that phrase in the output.
-
-Article Text:
-{{{text}}}
-
-IMPORTANT: The final summary MUST be a single sentence.
-`,
-  config: {
-    safetySettings: [
-      {
-        category: 'HARM_CATEGORY_HATE_SPEECH',
-        threshold: 'BLOCK_ONLY_HIGH',
-      },
-      {
-        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_HARASSMENT',
-        threshold: 'BLOCK_MEDIUM_AND_ABOVE',
-      },
-      {
-        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-        threshold: 'BLOCK_LOW_AND_ABOVE',
-      },
-    ],
-  },
-});
-
 const generateArticleSummaryFlow = ai.defineFlow(
   {
     name: 'generateArticleSummaryFlow',
@@ -75,7 +35,49 @@ const generateArticleSummaryFlow = ai.defineFlow(
     if (!input.text || input.text.trim().length < 50) {
       return { summary: "Could not generate summary: Article content was too short or unavailable." };
     }
-    const {output} = await prompt(input);
-    return output!;
+    
+    try {
+      // Use ai.generate directly with plain text output for speed and reliability
+      const result = await ai.generate({
+        model: 'googleai/gemini-2.0-flash',
+        prompt: `Summarize this AI news article in ONE sentence (max 150 characters) for busy professionals.
+
+The sentence must:
+- State the key fact or announcement
+- Mention important names (companies, products, people)
+- Be clear and jargon-free
+
+Article:
+${input.text.slice(0, 8000)}
+
+Respond with ONLY the summary sentence, nothing else.`,
+        config: {
+          temperature: 0.3,
+          maxOutputTokens: 80,
+        },
+      });
+      
+      let summary = result.text?.trim() || '';
+      
+      if (!summary) {
+        return { summary: "Could not generate summary for this article." };
+      }
+      
+      // Clean up the response
+      summary = summary.replace(/^["']|["']$/g, '').trim();
+      summary = summary.replace(/^(Summary:|Here's|Here is|The summary:)\s*/i, '').trim();
+      
+      // Ensure it doesn't exceed 150 characters
+      if (summary.length > 150) {
+        const truncated = summary.slice(0, 147);
+        const lastSpace = truncated.lastIndexOf(' ');
+        summary = lastSpace > 80 ? truncated.slice(0, lastSpace) + '...' : truncated + '...';
+      }
+      
+      return { summary };
+    } catch (error: any) {
+      console.error('generateArticleSummaryFlow error:', error.message);
+      return { summary: "Could not generate summary for this article." };
+    }
   }
 );
