@@ -567,18 +567,16 @@ type ProductSummaryInput = {
 
 const generateProductOutcomeSentence = async ({ name, description, url }: ProductSummaryInput): Promise<string | null> => {
   const context = (description?.trim() || "").slice(0, 3000);
-  const urlContext = url ? `Product URL: ${url}` : "";
   const prompt = `You are an expert copywriter for Ahead. Write one short, highly practical sentence that explains how this product helps a mid-career, non-technical professional. Do NOT mention the product name or brand. Start directly with the outcome or action (e.g., "Helps you...", "Turns..."). Keep it warm, jargon-free, and \<= 25 words.
 
 Product name: ${name}
 Product context: ${context || "No description provided."}
-${urlContext}
 
 Respond with only the sentence.`;
 
   try {
     const result = await ai.generate({
-      model: 'googleai/gemini-3-pro-preview',
+      model: 'googleai/gemini-1.5-flash',
       prompt,
     });
 
