@@ -55,18 +55,28 @@ const generateProductSummaryFlow = ai.defineFlow(
       return { summary: input.name };
     }
     
-    const {output} = await prompt(input);
-    
-    // Handle null/undefined output gracefully
-    if (!output || !output.summary) {
-      console.warn(`generateProductSummaryFlow: Model returned null for ${input.name}, using fallback`);
-      // Return a fallback based on the description
+    // Create a fallback based on the description
+    const createFallback = () => {
       const fallback = input.description.toLowerCase().startsWith('a ') || input.description.toLowerCase().startsWith('an ')
         ? input.description.charAt(0).toLowerCase() + input.description.slice(1)
         : input.description;
       return { summary: fallback.length > 100 ? fallback.slice(0, 97) + '...' : fallback };
-    }
+    };
     
-    return output;
+    try {
+      const {output} = await prompt(input);
+      
+      // Handle null/undefined output gracefully
+      if (!output || !output.summary) {
+        console.warn(`generateProductSummaryFlow: Model returned null for ${input.name}, using fallback`);
+        return createFallback();
+      }
+      
+      return output;
+    } catch (error: any) {
+      // Catch schema validation errors when model returns null or invalid JSON
+      console.warn(`generateProductSummaryFlow: Error for ${input.name}: ${error.message}, using fallback`);
+      return createFallback();
+    }
   }
 );
