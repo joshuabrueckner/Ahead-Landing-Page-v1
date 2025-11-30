@@ -34,7 +34,9 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert copywriter for Ahead. Write one short, highly practical sentence that explains how this product helps a mid-career, non-technical professional. Do NOT mention the product name or brand. Start directly with the outcome or action (e.g., "Helps you...", "Turns..."). Keep it warm, jargon-free, and <= 25 words.
 
 Product name: {{name}}
-Product context: {{description}}`,
+Product context: {{description}}
+
+Important: Return ONLY a JSON object with the property "summary". Do not include any other text.`,
   config: {
     temperature: 0.4,
     maxOutputTokens: 100,
