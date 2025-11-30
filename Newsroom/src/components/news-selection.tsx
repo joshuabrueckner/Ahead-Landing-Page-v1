@@ -56,8 +56,15 @@ type ExtractionCallbacks = {
 class ExtractionQueue {
   private queue: Array<{ url: string; callbacks: ExtractionCallbacks }> = [];
   private processing = false;
+  private onAllCompleteCallback: (() => void) | null = null;
+  private pendingCount = 0;
+
+  setOnAllComplete(callback: () => void) {
+    this.onAllCompleteCallback = callback;
+  }
 
   async add(url: string, callbacks: ExtractionCallbacks) {
+    this.pendingCount++;
     this.queue.push({ url, callbacks });
     this.processQueue();
   }
@@ -86,6 +93,7 @@ class ExtractionQueue {
           text = "Failed to extract article text.";
           item.callbacks.onTextExtracted(text);
           item.callbacks.onSummaryComplete("");
+          this.decrementPending();
         } else {
           text = result.text || "No text was extracted.";
           
@@ -103,17 +111,21 @@ class ExtractionQueue {
               } catch (err) {
                 console.error("Summary generation error:", err);
                 item.callbacks.onSummaryComplete("");
+              } finally {
+                this.decrementPending();
               }
             })();
             pendingSummaries.push(summaryPromise);
           } else {
             item.callbacks.onSummaryComplete("");
+            this.decrementPending();
           }
         }
       } catch (error) {
         console.error("Extraction error:", error);
         item.callbacks.onTextExtracted("Failed to extract article text.");
         item.callbacks.onSummaryComplete("");
+        this.decrementPending();
       }
 
       // Delay before the next extraction (but summarization continues in background)
@@ -125,6 +137,16 @@ class ExtractionQueue {
     // Wait for any remaining summaries to complete before marking processing as done
     await Promise.all(pendingSummaries);
     this.processing = false;
+  }
+
+  private decrementPending() {
+    this.pendingCount--;
+    if (this.pendingCount <= 0) {
+      this.pendingCount = 0;
+      if (this.onAllCompleteCallback) {
+        this.onAllCompleteCallback();
+      }
+    }
   }
 }
 
@@ -401,8 +423,17 @@ const ArticleItem = ({
 export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate, onAddArticle, onArticleSummaryUpdate }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
+  const [isExtractionComplete, setIsExtractionComplete] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Register completion callback when component mounts
+  useEffect(() => {
+    extractionQueue.setOnAllComplete(() => {
+      console.log('All extractions and summaries complete!');
+      setIsExtractionComplete(true);
+    });
+  }, []);
 
   useEffect(() => {
     setDateInput(selectedDate);
@@ -511,7 +542,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                     className="h-10 w-10 rounded-full"
                     aria-label="Extract & Summarize"
                   >
-                    {isExtractionStarted ? (
+                    {isExtractionStarted && !isExtractionComplete ? (
                       <Loader className="h-4 w-4 animate-spin" />
                     ) : (
                       <Sparkles className="h-4 w-4" />
