@@ -255,7 +255,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
             </div>
           </div>
           <TooltipProvider delayDuration={200}>
-            <div className="flex items-center gap-2 w-full sm:w-[184px] justify-end">
+            <div className="flex items-center gap-2">
               <div>
                 <Input
                   ref={dateInputRef}
@@ -362,7 +362,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                           <ArrowUp className="w-3 h-3 mr-1 text-green-500" /> {(product.upvotes || 0).toLocaleString()} upvotes
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-[184px] justify-end">
+                    <div className="flex items-center gap-2 sm:ml-auto">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
