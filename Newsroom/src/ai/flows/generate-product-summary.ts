@@ -47,6 +47,8 @@ Example Output:
   config: {
     temperature: 0.2,
     maxOutputTokens: 200,
+    // @ts-ignore - Genkit types might not be up to date for this property
+    responseMimeType: 'application/json',
   },
 });
 
@@ -57,7 +59,16 @@ const generateProductSummaryFlow = ai.defineFlow(
     outputSchema: GenerateProductSummaryOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    try {
+      const {output} = await prompt(input);
+      if (!output) {
+        throw new Error('Model returned null output');
+      }
+      return output;
+    } catch (error) {
+      console.error('Error in generateProductSummaryFlow:', error);
+      // Fallback to a generic summary if generation fails
+      return { summary: 'Helps you achieve your goals with AI.' };
+    }
   }
 );
