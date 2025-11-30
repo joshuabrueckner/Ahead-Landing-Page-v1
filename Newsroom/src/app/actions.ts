@@ -35,6 +35,7 @@ import { collection, addDoc, getDocs, serverTimestamp, Timestamp } from "firebas
 import { ai } from "@/ai/genkit";
 import { load } from "cheerio";
 
+const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}]/gu;
 
 const getYesterdayDateString = () => {
     const nowInPT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
@@ -347,6 +348,13 @@ export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<
 }
 
 export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
+  const prompt = `You are an expert editor. Summarize the following article text into a single, compelling sentence that captures the main point.
+  
+  Article Text:
+  """
+  ${articleText.slice(0, 10000)}
+  """`;
+
   try {
     const result = await ai.generate({
       model: 'googleai/gemini-3-pro-preview',
