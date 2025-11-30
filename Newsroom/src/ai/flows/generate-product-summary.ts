@@ -54,7 +54,9 @@ Example Output:
         prompt: promptText,
         config: {
           temperature: 0.2,
-          maxOutputTokens: 200,
+          maxOutputTokens: 1000,
+          // @ts-ignore
+          responseMimeType: 'application/json',
         },
       });
 
