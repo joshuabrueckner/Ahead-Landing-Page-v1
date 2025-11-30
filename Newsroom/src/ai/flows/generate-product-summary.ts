@@ -60,9 +60,10 @@ Example Output:
 
       const text = result.text;
       console.log(`[generateProductSummaryFlow] Raw output for ${input.name}:`, text);
+      console.log(`[generateProductSummaryFlow] Finish reason for ${input.name}:`, result.finishReason);
 
       if (!text) {
-        throw new Error('Model returned empty text');
+        throw new Error(`Model returned empty text. Finish reason: ${result.finishReason}`);
       }
 
       // Clean up markdown code blocks if present
