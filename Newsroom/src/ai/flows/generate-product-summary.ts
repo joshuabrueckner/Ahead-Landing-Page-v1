@@ -36,7 +36,8 @@ const prompt = ai.definePrompt({
 Product name: {{name}}
 Product context: {{description}}
 
-Important: Return ONLY a JSON object with the property "summary". Do not include any other text.`,
+IMPORTANT: You MUST respond with a valid JSON object in this exact format: {"summary": "your phrase here"}
+Do not include any other text, markdown, or explanation outside the JSON object.`,
   config: {
     temperature: 0.4,
     maxOutputTokens: 100,
@@ -50,7 +51,22 @@ const generateProductSummaryFlow = ai.defineFlow(
     outputSchema: GenerateProductSummaryOutputSchema,
   },
   async input => {
+    if (!input.description) {
+      return { summary: input.name };
+    }
+    
     const {output} = await prompt(input);
-    return output!;
+    
+    // Handle null/undefined output gracefully
+    if (!output || !output.summary) {
+      console.warn(`generateProductSummaryFlow: Model returned null for ${input.name}, using fallback`);
+      // Return a fallback based on the description
+      const fallback = input.description.toLowerCase().startsWith('a ') || input.description.toLowerCase().startsWith('an ')
+        ? input.description.charAt(0).toLowerCase() + input.description.slice(1)
+        : input.description;
+      return { summary: fallback.length > 100 ? fallback.slice(0, 97) + '...' : fallback };
+    }
+    
+    return output;
   }
 );
