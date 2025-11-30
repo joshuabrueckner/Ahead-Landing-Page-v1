@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Lightbulb, Sparkles, Loader2 } from "lucide-react";
+import { Lightbulb, Sparkles, Loader } from "lucide-react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 type AiTipSectionProps = {
@@ -87,17 +87,18 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="secondary"
-                  className="h-10 rounded-full px-4 flex items-center gap-2"
+                  variant="default"
+                  size="icon"
+                  className="h-10 w-10 rounded-full"
                   onClick={handleTransform}
                   disabled={isTransforming}
+                  aria-label="Polish with AI"
                 >
                   {isTransforming ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader className="h-4 w-4 animate-spin" />
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  {isTransforming ? "Transforming" : "Polish with AI"}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Gemini will rewrite this tip within 300 characters.</TooltipContent>
