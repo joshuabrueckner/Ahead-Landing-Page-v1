@@ -42,15 +42,22 @@ type ExtractionResult = {
   isExtracting: boolean;
 };
 
+// Two-phase callback: first for extraction complete, second for summary complete
+type ExtractionCallbacks = {
+  onTextExtracted: (text: string) => void;
+  onSummaryComplete: (summary: string) => void;
+};
+
 // Global extraction queue manager with overlapped processing:
-// - Extractions happen ONE at a time (sequential) with 15s delay
+// - Extractions happen ONE at a time (sequential) with delay
 // - Summarization happens in parallel with the next extraction
+// - UI updates immediately when text is extracted, then again when summary is ready
 class ExtractionQueue {
-  private queue: Array<{ url: string; callback: (text: string, summary: string) => void }> = [];
+  private queue: Array<{ url: string; callbacks: ExtractionCallbacks }> = [];
   private processing = false;
 
-  async add(url: string, callback: (text: string, summary: string) => void) {
-    this.queue.push({ url, callback });
+  async add(url: string, callbacks: ExtractionCallbacks) {
+    this.queue.push({ url, callbacks });
     this.processQueue();
   }
 
@@ -73,31 +80,36 @@ class ExtractionQueue {
         if (result.error) {
           console.error("Auto-extraction failed:", result.error);
           text = "Failed to extract article text.";
-          item.callback(text, "");
+          item.callbacks.onTextExtracted(text);
+          item.callbacks.onSummaryComplete("");
         } else {
           text = result.text || "No text was extracted.";
           
+          // IMMEDIATELY notify UI that text is ready (don't wait for summary)
+          item.callbacks.onTextExtracted(text);
+          
           // Step 2: Start summarization in the background (non-blocking)
-          // This allows the next extraction to start while summarization runs
+          // This runs in parallel with the next article's extraction
           if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
             const summaryPromise = (async () => {
               try {
                 const summaryResult = await generateArticleOneSentenceSummary(text);
                 const summary = summaryResult.error ? "" : (summaryResult.summary || "");
-                item.callback(text, summary);
+                item.callbacks.onSummaryComplete(summary);
               } catch (err) {
                 console.error("Summary generation error:", err);
-                item.callback(text, "");
+                item.callbacks.onSummaryComplete("");
               }
             })();
             pendingSummaries.push(summaryPromise);
           } else {
-            item.callback(text, "");
+            item.callbacks.onSummaryComplete("");
           }
         }
       } catch (error) {
         console.error("Extraction error:", error);
-        item.callback("Failed to extract article text.", "");
+        item.callbacks.onTextExtracted("Failed to extract article text.");
+        item.callbacks.onSummaryComplete("");
       }
 
       // Delay before the next extraction (but summarization continues in background)
@@ -165,16 +177,30 @@ const ArticleItem = ({
         if (shouldExtract && !hasBeenQueued) {
             setHasBeenQueued(true);
             setIsExtracting(true);
-            extractionQueue.add(article.url, (text, sum) => {
-                console.log('Article processed:', article.title, 'Summary:', sum);
-                setExtractedText(text);
-        const normalized = (sum || "").trim();
-        setSummary(normalized);
-        onSummaryUpdate(article.id, normalized);
-                setIsExtracting(false);
+            setIsSummarizing(false);
+            
+            extractionQueue.add(article.url, {
+                onTextExtracted: (text) => {
+                    // Phase 1: Text is ready - show it immediately
+                    console.log('Text extracted:', article.title);
+                    setExtractedText(text);
+                    setIsExtracting(false);
+                    // Start showing summarizing state
+                    if (text && !text.includes("Failed") && text !== "No text was extracted.") {
+                        setIsSummarizing(true);
+                    }
+                },
+                onSummaryComplete: (sum) => {
+                    // Phase 2: Summary is ready - update UI
+                    console.log('Summary complete:', article.title, 'Summary:', sum);
+                    const normalized = (sum || "").trim();
+                    setSummary(normalized);
+                    onSummaryUpdate(article.id, normalized);
+                    setIsSummarizing(false);
+                }
             });
         }
-  }, [shouldExtract, article.url, hasBeenQueued, article.id, onSummaryUpdate]);
+  }, [shouldExtract, article.url, hasBeenQueued, article.id, article.title, onSummaryUpdate]);
     
     const handleShowText = () => {
       setIsTextDialogOpen(true);
@@ -182,13 +208,24 @@ const ArticleItem = ({
 
     const handleRetryExtraction = () => {
         setIsExtracting(true);
-        extractionQueue.add(article.url, (text, sum) => {
-            console.log('Article re-processed:', article.title, 'Summary:', sum);
-            setExtractedText(text);
-          const normalized = (sum || "").trim();
-          setSummary(normalized);
-          onSummaryUpdate(article.id, normalized);
-            setIsExtracting(false);
+        setIsSummarizing(false);
+        
+        extractionQueue.add(article.url, {
+            onTextExtracted: (text) => {
+                console.log('Text re-extracted:', article.title);
+                setExtractedText(text);
+                setIsExtracting(false);
+                if (text && !text.includes("Failed") && text !== "No text was extracted.") {
+                    setIsSummarizing(true);
+                }
+            },
+            onSummaryComplete: (sum) => {
+                console.log('Summary re-generated:', article.title, 'Summary:', sum);
+                const normalized = (sum || "").trim();
+                setSummary(normalized);
+                onSummaryUpdate(article.id, normalized);
+                setIsSummarizing(false);
+            }
         });
     };
 
@@ -251,7 +288,19 @@ const ArticleItem = ({
                 <label htmlFor={`article-select-${article.id}`} className={cn("font-semibold text-foreground hover:text-primary cursor-pointer leading-tight", isSelectionDisabled && 'cursor-not-allowed')}>
                   {article.title}
                 </label>
-                {summary && !isExtracting && (
+                {isExtracting && (
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed flex items-center gap-2">
+                    <Loader className="h-3 w-3 animate-spin" />
+                    Extracting article text...
+                  </p>
+                )}
+                {!isExtracting && isSummarizing && (
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed flex items-center gap-2">
+                    <Loader className="h-3 w-3 animate-spin" />
+                    Generating summary...
+                  </p>
+                )}
+                {!isExtracting && !isSummarizing && summary && (
                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{summary}</p>
                 )}
                 <div className="text-xs text-muted-foreground/80 flex items-center gap-2 mt-1">
