@@ -27,32 +27,6 @@ export async function generateProductSummary(input: GenerateProductSummaryInput)
   return generateProductSummaryFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateProductSummaryPrompt',
-  input: {schema: GenerateProductSummaryInputSchema},
-  output: {schema: GenerateProductSummaryOutputSchema},
-  prompt: `You are an expert copywriter for Ahead. Write a single sentence that completes the structure: "[Product Name] [your sentence]"
-
-The sentence will appear directly after the product name in a newsletter for mid-career knowledge workers who are non-technical and looking for AI tools with immediate, tangible results.
-
-**Requirements:**
-1. **State what it is AND the benefit** - Clearly explain what the tool does and why it matters.
-2. **Be Jargon-Free:** Use plain, accessible language.
-3. **Vary your sentence starters** - Use different openings like "turns...", "lets you...", "makes it easy to...", "automatically...", "saves you time by...", "gives you...", etc. Do NOT always start with "helps you".
-4. **NEVER start with the product name** - The product name is already shown separately.
-5. **Maximum 100 characters** - Do not exceed this limit. Do not truncate.
-
-Product name: {{name}}
-Product context: {{description}}
-
-IMPORTANT: You MUST respond with a valid JSON object in this exact format: {"summary": "your sentence here"}
-Do not include any other text, markdown, or explanation outside the JSON object.`,
-  config: {
-    temperature: 0.5,
-    maxOutputTokens: 100,
-  },
-});
-
 const generateProductSummaryFlow = ai.defineFlow(
   {
     name: 'generateProductSummaryFlow',
@@ -65,28 +39,63 @@ const generateProductSummaryFlow = ai.defineFlow(
     }
     
     try {
-      const {output} = await prompt(input);
+      // Use ai.generate directly with plain text output to avoid schema validation issues
+      const result = await ai.generate({
+        model: 'googleai/gemini-2.0-flash',
+        prompt: `You are an expert copywriter. Write a single sentence (max 100 characters) that completes: "${input.name} [your sentence]"
+
+The sentence describes this AI product for non-technical professionals. Focus on the practical benefit.
+
+Requirements:
+- Start with a verb like "turns", "lets you", "makes it easy to", "automatically", "helps you", "saves time by"
+- Do NOT start with the product name
+- Maximum 100 characters
+- Plain, jargon-free language
+
+Product: ${input.name}
+Description: ${input.description}
+
+Respond with ONLY the sentence, nothing else.`,
+        config: {
+          temperature: 0.5,
+          maxOutputTokens: 60,
+        },
+      });
       
-      // Handle null/undefined output gracefully
-      if (!output || !output.summary) {
-        console.error(`generateProductSummaryFlow: Model returned null/empty for ${input.name}`);
-        throw new Error('Model returned empty response');
+      let summary = result.text?.trim() || '';
+      
+      if (!summary) {
+        console.error(`generateProductSummaryFlow: Empty response for ${input.name}`);
+        throw new Error('Empty response from model');
       }
       
-      // Ensure summary doesn't exceed 100 characters
-      let summary = output.summary;
+      // Clean up the response - remove quotes if present
+      summary = summary.replace(/^["']|["']$/g, '').trim();
+      
+      // Remove product name if it starts with it
+      const lowerSummary = summary.toLowerCase();
+      const lowerName = input.name.toLowerCase();
+      if (lowerSummary.startsWith(lowerName)) {
+        summary = summary.slice(input.name.length).trim();
+        // Remove leading punctuation
+        summary = summary.replace(/^[:\-–—,.\s]+/, '').trim();
+      }
+      
+      // Ensure it doesn't exceed 100 characters
       if (summary.length > 100) {
-        // Try to cut at a natural break point
         const truncated = summary.slice(0, 97);
         const lastSpace = truncated.lastIndexOf(' ');
         summary = lastSpace > 50 ? truncated.slice(0, lastSpace) + '...' : truncated + '...';
       }
       
+      // Ensure first character is lowercase (since it follows the product name)
+      if (summary.length > 0) {
+        summary = summary.charAt(0).toLowerCase() + summary.slice(1);
+      }
+      
       return { summary };
     } catch (error: any) {
-      // Log the actual error for debugging
       console.error(`generateProductSummaryFlow: Error for ${input.name}:`, error.message);
-      // Re-throw so the action can handle it and show the error to the user
       throw error;
     }
   }
