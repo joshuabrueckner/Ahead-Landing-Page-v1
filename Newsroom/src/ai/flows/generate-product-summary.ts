@@ -61,31 +61,33 @@ const generateProductSummaryFlow = ai.defineFlow(
   },
   async input => {
     if (!input.description) {
-      return { summary: input.name };
+      return { summary: `is an AI-powered tool designed to boost your productivity.` };
     }
-    
-    // Create a fallback based on the description
-    const createFallback = () => {
-      const fallback = input.description.toLowerCase().startsWith('a ') || input.description.toLowerCase().startsWith('an ')
-        ? input.description.charAt(0).toLowerCase() + input.description.slice(1)
-        : input.description;
-      return { summary: fallback.length > 100 ? fallback.slice(0, 97) + '...' : fallback };
-    };
     
     try {
       const {output} = await prompt(input);
       
       // Handle null/undefined output gracefully
       if (!output || !output.summary) {
-        console.warn(`generateProductSummaryFlow: Model returned null for ${input.name}, using fallback`);
-        return createFallback();
+        console.error(`generateProductSummaryFlow: Model returned null/empty for ${input.name}`);
+        throw new Error('Model returned empty response');
       }
       
-      return output;
+      // Ensure summary doesn't exceed 100 characters
+      let summary = output.summary;
+      if (summary.length > 100) {
+        // Try to cut at a natural break point
+        const truncated = summary.slice(0, 97);
+        const lastSpace = truncated.lastIndexOf(' ');
+        summary = lastSpace > 50 ? truncated.slice(0, lastSpace) + '...' : truncated + '...';
+      }
+      
+      return { summary };
     } catch (error: any) {
-      // Catch schema validation errors when model returns null or invalid JSON
-      console.warn(`generateProductSummaryFlow: Error for ${input.name}: ${error.message}, using fallback`);
-      return createFallback();
+      // Log the actual error for debugging
+      console.error(`generateProductSummaryFlow: Error for ${input.name}:`, error.message);
+      // Re-throw so the action can handle it and show the error to the user
+      throw error;
     }
   }
 );
