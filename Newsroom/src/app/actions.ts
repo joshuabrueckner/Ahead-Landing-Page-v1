@@ -576,7 +576,7 @@ Respond with only the sentence.`;
 
   try {
     const result = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-3-pro-preview',
       prompt,
     });
 
