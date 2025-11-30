@@ -35,22 +35,56 @@ import { ScrollArea } from "./ui/scroll-area";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const MAX_SELECTIONS = 5;
-const CONCURRENT_EXTRACTIONS = 1;
-const EXTRACTION_DELAY = 15000; // 15 second delay to respect Diffbot rate limit of 0.08 calls/sec
+const CONCURRENT_EXTRACTIONS = 3; // Process 3 articles at a time
+const EXTRACTION_DELAY = 1000; // 1 second delay between batches
 
 type ExtractionResult = {
   text: string;
   isExtracting: boolean;
 };
 
-// Global extraction queue manager
+// Global extraction queue manager with parallel processing
 class ExtractionQueue {
   private queue: Array<{ url: string; callback: (text: string, summary: string) => void }> = [];
   private processing = false;
+  private activeCount = 0;
 
   async add(url: string, callback: (text: string, summary: string) => void) {
     this.queue.push({ url, callback });
     this.processQueue();
+  }
+
+  private async processItem(item: { url: string; callback: (text: string, summary: string) => void }) {
+    this.activeCount++;
+    try {
+      // Extract article text
+      const result = await extractArticleTextAction(item.url);
+      let text = "";
+      let summary = "";
+
+      if (result.error) {
+        console.error("Auto-extraction failed:", result.error);
+        text = "Failed to extract article text.";
+        summary = "";
+      } else {
+        text = result.text || "No text was extracted.";
+        
+        // Generate summary from the extracted text (runs in parallel with other extractions)
+        if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
+          const summaryResult = await generateArticleOneSentenceSummary(text);
+          if (!summaryResult.error) {
+            summary = summaryResult.summary || "";
+          }
+        }
+      }
+
+      item.callback(text, summary);
+    } catch (error) {
+      console.error("Extraction error:", error);
+      item.callback("Failed to extract article text.", "");
+    } finally {
+      this.activeCount--;
+    }
   }
 
   private async processQueue() {
@@ -58,44 +92,17 @@ class ExtractionQueue {
     this.processing = true;
 
     while (this.queue.length > 0) {
-      const item = this.queue.shift();
-      if (!item) continue;
-
-      try {
-        // Extract article text
-        const result = await extractArticleTextAction(item.url);
-        let text = "";
-        let summary = "";
-
-        if (result.error) {
-          console.error("Auto-extraction failed:", result.error);
-          text = "Failed to extract article text.";
-          summary = "";
-        } else {
-          text = result.text || "No text was extracted.";
-          console.log('Extracted text length:', text.length);
-          
-          // Generate summary from the extracted text
-          if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
-            console.log('Generating summary for:', item.url);
-            const summaryResult = await generateArticleOneSentenceSummary(text);
-            if (summaryResult.error) {
-              console.error("Summary generation failed:", summaryResult.error);
-              summary = "";
-            } else {
-              summary = summaryResult.summary || "";
-              console.log('Generated summary:', summary);
-            }
-          }
-        }
-
-        item.callback(text, summary);
-      } catch (error) {
-        console.error("Extraction error:", error);
-        item.callback("Failed to extract article text.", "");
+      // Process up to CONCURRENT_EXTRACTIONS items at once
+      const batch: Array<{ url: string; callback: (text: string, summary: string) => void }> = [];
+      while (batch.length < CONCURRENT_EXTRACTIONS && this.queue.length > 0) {
+        const item = this.queue.shift();
+        if (item) batch.push(item);
       }
 
-      // Wait before processing next article
+      // Process batch in parallel
+      await Promise.all(batch.map(item => this.processItem(item)));
+
+      // Small delay between batches to be respectful to APIs
       if (this.queue.length > 0) {
         await new Promise(resolve => setTimeout(resolve, EXTRACTION_DELAY));
       }
