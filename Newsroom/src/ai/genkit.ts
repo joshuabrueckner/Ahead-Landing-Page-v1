@@ -1,5 +1,6 @@
 import {genkit} from 'genkit';
-import {googleAI, HarmBlockThreshold, HarmCategory} from '@genkit-ai/google-genai';
+import {googleAI} from '@genkit-ai/google-genai';
+import {HarmBlockThreshold, HarmCategory} from '@google/generative-ai';
 
 export const ai = genkit({
   plugins: [googleAI({ 
