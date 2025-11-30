@@ -42,8 +42,9 @@ type ExtractionResult = {
   isExtracting: boolean;
 };
 
-// Two-phase callback: first for extraction complete, second for summary complete
+// Three-phase callback: when extraction starts, when text is ready, when summary is ready
 type ExtractionCallbacks = {
+  onExtractionStarted: () => void;
   onTextExtracted: (text: string) => void;
   onSummaryComplete: (summary: string) => void;
 };
@@ -51,7 +52,7 @@ type ExtractionCallbacks = {
 // Global extraction queue manager with overlapped processing:
 // - Extractions happen ONE at a time (sequential) with delay
 // - Summarization happens in parallel with the next extraction
-// - UI updates immediately when text is extracted, then again when summary is ready
+// - UI updates at each phase: queued -> extracting -> summarizing -> done
 class ExtractionQueue {
   private queue: Array<{ url: string; callbacks: ExtractionCallbacks }> = [];
   private processing = false;
@@ -71,6 +72,9 @@ class ExtractionQueue {
     while (this.queue.length > 0) {
       const item = this.queue.shift();
       if (!item) continue;
+
+      // Notify that extraction is NOW starting for this article
+      item.callbacks.onExtractionStarted();
 
       try {
         // Step 1: Extract article text (this is the rate-limited operation)
@@ -163,6 +167,7 @@ const ArticleItem = ({
     const { toast } = useToast();
     const [extractedText, setExtractedText] = useState("");
   const [summary, setSummary] = useState(article.summary || "");
+    const [isQueued, setIsQueued] = useState(false);
     const [isExtracting, setIsExtracting] = useState(false);
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
@@ -176,10 +181,17 @@ const ArticleItem = ({
     useEffect(() => {
         if (shouldExtract && !hasBeenQueued) {
             setHasBeenQueued(true);
-            setIsExtracting(true);
+            setIsQueued(true); // Show as queued, not extracting yet
+            setIsExtracting(false);
             setIsSummarizing(false);
             
             extractionQueue.add(article.url, {
+                onExtractionStarted: () => {
+                    // Phase 0: This article is now being extracted
+                    console.log('Extraction started:', article.title);
+                    setIsQueued(false);
+                    setIsExtracting(true);
+                },
                 onTextExtracted: (text) => {
                     // Phase 1: Text is ready - show it immediately
                     console.log('Text extracted:', article.title);
@@ -207,10 +219,15 @@ const ArticleItem = ({
     };
 
     const handleRetryExtraction = () => {
-        setIsExtracting(true);
+        setIsQueued(true);
+        setIsExtracting(false);
         setIsSummarizing(false);
         
         extractionQueue.add(article.url, {
+            onExtractionStarted: () => {
+                setIsQueued(false);
+                setIsExtracting(true);
+            },
             onTextExtracted: (text) => {
                 console.log('Text re-extracted:', article.title);
                 setExtractedText(text);
@@ -288,6 +305,11 @@ const ArticleItem = ({
                 <label htmlFor={`article-select-${article.id}`} className={cn("font-semibold text-foreground hover:text-primary cursor-pointer leading-tight", isSelectionDisabled && 'cursor-not-allowed')}>
                   {article.title}
                 </label>
+                {isQueued && !isExtracting && !isSummarizing && (
+                  <p className="text-sm text-muted-foreground/60 mt-1 leading-relaxed">
+                    Queued...
+                  </p>
+                )}
                 {isExtracting && (
                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed flex items-center gap-2">
                     <Loader className="h-3 w-3 animate-spin" />
@@ -300,7 +322,7 @@ const ArticleItem = ({
                     Generating summary...
                   </p>
                 )}
-                {!isExtracting && !isSummarizing && summary && (
+                {!isQueued && !isExtracting && !isSummarizing && summary && (
                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{summary}</p>
                 )}
                 <div className="text-xs text-muted-foreground/80 flex items-center gap-2 mt-1">
@@ -317,9 +339,9 @@ const ArticleItem = ({
                         className="h-9 w-9 rounded-full border border-border/40 bg-secondary/30 text-muted-foreground hover:text-primary"
                         aria-label="Retry extraction"
                         onClick={handleRetryExtraction}
-                        disabled={isExtracting}
+                        disabled={isExtracting || isQueued}
                       >
-                        {isExtracting ? (
+                        {(isExtracting || isQueued) ? (
                           <Loader className="h-4 w-4 animate-spin" />
                         ) : (
                           <RotateCcw className="h-4 w-4" />
