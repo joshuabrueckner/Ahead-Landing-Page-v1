@@ -31,12 +31,20 @@ const prompt = ai.definePrompt({
   name: 'generateProductSummaryPrompt',
   input: {schema: GenerateProductSummaryInputSchema},
   output: {schema: GenerateProductSummaryOutputSchema},
-  prompt: `You are an expert copywriter for Ahead. Write one short, highly practical sentence that explains how this product helps a mid-career, non-technical professional. Do NOT mention the product name or brand. Start directly with the outcome or action (e.g., "Helps you...", "Turns..."). Keep it warm, jargon-free, and <= 25 words.
+  prompt: `You are an expert copywriter for Ahead. Write a single, short, and highly practical sentence that completes the structure: "[Product Name] helps you..."
+
+The sentence serves as a concise description for a mid-career knowledge worker (like a Marketing Manager or Ops Lead) who is non-technical, feels pressured by AI, and is looking for tools that provide immediate, tangible results.
+
+**Requirements:**
+1. **Focus on the Outcome:** Describe the *benefit* or *practical job-to-be-done* the tool solves, not technical features.
+2. **Be Jargon-Free:** Use plain, accessible language that is warm and empowering.
+3. **Be Direct and Actionable:** Start immediately with "helps you..." (do NOT include the product name).
+4. **Keep it concise:** Maximum 20 words.
 
 Product name: {{name}}
 Product context: {{description}}
 
-IMPORTANT: You MUST respond with a valid JSON object in this exact format: {"summary": "your phrase here"}
+IMPORTANT: You MUST respond with a valid JSON object in this exact format: {"summary": "helps you [rest of sentence]"}
 Do not include any other text, markdown, or explanation outside the JSON object.`,
   config: {
     temperature: 0.4,
