@@ -224,7 +224,7 @@ const ArticleItem = ({
     return (
         <TooltipProvider delayDuration={200}>
         <div className={cn(
-          "p-2 transition-colors", 
+          "px-6 py-4 transition-colors", 
           isFeatured && "bg-secondary rounded-lg"
         )}>
           <div className="flex items-start gap-4">
@@ -366,7 +366,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   
   const renderSkeletons = () => {
     return Array.from({ length: 10 }).map((_, i) => (
-      <div key={`skeleton-${i}`} className="p-4 border-b">
+      <div key={`skeleton-${i}`} className="px-6 py-4 border-b">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4 flex-shrink-0">
                 <span className="w-5"></span>

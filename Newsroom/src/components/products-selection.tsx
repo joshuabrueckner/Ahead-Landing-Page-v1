@@ -327,7 +327,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
             const isSelected = selectedIds.has(product.id);
             const selectionIndex = isSelected ? selectedProducts.findIndex(p => p.id === product.id) : -1;
             return (
-              <div key={product.id} className="p-2">
+              <div key={product.id} className="px-6 py-4">
                 <div className="flex items-start gap-4">
                   <div className="flex items-center gap-4 flex-shrink-0 pt-1">
                     <span className="text-muted-foreground font-bold w-5 text-center">
