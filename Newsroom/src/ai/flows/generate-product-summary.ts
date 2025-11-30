@@ -31,24 +31,15 @@ const prompt = ai.definePrompt({
   name: 'generateProductSummaryPrompt',
   input: {schema: GenerateProductSummaryInputSchema},
   output: {schema: GenerateProductSummaryOutputSchema},
-  prompt: `You are an expert copywriter for Ahead.
-Task: Write one short, highly practical sentence that explains how this product helps a mid-career, non-technical professional.
-Constraints:
-- Do NOT mention the product name or brand.
-- Start directly with the outcome or action.
-- Keep it warm, jargon-free, and <= 25 words.
-- Output MUST be valid JSON.
+  prompt: `You are an expert copywriter for Ahead. Write one short, highly practical sentence that explains how this product helps a mid-career, non-technical professional. Do NOT mention the product name or brand. Start directly with the outcome or action (e.g., "Helps you...", "Turns..."). Keep it warm, jargon-free, and <= 25 words.
 
 Product name: {{name}}
 Product context: {{description}}
 
-Example Output:
-{ "summary": "Helps you automate your daily emails." }`,
+Important: Return ONLY a JSON object with the property "summary". Do not include any other text.`,
   config: {
-    temperature: 0.2,
-    maxOutputTokens: 200,
-    // @ts-ignore - Genkit types might not be up to date for this property
-    responseMimeType: 'application/json',
+    temperature: 0.4,
+    maxOutputTokens: 100,
   },
 });
 
@@ -59,16 +50,7 @@ const generateProductSummaryFlow = ai.defineFlow(
     outputSchema: GenerateProductSummaryOutputSchema,
   },
   async input => {
-    try {
-      const {output} = await prompt(input);
-      if (!output) {
-        throw new Error('Model returned null output');
-      }
-      return output;
-    } catch (error) {
-      console.error('Error in generateProductSummaryFlow:', error);
-      // Fallback to a generic summary if generation fails
-      return { summary: 'Helps you achieve your goals with AI.' };
-    }
+    const {output} = await prompt(input);
+    return output!;
   }
 );
