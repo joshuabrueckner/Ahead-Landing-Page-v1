@@ -221,6 +221,8 @@ export default function Home() {
     };
     if (availableSelectedArticles.length > 0 || selectedProducts.length > 0 || selectedTip) {
         localStorage.setItem("newsletterSelections", JSON.stringify(selectionData));
+        // Clear the preview cache so refine page regenerates content with new selections
+        localStorage.removeItem("newsletterPreview");
     } else {
         localStorage.removeItem("newsletterSelections");
     }
