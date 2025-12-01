@@ -79,7 +79,7 @@ The first news article in the list is the featured article. Use its title as the
   - Sound smart, witty, and slightly philosophical without lecturing.
   - Provide actionable guidance the reader can use to feel confident or gain an edge.
 
-For the other 4 news articles, use their titles as the headlines and their URLs as the links.
+For the other 4 news articles (Quick Hits), use their SUMMARY as the headline (not the title) and their URLs as the links. The summary contains the key insight - use it directly as the headline text.
 
 For the product launches, use their names and URLs. For the sentence, create a concise, single-sentence summary of the product's description.
 
