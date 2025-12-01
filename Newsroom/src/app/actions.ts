@@ -486,7 +486,7 @@ Respond with only the transformed tip (no preamble, no quotes).`;
 
   try {
     const result = await ai.generate({
-      model: 'googleai/gemini-3-pro-preview',
+      model: 'googleai/gemini-2.0-flash',
       prompt: instructions,
     });
 
