@@ -39,8 +39,9 @@ export default function PasswordPage() {
       }
 
       const fromParam = searchParams.get("from") || "/";
-  const destination = withBasePath(fromParam, runtimeBasePath);
-      router.replace(destination);
+      const destination = withBasePath(fromParam, runtimeBasePath);
+      // Use hard navigation to ensure server components re-evaluate with the new cookie
+      window.location.href = destination;
     } catch (error: any) {
       toast({ variant: "destructive", title: "Access denied", description: error.message });
       setPassword("");
