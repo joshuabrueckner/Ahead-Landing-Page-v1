@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppLogo } from "@/components/icons";
@@ -53,6 +53,9 @@ export default function Home() {
   const [featuredArticle, setFeaturedArticle] = useState<NewsArticle | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<ProductLaunch[]>([]);
   const [selectedTip, setSelectedTip] = useState<string>("");
+  
+  // Track if we're restoring from localStorage to avoid clearing preview unnecessarily
+  const isRestoringRef = useRef(true);
 
   const handleArticleSummaryUpdate = useCallback((articleId: number, summary: string) => {
     const normalized = (summary || "").trim();
@@ -207,6 +210,11 @@ export default function Home() {
         localStorage.removeItem("newsletterSelections");
       }
     }
+    // Mark restoration complete after initial load
+    const timer = setTimeout(() => {
+      isRestoringRef.current = false;
+    }, 500);
+    return () => clearTimeout(timer);
   }, [displayedArticles]);
 
   useEffect(() => {
@@ -218,11 +226,15 @@ export default function Home() {
       featuredArticle,
       selectedProducts,
       selectedTip,
+      // Add a version timestamp so the refine page knows when selections changed
+      version: Date.now(),
     };
     if (availableSelectedArticles.length > 0 || selectedProducts.length > 0 || selectedTip) {
         localStorage.setItem("newsletterSelections", JSON.stringify(selectionData));
-        // Clear the preview cache so refine page regenerates content with new selections
-        localStorage.removeItem("newsletterPreview");
+        // Only clear the preview cache if this is a genuine user change (not initial restoration)
+        if (!isRestoringRef.current) {
+          localStorage.removeItem("newsletterPreview");
+        }
     } else {
         localStorage.removeItem("newsletterSelections");
     }

@@ -85,6 +85,7 @@ export default function RefinePage() {
     featuredArticle: NewsArticle | null;
     selectedProducts: ProductLaunch[];
     selectedTip: string;
+    version?: number;
   } | null>(null);
   const [generatedContent, setGeneratedContent] = useState<GenerateNewsletterEmailContentOutput | null>(null);
   const [generatedSubject, setGeneratedSubject] = useState<string>('');
@@ -120,16 +121,22 @@ export default function RefinePage() {
 
     setIsGenerating(true);
     
-    // Check if we have previous edits
+    // Check if we have previous edits that match the current selections version
     const storedPreview = localStorage.getItem('newsletterPreview');
     if (storedPreview) {
       try {
         const parsedPreview = JSON.parse(storedPreview);
-        setGeneratedContent(parsedPreview.content);
-        setGeneratedSubject(parsedPreview.subject);
-        setGeneratedIntro(parsedPreview.introSentence);
-        setIsGenerating(false);
-        return;
+        // Only use cached preview if versions match (meaning selections haven't changed)
+        if (parsedPreview.selectionsVersion === currentSelections.version) {
+          setGeneratedContent(parsedPreview.content);
+          setGeneratedSubject(parsedPreview.subject);
+          setGeneratedIntro(parsedPreview.introSentence);
+          setIsGenerating(false);
+          return;
+        } else {
+          console.log("Selections version changed, regenerating content.");
+          localStorage.removeItem('newsletterPreview');
+        }
       } catch (e) {
         console.error("Could not parse stored preview, regenerating.", e);
         localStorage.removeItem('newsletterPreview'); // Clear bad data
@@ -251,6 +258,8 @@ export default function RefinePage() {
       content: generatedContent,
       subject: generatedSubject,
       introSentence: generatedIntro,
+      // Store the selections version so we know if this preview matches current selections
+      selectionsVersion: selections?.version,
     };
     localStorage.setItem("newsletterPreview", JSON.stringify(previewData));
     router.push(withBasePath('/preview', getBasePath()));
