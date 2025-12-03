@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { format, subDays, subWeeks, subMonths, subQuarters, subYears, startOfDay, endOfDay, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
+import { format, subDays, subWeeks, subMonths, subQuarters, subYears, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
 type Subscriber = {
   email: string;
@@ -77,51 +77,58 @@ function generateChartData(subscribers: Subscriber[], timeRange: TimeRange, date
   let current = new Date(dateRange.start);
   
   while (current <= dateRange.end) {
+    let periodStart: Date;
     let periodEnd: Date;
     let label: string;
     
     switch (timeRange) {
       case 'day':
       case 'custom':
+        periodStart = startOfDay(current);
         periodEnd = endOfDay(current);
         label = format(current, 'MMM d');
         current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
         break;
       case 'week':
+        periodStart = startOfWeek(current);
         periodEnd = endOfWeek(current);
-        label = format(current, 'MMM d');
-        current = new Date(current.getTime() + 7 * 24 * 60 * 60 * 1000);
+        label = format(periodStart, 'MMM d');
+        current = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
         break;
       case 'month':
+        periodStart = startOfMonth(current);
         periodEnd = endOfMonth(current);
         label = format(current, 'MMM yyyy');
         current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
         break;
       case 'quarter':
+        periodStart = startOfQuarter(current);
         periodEnd = endOfQuarter(current);
         const quarter = Math.floor(current.getMonth() / 3) + 1;
         label = `Q${quarter} ${current.getFullYear()}`;
         current = new Date(current.getFullYear(), current.getMonth() + 3, 1);
         break;
       case 'year':
+        periodStart = startOfYear(current);
         periodEnd = endOfYear(current);
         label = format(current, 'yyyy');
         current = new Date(current.getFullYear() + 1, 0, 1);
         break;
       default:
+        periodStart = startOfDay(current);
         periodEnd = endOfDay(current);
         label = format(current, 'MMM d');
         current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
     }
     
-    periods.push({ label, start: new Date(current.getTime() - (timeRange === 'day' || timeRange === 'custom' ? 24 * 60 * 60 * 1000 : 0)), end: periodEnd });
+    periods.push({ label, start: periodStart, end: periodEnd });
   }
 
-  // Count subscribers per period
+  // Count subscribers per period using subscribedAt field
   const data = periods.map(period => {
     const count = subscribersWithDates.filter(s => {
       const subDate = new Date(s.subscribedAt!);
-      return isWithinInterval(subDate, { start: period.start, end: period.end });
+      return subDate >= period.start && subDate <= period.end;
     }).length;
     
     return {
