@@ -211,6 +211,15 @@ export default function SubscribersPage() {
     from: undefined,
     to: undefined,
   });
+  
+  // Traffic data state
+  const [trafficData, setTrafficData] = useState<AnalyticsDataPoint[]>([]);
+  const [isLoadingTraffic, setIsLoadingTraffic] = useState(true);
+  const [trafficTimeRange, setTrafficTimeRange] = useState<TimeRange>('month');
+  const [trafficCustomDateRange, setTrafficCustomDateRange] = useState<DateRange>({
+    from: undefined,
+    to: undefined,
+  });
 
   useEffect(() => {
     const fetchSubscribers = async () => {
@@ -230,6 +239,30 @@ export default function SubscribersPage() {
     fetchSubscribers();
   }, [toast]);
 
+  // Fetch traffic data when time range changes
+  useEffect(() => {
+    const fetchTrafficData = async () => {
+      setIsLoadingTraffic(true);
+      const dateRange = getDateRangeForTimeRange(trafficTimeRange, trafficCustomDateRange);
+      const startDate = format(dateRange.start, 'yyyy-MM-dd');
+      const endDate = format(dateRange.end, 'yyyy-MM-dd');
+      
+      const result = await getGoogleAnalyticsDataAction(startDate, endDate);
+      if ('error' in result) {
+        toast({
+          variant: 'destructive',
+          title: 'Error fetching traffic data',
+          description: result.error,
+        });
+        setTrafficData([]);
+      } else {
+        setTrafficData(result);
+      }
+      setIsLoadingTraffic(false);
+    };
+    fetchTrafficData();
+  }, [trafficTimeRange, trafficCustomDateRange, toast]);
+
   useEffect(() => {
     const resolved = getBasePath();
     if (resolved !== basePath) {
@@ -241,6 +274,27 @@ export default function SubscribersPage() {
     const dateRange = getDateRangeForTimeRange(timeRange, customDateRange);
     return generateChartData(subscribers, timeRange, dateRange);
   }, [subscribers, timeRange, customDateRange]);
+
+  // Process traffic data for chart display
+  const trafficChartData = useMemo(() => {
+    if (!trafficData.length) return [];
+    return trafficData.map(d => ({
+      period: format(new Date(d.date), 'MMM d'),
+      visitors: d.visitors,
+      pageViews: d.pageViews,
+    }));
+  }, [trafficData]);
+
+  // Calculate traffic totals
+  const trafficTotals = useMemo(() => {
+    return trafficData.reduce(
+      (acc, d) => ({
+        visitors: acc.visitors + d.visitors,
+        pageViews: acc.pageViews + d.pageViews,
+      }),
+      { visitors: 0, pageViews: 0 }
+    );
+  }, [trafficData]);
 
   const handleAddSubscriber = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,6 +338,148 @@ export default function SubscribersPage() {
       </header>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto space-y-8">
+          {/* Website Traffic Chart */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5" />
+                    Website Traffic
+                  </CardTitle>
+                  <CardDescription>
+                    Visitors to jumpahead.ai
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Tabs value={trafficTimeRange} onValueChange={(v) => setTrafficTimeRange(v as TimeRange)}>
+                    <TabsList className="grid grid-cols-6 w-full">
+                      <TabsTrigger value="day" className="text-xs px-2">Day</TabsTrigger>
+                      <TabsTrigger value="week" className="text-xs px-2">Week</TabsTrigger>
+                      <TabsTrigger value="month" className="text-xs px-2">Month</TabsTrigger>
+                      <TabsTrigger value="quarter" className="text-xs px-2">Quarter</TabsTrigger>
+                      <TabsTrigger value="year" className="text-xs px-2">Year</TabsTrigger>
+                      <TabsTrigger value="custom" className="text-xs px-2">Custom</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              </div>
+              {trafficTimeRange === 'custom' && (
+                <div className="flex items-center gap-2 mt-4">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !trafficCustomDateRange.from && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {trafficCustomDateRange.from ? format(trafficCustomDateRange.from, "PPP") : "Start date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={trafficCustomDateRange.from}
+                        onSelect={(date) => setTrafficCustomDateRange(prev => ({ ...prev, from: date }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-muted-foreground">to</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !trafficCustomDateRange.to && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {trafficCustomDateRange.to ? format(trafficCustomDateRange.to, "PPP") : "End date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={trafficCustomDateRange.to}
+                        onSelect={(date) => setTrafficCustomDateRange(prev => ({ ...prev, to: date }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+              {/* Traffic Summary Stats */}
+              {!isLoadingTraffic && trafficData.length > 0 && (
+                <div className="flex gap-6 mt-4">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Total Visitors:</span>
+                    <span className="font-semibold">{trafficTotals.visitors.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Page Views:</span>
+                    <span className="font-semibold">{trafficTotals.pageViews.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {isLoadingTraffic ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : trafficChartData.length > 0 ? (
+                <ChartContainer config={trafficChartConfig} className="h-[300px] w-full">
+                  <LineChart data={trafficChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="period" 
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-muted-foreground"
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-muted-foreground"
+                      allowDecimals={false}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line
+                      type="monotone"
+                      dataKey="visitors"
+                      stroke="var(--color-visitors)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      name="Visitors"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pageViews"
+                      stroke="var(--color-pageViews)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      name="Page Views"
+                    />
+                  </LineChart>
+                </ChartContainer>
+              ) : (
+                <div className="flex justify-center py-16 text-muted-foreground">
+                  No traffic data available. Make sure Google Analytics is configured.
+                </div>
+              )}
+            </CardContent>
+          </Card>
           {/* Subscriber Growth Chart */}
           <Card>
             <CardHeader>
