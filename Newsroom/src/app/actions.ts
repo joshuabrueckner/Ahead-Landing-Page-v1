@@ -37,6 +37,13 @@ import { load } from "cheerio";
 
 const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}]/gu;
 
+// Loops API has a limit on the length of event property values (typically ~1000 chars)
+const LOOPS_MAX_PROPERTY_LENGTH = 1000;
+const truncateForLoops = (text: string, maxLength: number = LOOPS_MAX_PROPERTY_LENGTH): string => {
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
+};
+
 const getYesterdayDateString = () => {
     const nowInPT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
     const yesterdayInPT = new Date(nowInPT);
@@ -694,31 +701,31 @@ export async function sendToLoopsAction(
   }
 
   const eventProperties = {
-    Subject: subject,
-    Intro: introSentence,
-    Headline1: content.featuredHeadline.headline,
+    Subject: truncateForLoops(subject),
+    Intro: truncateForLoops(introSentence),
+    Headline1: truncateForLoops(content.featuredHeadline.headline),
     Headline1Image: content.featuredHeadline.imageUrl || '',
     Headline1Link: content.featuredHeadline.link,
-    WhatsHappening: content.featuredHeadline.whatsHappening,
-    WhyYouShouldCare: content.featuredHeadline.whyYouShouldCare,
-    Headline2: content.headlines[0]?.headline || '',
+    WhatsHappening: truncateForLoops(content.featuredHeadline.whatsHappening),
+    WhyYouShouldCare: truncateForLoops(content.featuredHeadline.whyYouShouldCare),
+    Headline2: truncateForLoops(content.headlines[0]?.headline || ''),
     Headline2Link: content.headlines[0]?.link || '',
-    Headline3: content.headlines[1]?.headline || '',
+    Headline3: truncateForLoops(content.headlines[1]?.headline || ''),
     Headline3Link: content.headlines[1]?.link || '',
-    Headline4: content.headlines[2]?.headline || '',
+    Headline4: truncateForLoops(content.headlines[2]?.headline || ''),
     Headline4Link: content.headlines[2]?.link || '',
-    Headline5: content.headlines[3]?.headline || '',
+    Headline5: truncateForLoops(content.headlines[3]?.headline || ''),
     Headline5Link: content.headlines[3]?.link || '',
-    LaunchName1: content.launches[0]?.name || '',
+    LaunchName1: truncateForLoops(content.launches[0]?.name || ''),
     LaunchLink1: content.launches[0]?.link || '',
-    LaunchSentence1: content.launches[0]?.sentence || '',
-    LaunchName2: content.launches[1]?.name || '',
+    LaunchSentence1: truncateForLoops(content.launches[0]?.sentence || ''),
+    LaunchName2: truncateForLoops(content.launches[1]?.name || ''),
     LaunchLink2: content.launches[1]?.link || '',
-    LaunchSentence2: content.launches[1]?.sentence || '',
-    LaunchName3: content.launches[2]?.name || '',
+    LaunchSentence2: truncateForLoops(content.launches[1]?.sentence || ''),
+    LaunchName3: truncateForLoops(content.launches[2]?.name || ''),
     LaunchLink3: content.launches[2]?.link || '',
-    LaunchSentence3: content.launches[2]?.sentence || '',
-    AheadTip: content.aheadTip,
+    LaunchSentence3: truncateForLoops(content.launches[2]?.sentence || ''),
+    AheadTip: truncateForLoops(content.aheadTip),
   };
 
   console.log("[sendToLoopsAction] Event Properties Payload:", JSON.stringify(eventProperties, null, 2));
@@ -793,31 +800,31 @@ export async function sendTestEmailAction(
   }
 
   const eventProperties = {
-    Subject: subject,
-    Intro: introSentence,
-    Headline1: content.featuredHeadline.headline,
+    Subject: truncateForLoops(subject),
+    Intro: truncateForLoops(introSentence),
+    Headline1: truncateForLoops(content.featuredHeadline.headline),
     Headline1Image: content.featuredHeadline.imageUrl || '',
     Headline1Link: content.featuredHeadline.link,
-    WhatsHappening: content.featuredHeadline.whatsHappening,
-    WhyYouShouldCare: content.featuredHeadline.whyYouShouldCare,
-    Headline2: content.headlines[0]?.headline || '',
+    WhatsHappening: truncateForLoops(content.featuredHeadline.whatsHappening),
+    WhyYouShouldCare: truncateForLoops(content.featuredHeadline.whyYouShouldCare),
+    Headline2: truncateForLoops(content.headlines[0]?.headline || ''),
     Headline2Link: content.headlines[0]?.link || '',
-    Headline3: content.headlines[1]?.headline || '',
+    Headline3: truncateForLoops(content.headlines[1]?.headline || ''),
     Headline3Link: content.headlines[1]?.link || '',
-    Headline4: content.headlines[2]?.headline || '',
+    Headline4: truncateForLoops(content.headlines[2]?.headline || ''),
     Headline4Link: content.headlines[2]?.link || '',
-    Headline5: content.headlines[3]?.headline || '',
+    Headline5: truncateForLoops(content.headlines[3]?.headline || ''),
     Headline5Link: content.headlines[3]?.link || '',
-    LaunchName1: content.launches[0]?.name || '',
+    LaunchName1: truncateForLoops(content.launches[0]?.name || ''),
     LaunchLink1: content.launches[0]?.link || '',
-    LaunchSentence1: content.launches[0]?.sentence || '',
-    LaunchName2: content.launches[1]?.name || '',
+    LaunchSentence1: truncateForLoops(content.launches[0]?.sentence || ''),
+    LaunchName2: truncateForLoops(content.launches[1]?.name || ''),
     LaunchLink2: content.launches[1]?.link || '',
-    LaunchSentence2: content.launches[1]?.sentence || '',
-    LaunchName3: content.launches[2]?.name || '',
+    LaunchSentence2: truncateForLoops(content.launches[1]?.sentence || ''),
+    LaunchName3: truncateForLoops(content.launches[2]?.name || ''),
     LaunchLink3: content.launches[2]?.link || '',
-    LaunchSentence3: content.launches[2]?.sentence || '',
-    AheadTip: content.aheadTip,
+    LaunchSentence3: truncateForLoops(content.launches[2]?.sentence || ''),
+    AheadTip: truncateForLoops(content.aheadTip),
   };
 
   try {
