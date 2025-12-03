@@ -55,28 +55,36 @@ const trafficChartConfig: ChartConfig = {
   },
 };
 
-function getDateRangeForTimeRange(timeRange: TimeRange, customRange?: DateRange): { start: Date; end: Date } {
+function getDateRangeForTimeRange(timeRange: TimeRange, customRange?: DateRange, dataStartDate?: Date): { start: Date; end: Date } {
   const now = new Date();
   const end = endOfDay(now);
   
+  // If we have a data start date, use it as the minimum start date
+  const getAdjustedStart = (calculatedStart: Date) => {
+    if (dataStartDate && calculatedStart < dataStartDate) {
+      return startOfDay(dataStartDate);
+    }
+    return calculatedStart;
+  };
+  
   switch (timeRange) {
     case 'day':
-      return { start: startOfDay(subDays(now, 30)), end }; // Last 30 days
+      return { start: getAdjustedStart(startOfDay(subDays(now, 30))), end }; // Last 30 days
     case 'week':
-      return { start: startOfWeek(subWeeks(now, 12)), end }; // Last 12 weeks
+      return { start: getAdjustedStart(startOfWeek(subWeeks(now, 12))), end }; // Last 12 weeks
     case 'month':
-      return { start: startOfMonth(subMonths(now, 12)), end }; // Last 12 months
+      return { start: getAdjustedStart(startOfMonth(subMonths(now, 12))), end }; // Last 12 months
     case 'quarter':
-      return { start: startOfQuarter(subQuarters(now, 8)), end }; // Last 8 quarters
+      return { start: getAdjustedStart(startOfQuarter(subQuarters(now, 8))), end }; // Last 8 quarters
     case 'year':
-      return { start: startOfYear(subYears(now, 5)), end }; // Last 5 years
+      return { start: getAdjustedStart(startOfYear(subYears(now, 5))), end }; // Last 5 years
     case 'custom':
       if (customRange?.from && customRange?.to) {
         return { start: startOfDay(customRange.from), end: endOfDay(customRange.to) };
       }
-      return { start: startOfDay(subDays(now, 30)), end };
+      return { start: getAdjustedStart(startOfDay(subDays(now, 30))), end };
     default:
-      return { start: startOfDay(subDays(now, 30)), end };
+      return { start: getAdjustedStart(startOfDay(subDays(now, 30))), end };
   }
 }
 
@@ -221,11 +229,20 @@ export default function SubscribersPage() {
     fetchSubscribers();
   }, [toast]);
 
+  // Find the earliest subscriber date (used as data start for both charts)
+  const firstDataDate = useMemo(() => {
+    const dates = subscribers
+      .filter(s => s.subscribedAt)
+      .map(s => new Date(s.subscribedAt!));
+    if (dates.length === 0) return undefined;
+    return new Date(Math.min(...dates.map(d => d.getTime())));
+  }, [subscribers]);
+
   // Fetch traffic data when time range changes
   useEffect(() => {
     const fetchTrafficData = async () => {
       setIsLoadingTraffic(true);
-      const dateRange = getDateRangeForTimeRange(trafficTimeRange, trafficCustomDateRange);
+      const dateRange = getDateRangeForTimeRange(trafficTimeRange, trafficCustomDateRange, firstDataDate);
       const startDate = format(dateRange.start, 'yyyy-MM-dd');
       const endDate = format(dateRange.end, 'yyyy-MM-dd');
       
@@ -243,7 +260,7 @@ export default function SubscribersPage() {
       setIsLoadingTraffic(false);
     };
     fetchTrafficData();
-  }, [trafficTimeRange, trafficCustomDateRange, toast]);
+  }, [trafficTimeRange, trafficCustomDateRange, toast, firstDataDate]);
 
   useEffect(() => {
     const resolved = getBasePath();
@@ -253,9 +270,9 @@ export default function SubscribersPage() {
   }, [basePath]);
 
   const chartData = useMemo(() => {
-    const dateRange = getDateRangeForTimeRange(timeRange, customDateRange);
+    const dateRange = getDateRangeForTimeRange(timeRange, customDateRange, firstDataDate);
     return generateChartData(subscribers, timeRange, dateRange);
-  }, [subscribers, timeRange, customDateRange]);
+  }, [subscribers, timeRange, customDateRange, firstDataDate]);
 
   // Process and aggregate traffic data based on selected time range
   const trafficChartData = useMemo(() => {
