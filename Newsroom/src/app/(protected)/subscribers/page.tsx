@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { addSubscriberAction, getSubscribersAction } from '../../actions';
-import { Loader2, PlusCircle, CalendarIcon } from 'lucide-react';
+import { addSubscriberAction, getSubscribersAction, getGoogleAnalyticsDataAction, type AnalyticsDataPoint } from '../../actions';
+import { Loader2, PlusCircle, CalendarIcon, Users, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { getBasePath, withBasePath } from '@/lib/base-path';
@@ -35,12 +35,23 @@ type DateRange = {
 
 const chartConfig: ChartConfig = {
   subscribers: {
-    label: 'Subscribers',
+    label: 'New Subscribers',
     color: 'hsl(var(--primary))',
   },
   cumulative: {
     label: 'Total Subscribers',
     color: 'hsl(var(--chart-2))',
+  },
+};
+
+const trafficChartConfig: ChartConfig = {
+  visitors: {
+    label: 'Visitors',
+    color: 'hsl(var(--chart-1))',
+  },
+  pageViews: {
+    label: 'Page Views',
+    color: 'hsl(var(--chart-3))',
   },
 };
 

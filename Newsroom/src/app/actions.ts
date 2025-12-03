@@ -898,3 +898,128 @@ export async function getSubscribersAction(): Promise<{ email: string; name: str
     return { error: error.message || "Failed to fetch subscribers." };
   }
 }
+
+export type AnalyticsDataPoint = {
+  date: string;
+  visitors: number;
+  pageViews: number;
+};
+
+export async function getGoogleAnalyticsDataAction(
+  startDate: string,
+  endDate: string
+): Promise<AnalyticsDataPoint[] | { error: string }> {
+  const propertyId = process.env.GA4_PROPERTY_ID;
+  const clientEmail = process.env.GA4_CLIENT_EMAIL;
+  const privateKey = process.env.GA4_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (!propertyId || !clientEmail || !privateKey) {
+    console.error("Google Analytics credentials are not configured.");
+    return { error: "Google Analytics is not configured. Please set GA4_PROPERTY_ID, GA4_CLIENT_EMAIL, and GA4_PRIVATE_KEY environment variables." };
+  }
+
+  try {
+    // Create JWT for authentication
+    const now = Math.floor(Date.now() / 1000);
+    const header = {
+      alg: 'RS256',
+      typ: 'JWT',
+    };
+    const payload = {
+      iss: clientEmail,
+      scope: 'https://www.googleapis.com/auth/analytics.readonly',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    };
+
+    // Base64url encode
+    const base64urlEncode = (obj: object) => {
+      const json = JSON.stringify(obj);
+      const base64 = Buffer.from(json).toString('base64');
+      return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    };
+
+    const headerEncoded = base64urlEncode(header);
+    const payloadEncoded = base64urlEncode(payload);
+    const signatureInput = `${headerEncoded}.${payloadEncoded}`;
+
+    // Sign with private key
+    const crypto = await import('crypto');
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(signatureInput);
+    const signature = sign.sign(privateKey, 'base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+    const jwt = `${signatureInput}.${signature}`;
+
+    // Exchange JWT for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      console.error("Failed to get access token:", errorData);
+      return { error: "Failed to authenticate with Google Analytics." };
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+
+    // Fetch analytics data
+    const analyticsResponse = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateRanges: [{ startDate, endDate }],
+          dimensions: [{ name: 'date' }],
+          metrics: [
+            { name: 'totalUsers' },
+            { name: 'screenPageViews' },
+          ],
+          orderBys: [{ dimension: { dimensionName: 'date' } }],
+        }),
+      }
+    );
+
+    if (!analyticsResponse.ok) {
+      const errorData = await analyticsResponse.text();
+      console.error("Failed to fetch analytics data:", errorData);
+      return { error: "Failed to fetch analytics data from Google Analytics." };
+    }
+
+    const analyticsData = await analyticsResponse.json();
+    
+    if (!analyticsData.rows || analyticsData.rows.length === 0) {
+      return [];
+    }
+
+    const dataPoints: AnalyticsDataPoint[] = analyticsData.rows.map((row: any) => {
+      const dateStr = row.dimensionValues[0].value; // Format: YYYYMMDD
+      const formattedDate = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+      return {
+        date: formattedDate,
+        visitors: parseInt(row.metricValues[0].value, 10) || 0,
+        pageViews: parseInt(row.metricValues[1].value, 10) || 0,
+      };
+    });
+
+    return dataPoints;
+  } catch (error: any) {
+    console.error("Error fetching Google Analytics data:", error);
+    return { error: error.message || "Failed to fetch Google Analytics data." };
+  }
+}
