@@ -91,6 +91,12 @@ function generateChartData(subscribers: Subscriber[], timeRange: TimeRange, date
   const maxIterations = 1000;
   let iterations = 0;
   
+  // Determine granularity for custom range
+  const rangeDays = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (24 * 60 * 60 * 1000));
+  const effectiveTimeRange = timeRange === 'custom' 
+    ? (rangeDays <= 31 ? 'day' : rangeDays <= 180 ? 'week' : 'month')
+    : timeRange;
+  
   while (current <= dateRange.end && iterations < maxIterations) {
     iterations++;
     let periodStart: Date;
@@ -98,42 +104,18 @@ function generateChartData(subscribers: Subscriber[], timeRange: TimeRange, date
     let label: string;
     let nextCurrent: Date;
     
-    switch (timeRange) {
+    switch (effectiveTimeRange) {
       case 'day':
         periodStart = startOfDay(current);
         periodEnd = endOfDay(current);
         label = format(current, 'MMM d');
-        nextCurrent = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000);
+        nextCurrent = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1);
         break;
-      case 'custom': {
-        // For custom ranges, determine granularity based on range length
-        const rangeDays = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (24 * 60 * 60 * 1000));
-        if (rangeDays <= 31) {
-          // Daily for up to 1 month
-          periodStart = startOfDay(current);
-          periodEnd = endOfDay(current);
-          label = format(current, 'MMM d');
-          nextCurrent = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000);
-        } else if (rangeDays <= 180) {
-          // Weekly for up to 6 months
-          periodStart = startOfWeek(current);
-          periodEnd = endOfWeek(current);
-          label = format(periodStart, 'MMM d');
-          nextCurrent = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-        } else {
-          // Monthly for longer ranges
-          periodStart = startOfMonth(current);
-          periodEnd = endOfMonth(current);
-          label = format(current, 'MMM yyyy');
-          nextCurrent = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-        }
-        break;
-      }
       case 'week':
         periodStart = startOfWeek(current);
         periodEnd = endOfWeek(current);
         label = format(periodStart, 'MMM d');
-        nextCurrent = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+        nextCurrent = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + 7);
         break;
       case 'month':
         periodStart = startOfMonth(current);
@@ -158,11 +140,11 @@ function generateChartData(subscribers: Subscriber[], timeRange: TimeRange, date
         periodStart = startOfDay(current);
         periodEnd = endOfDay(current);
         label = format(current, 'MMM d');
-        nextCurrent = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000);
+        nextCurrent = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1);
     }
     
     // Ensure we always advance to prevent infinite loop
-    if (nextCurrent <= current) {
+    if (nextCurrent.getTime() <= current.getTime()) {
       nextCurrent = new Date(current.getTime() + 24 * 60 * 60 * 1000);
     }
     
@@ -275,15 +257,85 @@ export default function SubscribersPage() {
     return generateChartData(subscribers, timeRange, dateRange);
   }, [subscribers, timeRange, customDateRange]);
 
-  // Process traffic data for chart display
+  // Process and aggregate traffic data based on selected time range
   const trafficChartData = useMemo(() => {
     if (!trafficData.length) return [];
-    return trafficData.map(d => ({
-      period: format(new Date(d.date), 'MMM d'),
-      visitors: d.visitors,
-      pageViews: d.pageViews,
-    }));
-  }, [trafficData]);
+    
+    // For daily view or custom (short range), show daily data
+    if (trafficTimeRange === 'day') {
+      return trafficData.map(d => ({
+        period: format(new Date(d.date), 'MMM d'),
+        visitors: d.visitors,
+        pageViews: d.pageViews,
+      }));
+    }
+    
+    // For custom, determine granularity based on range
+    if (trafficTimeRange === 'custom') {
+      const dateRange = getDateRangeForTimeRange(trafficTimeRange, trafficCustomDateRange);
+      const rangeDays = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (24 * 60 * 60 * 1000));
+      
+      if (rangeDays <= 31) {
+        // Daily for up to 1 month
+        return trafficData.map(d => ({
+          period: format(new Date(d.date), 'MMM d'),
+          visitors: d.visitors,
+          pageViews: d.pageViews,
+        }));
+      }
+    }
+    
+    // Group data by the appropriate time period
+    const groupedData: Map<string, { visitors: number; pageViews: number; label: string }> = new Map();
+    
+    trafficData.forEach(d => {
+      const date = new Date(d.date);
+      let key: string;
+      let label: string;
+      
+      switch (trafficTimeRange) {
+        case 'week':
+        case 'custom': // For custom ranges > 31 days but <= 180 days
+          const weekStart = startOfWeek(date);
+          key = format(weekStart, 'yyyy-MM-dd');
+          label = format(weekStart, 'MMM d');
+          break;
+        case 'month':
+          key = format(date, 'yyyy-MM');
+          label = format(date, 'MMM yyyy');
+          break;
+        case 'quarter':
+          const quarter = Math.floor(date.getMonth() / 3) + 1;
+          key = `${date.getFullYear()}-Q${quarter}`;
+          label = `Q${quarter} ${date.getFullYear()}`;
+          break;
+        case 'year':
+          key = format(date, 'yyyy');
+          label = format(date, 'yyyy');
+          break;
+        default:
+          key = d.date;
+          label = format(date, 'MMM d');
+      }
+      
+      const existing = groupedData.get(key);
+      if (existing) {
+        existing.visitors += d.visitors;
+        existing.pageViews += d.pageViews;
+      } else {
+        groupedData.set(key, { visitors: d.visitors, pageViews: d.pageViews, label });
+      }
+    });
+    
+    // Convert map to array and sort by key
+    return Array.from(groupedData.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, data]) => ({
+        period: data.label,
+        visitors: data.visitors,
+        pageViews: data.pageViews,
+      }));
+  }, [trafficData, trafficTimeRange, trafficCustomDateRange]);
 
   // Calculate traffic totals
   const trafficTotals = useMemo(() => {
