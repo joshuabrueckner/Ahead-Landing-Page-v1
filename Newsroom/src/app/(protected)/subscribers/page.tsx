@@ -76,52 +76,87 @@ function generateChartData(subscribers: Subscriber[], timeRange: TimeRange, date
   const periods: { label: string; start: Date; end: Date }[] = [];
   let current = new Date(dateRange.start);
   
-  while (current <= dateRange.end) {
+  // Safety limit to prevent infinite loops
+  const maxIterations = 1000;
+  let iterations = 0;
+  
+  while (current <= dateRange.end && iterations < maxIterations) {
+    iterations++;
     let periodStart: Date;
     let periodEnd: Date;
     let label: string;
+    let nextCurrent: Date;
     
     switch (timeRange) {
       case 'day':
-      case 'custom':
         periodStart = startOfDay(current);
         periodEnd = endOfDay(current);
         label = format(current, 'MMM d');
-        current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+        nextCurrent = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000);
         break;
+      case 'custom': {
+        // For custom ranges, determine granularity based on range length
+        const rangeDays = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (24 * 60 * 60 * 1000));
+        if (rangeDays <= 31) {
+          // Daily for up to 1 month
+          periodStart = startOfDay(current);
+          periodEnd = endOfDay(current);
+          label = format(current, 'MMM d');
+          nextCurrent = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000);
+        } else if (rangeDays <= 180) {
+          // Weekly for up to 6 months
+          periodStart = startOfWeek(current);
+          periodEnd = endOfWeek(current);
+          label = format(periodStart, 'MMM d');
+          nextCurrent = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+        } else {
+          // Monthly for longer ranges
+          periodStart = startOfMonth(current);
+          periodEnd = endOfMonth(current);
+          label = format(current, 'MMM yyyy');
+          nextCurrent = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+        }
+        break;
+      }
       case 'week':
         periodStart = startOfWeek(current);
         periodEnd = endOfWeek(current);
         label = format(periodStart, 'MMM d');
-        current = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+        nextCurrent = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000);
         break;
       case 'month':
         periodStart = startOfMonth(current);
         periodEnd = endOfMonth(current);
         label = format(current, 'MMM yyyy');
-        current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+        nextCurrent = new Date(current.getFullYear(), current.getMonth() + 1, 1);
         break;
       case 'quarter':
         periodStart = startOfQuarter(current);
         periodEnd = endOfQuarter(current);
         const quarter = Math.floor(current.getMonth() / 3) + 1;
         label = `Q${quarter} ${current.getFullYear()}`;
-        current = new Date(current.getFullYear(), current.getMonth() + 3, 1);
+        nextCurrent = new Date(current.getFullYear(), current.getMonth() + 3, 1);
         break;
       case 'year':
         periodStart = startOfYear(current);
         periodEnd = endOfYear(current);
         label = format(current, 'yyyy');
-        current = new Date(current.getFullYear() + 1, 0, 1);
+        nextCurrent = new Date(current.getFullYear() + 1, 0, 1);
         break;
       default:
         periodStart = startOfDay(current);
         periodEnd = endOfDay(current);
         label = format(current, 'MMM d');
-        current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+        nextCurrent = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000);
+    }
+    
+    // Ensure we always advance to prevent infinite loop
+    if (nextCurrent <= current) {
+      nextCurrent = new Date(current.getTime() + 24 * 60 * 60 * 1000);
     }
     
     periods.push({ label, start: periodStart, end: periodEnd });
+    current = nextCurrent;
   }
 
   // Count subscribers per period using subscribedAt field
