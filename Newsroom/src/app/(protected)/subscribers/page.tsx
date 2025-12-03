@@ -1,23 +1,149 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { addSubscriberAction, getSubscribersAction } from '../../actions';
-import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { getBasePath, withBasePath } from '@/lib/base-path';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { format, subDays, subWeeks, subMonths, subQuarters, subYears, startOfDay, endOfDay, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
 type Subscriber = {
   email: string;
   name: string;
   subscribedAt: string | null;
 };
+
+type TimeRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
+
+type DateRange = {
+  from: Date | undefined;
+  to: Date | undefined;
+};
+
+const chartConfig: ChartConfig = {
+  subscribers: {
+    label: 'Subscribers',
+    color: 'hsl(var(--primary))',
+  },
+  cumulative: {
+    label: 'Total Subscribers',
+    color: 'hsl(var(--chart-2))',
+  },
+};
+
+function getDateRangeForTimeRange(timeRange: TimeRange, customRange?: DateRange): { start: Date; end: Date } {
+  const now = new Date();
+  const end = endOfDay(now);
+  
+  switch (timeRange) {
+    case 'day':
+      return { start: startOfDay(subDays(now, 30)), end }; // Last 30 days
+    case 'week':
+      return { start: startOfWeek(subWeeks(now, 12)), end }; // Last 12 weeks
+    case 'month':
+      return { start: startOfMonth(subMonths(now, 12)), end }; // Last 12 months
+    case 'quarter':
+      return { start: startOfQuarter(subQuarters(now, 8)), end }; // Last 8 quarters
+    case 'year':
+      return { start: startOfYear(subYears(now, 5)), end }; // Last 5 years
+    case 'custom':
+      if (customRange?.from && customRange?.to) {
+        return { start: startOfDay(customRange.from), end: endOfDay(customRange.to) };
+      }
+      return { start: startOfDay(subDays(now, 30)), end };
+    default:
+      return { start: startOfDay(subDays(now, 30)), end };
+  }
+}
+
+function generateChartData(subscribers: Subscriber[], timeRange: TimeRange, dateRange: { start: Date; end: Date }) {
+  const subscribersWithDates = subscribers.filter(s => s.subscribedAt);
+
+  // Generate all time periods in range
+  const periods: { label: string; start: Date; end: Date }[] = [];
+  let current = new Date(dateRange.start);
+  
+  while (current <= dateRange.end) {
+    let periodEnd: Date;
+    let label: string;
+    
+    switch (timeRange) {
+      case 'day':
+      case 'custom':
+        periodEnd = endOfDay(current);
+        label = format(current, 'MMM d');
+        current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+        break;
+      case 'week':
+        periodEnd = endOfWeek(current);
+        label = format(current, 'MMM d');
+        current = new Date(current.getTime() + 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        periodEnd = endOfMonth(current);
+        label = format(current, 'MMM yyyy');
+        current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+        break;
+      case 'quarter':
+        periodEnd = endOfQuarter(current);
+        const quarter = Math.floor(current.getMonth() / 3) + 1;
+        label = `Q${quarter} ${current.getFullYear()}`;
+        current = new Date(current.getFullYear(), current.getMonth() + 3, 1);
+        break;
+      case 'year':
+        periodEnd = endOfYear(current);
+        label = format(current, 'yyyy');
+        current = new Date(current.getFullYear() + 1, 0, 1);
+        break;
+      default:
+        periodEnd = endOfDay(current);
+        label = format(current, 'MMM d');
+        current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+    }
+    
+    periods.push({ label, start: new Date(current.getTime() - (timeRange === 'day' || timeRange === 'custom' ? 24 * 60 * 60 * 1000 : 0)), end: periodEnd });
+  }
+
+  // Count subscribers per period
+  const data = periods.map(period => {
+    const count = subscribersWithDates.filter(s => {
+      const subDate = new Date(s.subscribedAt!);
+      return isWithinInterval(subDate, { start: period.start, end: period.end });
+    }).length;
+    
+    return {
+      period: period.label,
+      subscribers: count,
+    };
+  });
+
+  // Add cumulative count
+  let cumulative = 0;
+  // Count subscribers before the start date
+  const subscribersBefore = subscribersWithDates.filter(s => {
+    const subDate = new Date(s.subscribedAt!);
+    return subDate < dateRange.start;
+  }).length;
+  cumulative = subscribersBefore;
+
+  return data.map(d => {
+    cumulative += d.subscribers;
+    return { ...d, cumulative };
+  });
+}
 
 export default function SubscribersPage() {
   const { toast } = useToast();
@@ -27,6 +153,11 @@ export default function SubscribersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [basePath, setBasePath] = useState<string>(() => getBasePath());
+  const [timeRange, setTimeRange] = useState<TimeRange>('month');
+  const [customDateRange, setCustomDateRange] = useState<DateRange>({
+    from: undefined,
+    to: undefined,
+  });
 
   useEffect(() => {
     const fetchSubscribers = async () => {
@@ -52,6 +183,11 @@ export default function SubscribersPage() {
       setBasePath(resolved);
     }
   }, [basePath]);
+
+  const chartData = useMemo(() => {
+    const dateRange = getDateRangeForTimeRange(timeRange, customDateRange);
+    return generateChartData(subscribers, timeRange, dateRange);
+  }, [subscribers, timeRange, customDateRange]);
 
   const handleAddSubscriber = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,7 +230,132 @@ export default function SubscribersPage() {
         </div>
       </header>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="max-w-2xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Subscriber Growth Chart */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle>Subscriber Growth</CardTitle>
+                  <CardDescription>
+                    Track how your subscriber base has grown over time
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
+                    <TabsList className="grid grid-cols-6 w-full">
+                      <TabsTrigger value="day" className="text-xs px-2">Day</TabsTrigger>
+                      <TabsTrigger value="week" className="text-xs px-2">Week</TabsTrigger>
+                      <TabsTrigger value="month" className="text-xs px-2">Month</TabsTrigger>
+                      <TabsTrigger value="quarter" className="text-xs px-2">Quarter</TabsTrigger>
+                      <TabsTrigger value="year" className="text-xs px-2">Year</TabsTrigger>
+                      <TabsTrigger value="custom" className="text-xs px-2">Custom</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              </div>
+              {timeRange === 'custom' && (
+                <div className="flex items-center gap-2 mt-4">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !customDateRange.from && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {customDateRange.from ? format(customDateRange.from, "PPP") : "Start date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={customDateRange.from}
+                        onSelect={(date) => setCustomDateRange(prev => ({ ...prev, from: date }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-muted-foreground">to</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !customDateRange.to && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {customDateRange.to ? format(customDateRange.to, "PPP") : "End date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={customDateRange.to}
+                        onSelect={(date) => setCustomDateRange(prev => ({ ...prev, to: date }))}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : chartData.length > 0 ? (
+                <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                  <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="period" 
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-muted-foreground"
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-muted-foreground"
+                      allowDecimals={false}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line
+                      type="monotone"
+                      dataKey="cumulative"
+                      stroke="var(--color-cumulative)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      name="Total Subscribers"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="subscribers"
+                      stroke="var(--color-subscribers)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      name="New Subscribers"
+                    />
+                  </LineChart>
+                </ChartContainer>
+              ) : (
+                <div className="flex justify-center py-16 text-muted-foreground">
+                  No subscriber data available for this time range
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Add New Subscriber</CardTitle>
