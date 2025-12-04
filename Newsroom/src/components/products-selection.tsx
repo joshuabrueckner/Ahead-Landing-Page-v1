@@ -25,10 +25,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText } from "lucide-react";
+import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText, EyeOff, Eye } from "lucide-react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { generateProductOutcomeSentenceAction } from "@/app/actions";
+import { cn } from "@/lib/utils";
 
 const MAX_SELECTIONS = 3;
 
@@ -51,7 +52,20 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const [isGeneratingSummaries, setIsGeneratingSummaries] = useState(false);
   const [regeneratingSummaries, setRegeneratingSummaries] = useState<Record<string, boolean>>({});
   const [textDialogProduct, setTextDialogProduct] = useState<ProductLaunch | null>(null);
+  const [deprioritizedProducts, setDeprioritizedProducts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const toggleDeprioritize = (productId: string) => {
+    setDeprioritizedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
 
   const persistProductSummary = (productId: string, summaryValue: string) => {
     const normalized = (summaryValue || "").trim();
@@ -326,8 +340,9 @@ export default function ProductsSelection({ products: initialProducts, selectedP
           {products.map((product) => {
             const isSelected = selectedIds.has(product.id);
             const selectionIndex = isSelected ? selectedProducts.findIndex(p => p.id === product.id) : -1;
+            const isDeprioritized = deprioritizedProducts.has(product.id);
             return (
-              <div key={product.id} className="px-6 py-4">
+              <div key={product.id} className={cn("px-6 py-4", isDeprioritized && "opacity-40")}>
                 <div className="flex items-start gap-4">
                   <div className="flex items-center gap-4 flex-shrink-0 pt-1">
                     <span className="text-muted-foreground font-bold w-5 text-center">
@@ -343,7 +358,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                   </div>
                   <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
                     <div className="flex-1">
-                      <label htmlFor={`product-${product.id}`} className="text-foreground hover:text-primary cursor-pointer leading-tight">
+                      <label htmlFor={`product-${product.id}`} className={cn("text-foreground hover:text-primary cursor-pointer leading-tight", isDeprioritized && "text-muted-foreground/60")}>
                         <a href={product.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                           <span className="font-semibold">{product.name}</span>
                           {product.tagline ? (
@@ -363,6 +378,28 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                       </div>
                     </div>
                     <div className="flex items-center gap-2 sm:ml-auto">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-7 w-7 rounded-full text-muted-foreground hover:text-primary",
+                              isDeprioritized && "text-muted-foreground/60"
+                            )}
+                            aria-label={isDeprioritized ? "Restore priority" : "Deprioritize"}
+                            onClick={() => toggleDeprioritize(product.id)}
+                          >
+                            {isDeprioritized ? (
+                              <Eye className="h-3.5 w-3.5" />
+                            ) : (
+                              <EyeOff className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{isDeprioritized ? "Restore priority" : "Deprioritize"}</TooltipContent>
+                      </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button

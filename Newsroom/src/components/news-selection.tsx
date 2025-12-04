@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText } from "lucide-react";
+import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
@@ -175,6 +175,8 @@ const ArticleItem = ({
     selectionIndex,
   shouldExtract,
   onSummaryUpdate,
+  isDeprioritized,
+  onToggleDeprioritize,
 }: { 
     article: NewsArticle, 
     isSelected: boolean,
@@ -184,6 +186,8 @@ const ArticleItem = ({
     selectionIndex: number;
   shouldExtract: boolean;
   onSummaryUpdate: (articleId: number, summary: string) => void;
+  isDeprioritized: boolean;
+  onToggleDeprioritize: () => void;
 }) => {
     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
     const { toast } = useToast();
@@ -308,7 +312,8 @@ const ArticleItem = ({
         <TooltipProvider delayDuration={200}>
         <div className={cn(
           "px-6 py-4 transition-colors", 
-          isFeatured && "bg-secondary rounded-lg"
+          isFeatured && "bg-secondary rounded-lg",
+          isDeprioritized && "opacity-40"
         )}>
           <div className="flex items-start gap-4">
             <div className="flex items-center gap-4 flex-shrink-0 pt-1">
@@ -324,7 +329,7 @@ const ArticleItem = ({
                 </div>
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
               <div className="flex-1 min-w-0">
-                <label htmlFor={`article-select-${article.id}`} className={cn("font-semibold text-foreground hover:text-primary cursor-pointer leading-tight", isSelectionDisabled && 'cursor-not-allowed')}>
+                <label htmlFor={`article-select-${article.id}`} className={cn("font-semibold text-foreground hover:text-primary cursor-pointer leading-tight", isSelectionDisabled && 'cursor-not-allowed', isDeprioritized && "text-muted-foreground/60")}>
                   {article.title}
                 </label>
                 {isQueued && !isExtracting && !isSummarizing && (
@@ -352,6 +357,28 @@ const ArticleItem = ({
                 </div>
               </div>
               <div className="flex items-center gap-2 sm:ml-auto">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-7 w-7 rounded-full text-muted-foreground hover:text-primary",
+                          isDeprioritized && "text-muted-foreground/60"
+                        )}
+                        aria-label={isDeprioritized ? "Restore priority" : "Deprioritize"}
+                        onClick={onToggleDeprioritize}
+                      >
+                        {isDeprioritized ? (
+                          <Eye className="h-3.5 w-3.5" />
+                        ) : (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isDeprioritized ? "Restore priority" : "Deprioritize"}</TooltipContent>
+                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -426,6 +453,19 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   const [isExtractionComplete, setIsExtractionComplete] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const [deprioritizedArticles, setDeprioritizedArticles] = useState<Set<number>>(new Set());
+
+  const toggleDeprioritize = (articleId: number) => {
+    setDeprioritizedArticles(prev => {
+      const next = new Set(prev);
+      if (next.has(articleId)) {
+        next.delete(articleId);
+      } else {
+        next.add(articleId);
+      }
+      return next;
+    });
+  };
 
   // Register completion callback when component mounts
   useEffect(() => {
@@ -589,6 +629,8 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 selectionIndex={selectionIndex}
                 shouldExtract={isExtractionStarted}
                 onSummaryUpdate={onArticleSummaryUpdate}
+                isDeprioritized={deprioritizedArticles.has(article.id)}
+                onToggleDeprioritize={() => toggleDeprioritize(article.id)}
               />
             );
           })}
