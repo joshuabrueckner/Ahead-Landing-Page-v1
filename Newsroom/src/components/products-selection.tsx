@@ -25,7 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText, EyeOff, Eye } from "lucide-react";
+import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText, EyeOff, Eye, Star } from "lucide-react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { generateProductOutcomeSentenceAction } from "@/app/actions";
@@ -53,6 +53,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const [regeneratingSummaries, setRegeneratingSummaries] = useState<Record<string, boolean>>({});
   const [textDialogProduct, setTextDialogProduct] = useState<ProductLaunch | null>(null);
   const [deprioritizedProducts, setDeprioritizedProducts] = useState<Set<string>>(new Set());
+  const [prioritizedProducts, setPrioritizedProducts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const toggleDeprioritize = (productId: string) => {
@@ -63,6 +64,30 @@ export default function ProductsSelection({ products: initialProducts, selectedP
       } else {
         next.add(productId);
       }
+      return next;
+    });
+    // Remove from prioritized if deprioritizing
+    setPrioritizedProducts(prev => {
+      const next = new Set(prev);
+      next.delete(productId);
+      return next;
+    });
+  };
+
+  const togglePrioritize = (productId: string) => {
+    setPrioritizedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+    // Remove from deprioritized if prioritizing
+    setDeprioritizedProducts(prev => {
+      const next = new Set(prev);
+      next.delete(productId);
       return next;
     });
   };
@@ -341,8 +366,13 @@ export default function ProductsSelection({ products: initialProducts, selectedP
             const isSelected = selectedIds.has(product.id);
             const selectionIndex = isSelected ? selectedProducts.findIndex(p => p.id === product.id) : -1;
             const isDeprioritized = deprioritizedProducts.has(product.id);
+            const isPrioritized = prioritizedProducts.has(product.id);
             return (
-              <div key={product.id} className={cn("px-6 py-4", isDeprioritized && "opacity-40")}>
+              <div key={product.id} className={cn(
+                "px-6 py-4", 
+                isDeprioritized && "opacity-40",
+                isPrioritized && "bg-yellow-50 dark:bg-yellow-950/20 border-l-2 border-yellow-400"
+              )}>
                 <div className="flex items-start gap-4">
                   <div className="flex items-center gap-4 flex-shrink-0 pt-1">
                     <span className="text-muted-foreground font-bold w-5 text-center">
@@ -399,6 +429,24 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>{isDeprioritized ? "Restore priority" : "Deprioritize"}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-7 w-7 rounded-full text-muted-foreground hover:text-yellow-500",
+                              isPrioritized && "text-yellow-500"
+                            )}
+                            aria-label={isPrioritized ? "Remove flag" : "Flag for review"}
+                            onClick={() => togglePrioritize(product.id)}
+                          >
+                            <Star className={cn("h-3.5 w-3.5", isPrioritized && "fill-yellow-500")} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{isPrioritized ? "Remove flag" : "Flag for review"}</TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>

@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye } from "lucide-react";
+import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, Star } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
@@ -177,6 +177,8 @@ const ArticleItem = ({
   onSummaryUpdate,
   isDeprioritized,
   onToggleDeprioritize,
+  isPrioritized,
+  onTogglePrioritize,
 }: { 
     article: NewsArticle, 
     isSelected: boolean,
@@ -188,6 +190,8 @@ const ArticleItem = ({
   onSummaryUpdate: (articleId: number, summary: string) => void;
   isDeprioritized: boolean;
   onToggleDeprioritize: () => void;
+  isPrioritized: boolean;
+  onTogglePrioritize: () => void;
 }) => {
     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
     const { toast } = useToast();
@@ -313,7 +317,8 @@ const ArticleItem = ({
         <div className={cn(
           "px-6 py-4 transition-colors", 
           isFeatured && "bg-secondary rounded-lg",
-          isDeprioritized && "opacity-40"
+          isDeprioritized && "opacity-40",
+          isPrioritized && "bg-yellow-50 dark:bg-yellow-950/20 border-l-2 border-yellow-400"
         )}>
           <div className="flex items-start gap-4">
             <div className="flex items-center gap-4 flex-shrink-0 pt-1">
@@ -378,6 +383,24 @@ const ArticleItem = ({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>{isDeprioritized ? "Restore priority" : "Deprioritize"}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-7 w-7 rounded-full text-muted-foreground hover:text-yellow-500",
+                          isPrioritized && "text-yellow-500"
+                        )}
+                        aria-label={isPrioritized ? "Remove flag" : "Flag for review"}
+                        onClick={onTogglePrioritize}
+                      >
+                        <Star className={cn("h-3.5 w-3.5", isPrioritized && "fill-yellow-500")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{isPrioritized ? "Remove flag" : "Flag for review"}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -454,6 +477,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   const [dateInput, setDateInput] = useState(selectedDate);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [deprioritizedArticles, setDeprioritizedArticles] = useState<Set<number>>(new Set());
+  const [prioritizedArticles, setPrioritizedArticles] = useState<Set<number>>(new Set());
 
   const toggleDeprioritize = (articleId: number) => {
     setDeprioritizedArticles(prev => {
@@ -463,6 +487,30 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
       } else {
         next.add(articleId);
       }
+      return next;
+    });
+    // Remove from prioritized if deprioritizing
+    setPrioritizedArticles(prev => {
+      const next = new Set(prev);
+      next.delete(articleId);
+      return next;
+    });
+  };
+
+  const togglePrioritize = (articleId: number) => {
+    setPrioritizedArticles(prev => {
+      const next = new Set(prev);
+      if (next.has(articleId)) {
+        next.delete(articleId);
+      } else {
+        next.add(articleId);
+      }
+      return next;
+    });
+    // Remove from deprioritized if prioritizing
+    setDeprioritizedArticles(prev => {
+      const next = new Set(prev);
+      next.delete(articleId);
       return next;
     });
   };
@@ -631,6 +679,8 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 onSummaryUpdate={onArticleSummaryUpdate}
                 isDeprioritized={deprioritizedArticles.has(article.id)}
                 onToggleDeprioritize={() => toggleDeprioritize(article.id)}
+                isPrioritized={prioritizedArticles.has(article.id)}
+                onTogglePrioritize={() => togglePrioritize(article.id)}
               />
             );
           })}
