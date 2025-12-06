@@ -350,8 +350,9 @@ const ArticleItem = ({
     }, [isExtractionPaused, wasPausedWhileQueued, summary, hasBeenQueued]);
     
     // Auto-extract text and generate summary when shouldExtract becomes true
+    // Skip deprioritized articles
     useEffect(() => {
-        if (shouldExtract && !hasBeenQueued) {
+        if (shouldExtract && !hasBeenQueued && !isDeprioritized) {
             setHasBeenQueued(true);
             setIsQueued(true); // Show as queued while process is active
             setIsExtracting(false);
@@ -384,7 +385,7 @@ const ArticleItem = ({
                 }
             });
         }
-  }, [shouldExtract, article.url, hasBeenQueued, article.id, article.title, onSummaryUpdate]);
+  }, [shouldExtract, article.url, hasBeenQueued, isDeprioritized, article.id, article.title, onSummaryUpdate]);
     
     const handleShowText = () => {
       setIsTextDialogOpen(true);
