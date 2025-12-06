@@ -279,9 +279,8 @@ const ArticleItem = ({
     useEffect(() => {
         if (shouldExtract && !hasBeenQueued) {
             setHasBeenQueued(true);
-            setIsQueued(true); // Show as queued, not extracting yet
-            setIsExtracting(false);
-            setIsSummarizing(false);
+            // Don't show as queued immediately - only show status when extraction actually starts
+            // This allows user to still manually extract individual articles
             
             extractionQueue.add(article.url, {
                 onExtractionStarted: () => {
