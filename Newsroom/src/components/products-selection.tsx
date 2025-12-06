@@ -25,7 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText, EyeOff, Eye, Star, GripVertical } from "lucide-react";
+import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText, EyeOff, Eye, Star, GripVertical, Pause, Play } from "lucide-react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { generateProductOutcomeSentenceAction } from "@/app/actions";
@@ -50,6 +50,9 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [productSummaries, setProductSummaries] = useState<Record<string, string>>({});
   const [isGeneratingSummaries, setIsGeneratingSummaries] = useState(false);
+  const [isSummaryPaused, setIsSummaryPaused] = useState(false);
+  const [summaryQueueIndex, setSummaryQueueIndex] = useState(0);
+  const pauseRef = useRef(false);
   const [regeneratingSummaries, setRegeneratingSummaries] = useState<Record<string, boolean>>({});
   const [textDialogProduct, setTextDialogProduct] = useState<ProductLaunch | null>(null);
   const [deprioritizedProducts, setDeprioritizedProducts] = useState<Set<string>>(new Set());
@@ -158,8 +161,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
     });
   }, [products]);
 
-  const handleGenerateSummaries = async () => {
-    if (isGeneratingSummaries) return;
+  const handleGenerateSummaries = async (startIndex = 0) => {
     const queue = products.filter(product => !productSummaries[product.id]);
 
     if (queue.length === 0) {
@@ -168,12 +170,23 @@ export default function ProductsSelection({ products: initialProducts, selectedP
     }
 
     setIsGeneratingSummaries(true);
+    setIsSummaryPaused(false);
+    pauseRef.current = false;
+    
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     const chunkSize = 2;
     const pauseMs = 500;
     let abort = false;
 
-    for (let i = 0; i < queue.length && !abort; i += chunkSize) {
+    for (let i = startIndex; i < queue.length && !abort; i += chunkSize) {
+      // Check if paused
+      if (pauseRef.current) {
+        setSummaryQueueIndex(i);
+        setIsSummaryPaused(true);
+        setIsGeneratingSummaries(false);
+        return;
+      }
+      
       const batch = queue.slice(i, i + chunkSize);
       await Promise.all(batch.map(async (product) => {
         console.log(`[Products] Generating summary for: ${product.name}`);
@@ -207,6 +220,21 @@ export default function ProductsSelection({ products: initialProducts, selectedP
     }
 
     setIsGeneratingSummaries(false);
+    setIsSummaryPaused(false);
+    setSummaryQueueIndex(0);
+  };
+
+  const handleToggleSummaries = () => {
+    if (!isGeneratingSummaries && !isSummaryPaused) {
+      // Start fresh
+      handleGenerateSummaries(0);
+    } else if (isGeneratingSummaries && !isSummaryPaused) {
+      // Pause
+      pauseRef.current = true;
+    } else if (isSummaryPaused) {
+      // Resume from where we left off
+      handleGenerateSummaries(summaryQueueIndex);
+    }
   };
 
   useEffect(() => {
@@ -362,19 +390,22 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                     type="button"
                     variant="default"
                     size="icon"
-                    onClick={handleGenerateSummaries}
+                    onClick={handleToggleSummaries}
                     className="h-10 w-10 rounded-full"
-                    disabled={isGeneratingSummaries}
-                    aria-label="Generate product summaries"
+                    aria-label={!isGeneratingSummaries && !isSummaryPaused ? "Generate summaries" : isGeneratingSummaries ? "Pause" : "Resume"}
                   >
-                    {isGeneratingSummaries ? (
-                      <Loader className="h-4 w-4 animate-spin" />
-                    ) : (
+                    {!isGeneratingSummaries && !isSummaryPaused ? (
                       <Sparkles className="h-4 w-4" />
+                    ) : isSummaryPaused ? (
+                      <Play className="h-4 w-4" />
+                    ) : (
+                      <Pause className="h-4 w-4" />
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Generate summaries</TooltipContent>
+                <TooltipContent>
+                  {!isGeneratingSummaries && !isSummaryPaused ? "Generate summaries" : isGeneratingSummaries ? "Pause" : "Resume"}
+                </TooltipContent>
               </Tooltip>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <Tooltip>

@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, Star, GripVertical } from "lucide-react";
+import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, Star, GripVertical, Pause, Play } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
@@ -53,14 +53,62 @@ type ExtractionCallbacks = {
 // - Extractions happen ONE at a time (sequential) with delay
 // - Summarization happens in parallel with the next extraction
 // - UI updates at each phase: queued -> extracting -> summarizing -> done
+// - Supports pause/resume functionality
 class ExtractionQueue {
   private queue: Array<{ url: string; callbacks: ExtractionCallbacks }> = [];
   private processing = false;
+  private paused = false;
   private onAllCompleteCallback: (() => void) | null = null;
+  private onPauseStateChangeCallback: ((isPaused: boolean) => void) | null = null;
   private pendingCount = 0;
+  private pauseResolve: (() => void) | null = null;
 
   setOnAllComplete(callback: () => void) {
     this.onAllCompleteCallback = callback;
+  }
+
+  setOnPauseStateChange(callback: (isPaused: boolean) => void) {
+    this.onPauseStateChangeCallback = callback;
+  }
+
+  isPaused() {
+    return this.paused;
+  }
+
+  isProcessing() {
+    return this.processing;
+  }
+
+  pause() {
+    this.paused = true;
+    if (this.onPauseStateChangeCallback) {
+      this.onPauseStateChangeCallback(true);
+    }
+  }
+
+  resume() {
+    this.paused = false;
+    if (this.onPauseStateChangeCallback) {
+      this.onPauseStateChangeCallback(false);
+    }
+    // If we were waiting on pause, resolve to continue
+    if (this.pauseResolve) {
+      this.pauseResolve();
+      this.pauseResolve = null;
+    }
+    // If we have items but not processing, restart
+    if (this.queue.length > 0 && !this.processing) {
+      this.processQueue();
+    }
+  }
+
+  private async waitIfPaused(): Promise<boolean> {
+    if (!this.paused) return false;
+    // Wait until resumed
+    await new Promise<void>(resolve => {
+      this.pauseResolve = resolve;
+    });
+    return true;
   }
 
   async add(url: string, callbacks: ExtractionCallbacks) {
@@ -77,6 +125,13 @@ class ExtractionQueue {
     const pendingSummaries: Promise<void>[] = [];
 
     while (this.queue.length > 0) {
+      // Check if paused before processing next item
+      if (this.paused) {
+        await this.waitIfPaused();
+        // After resuming, check if we should continue
+        if (this.queue.length === 0) break;
+      }
+
       const item = this.queue.shift();
       if (!item) continue;
 
@@ -498,6 +553,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   const [isExtractionComplete, setIsExtractionComplete] = useState(false);
+  const [isExtractionPaused, setIsExtractionPaused] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [deprioritizedArticles, setDeprioritizedArticles] = useState<Set<number>>(new Set());
@@ -577,11 +633,15 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
     });
   };
 
-  // Register completion callback when component mounts
+  // Register completion and pause state callbacks when component mounts
   useEffect(() => {
     extractionQueue.setOnAllComplete(() => {
       console.log('All extractions and summaries complete!');
       setIsExtractionComplete(true);
+      setIsExtractionPaused(false);
+    });
+    extractionQueue.setOnPauseStateChange((isPaused) => {
+      setIsExtractionPaused(isPaused);
     });
   }, []);
 
@@ -617,8 +677,17 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   
   const selectedIds = new Set(selectedArticles.map(a => a.id));
   
-  const handleStartExtraction = () => {
-    setIsExtractionStarted(true);
+  const handleToggleExtraction = () => {
+    if (!isExtractionStarted) {
+      // First time starting
+      setIsExtractionStarted(true);
+    } else if (isExtractionPaused) {
+      // Resume
+      extractionQueue.resume();
+    } else {
+      // Pause
+      extractionQueue.pause();
+    }
   };
   
   const selectionCount = selectedArticles.length;
@@ -687,19 +756,25 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                   <Button 
                     variant="default" 
                     size="icon" 
-                    onClick={handleStartExtraction}
-                    disabled={isExtractionStarted || isLoading}
+                    onClick={handleToggleExtraction}
+                    disabled={isExtractionComplete || isLoading}
                     className="h-10 w-10 rounded-full"
-                    aria-label="Extract & Summarize"
+                    aria-label={!isExtractionStarted ? "Extract & Summarize" : isExtractionPaused ? "Resume" : "Pause"}
                   >
-                    {isExtractionStarted && !isExtractionComplete ? (
-                      <Loader className="h-4 w-4 animate-spin" />
-                    ) : (
+                    {!isExtractionStarted ? (
                       <Sparkles className="h-4 w-4" />
+                    ) : isExtractionPaused ? (
+                      <Play className="h-4 w-4" />
+                    ) : isExtractionComplete ? (
+                      <Sparkles className="h-4 w-4" />
+                    ) : (
+                      <Pause className="h-4 w-4" />
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Extract & Summarize</TooltipContent>
+                <TooltipContent>
+                  {!isExtractionStarted ? "Extract & Summarize" : isExtractionPaused ? "Resume" : isExtractionComplete ? "Complete" : "Pause"}
+                </TooltipContent>
               </Tooltip>
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <Tooltip>
