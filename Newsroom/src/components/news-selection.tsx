@@ -230,6 +230,7 @@ const ArticleItem = ({
     isSelectionDisabled, 
     selectionIndex,
   shouldExtract,
+  isExtractionPaused,
   onSummaryUpdate,
   isDeprioritized,
   onToggleDeprioritize,
@@ -249,6 +250,7 @@ const ArticleItem = ({
     isSelectionDisabled: boolean
     selectionIndex: number;
   shouldExtract: boolean;
+  isExtractionPaused: boolean;
   onSummaryUpdate: (articleId: number, summary: string) => void;
   isDeprioritized: boolean;
   onToggleDeprioritize: () => void;
@@ -274,13 +276,21 @@ const ArticleItem = ({
   useEffect(() => {
     setSummary(article.summary || "");
   }, [article.summary]);
+
+    // Clear queued state when extraction is paused
+    useEffect(() => {
+        if (isExtractionPaused && isQueued && !isExtracting && !isSummarizing) {
+            setIsQueued(false);
+        }
+    }, [isExtractionPaused, isQueued, isExtracting, isSummarizing]);
     
     // Auto-extract text and generate summary when shouldExtract becomes true
     useEffect(() => {
         if (shouldExtract && !hasBeenQueued) {
             setHasBeenQueued(true);
-            // Don't show as queued immediately - only show status when extraction actually starts
-            // This allows user to still manually extract individual articles
+            setIsQueued(true); // Show as queued while process is active
+            setIsExtracting(false);
+            setIsSummarizing(false);
             
             extractionQueue.add(article.url, {
                 onExtractionStarted: () => {
@@ -812,6 +822,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 isSelectionDisabled={!isSelected && selectionCount >= MAX_SELECTIONS}
                 selectionIndex={selectionIndex}
                 shouldExtract={isExtractionStarted}
+                isExtractionPaused={isExtractionPaused}
                 onSummaryUpdate={onArticleSummaryUpdate}
                 isDeprioritized={deprioritizedArticles.has(article.id)}
                 onToggleDeprioritize={() => toggleDeprioritize(article.id)}
