@@ -52,6 +52,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const [isGeneratingSummaries, setIsGeneratingSummaries] = useState(false);
   const [isSummaryPaused, setIsSummaryPaused] = useState(false);
   const [summaryQueueIndex, setSummaryQueueIndex] = useState(0);
+  const [queuedProductIds, setQueuedProductIds] = useState<Set<string>>(new Set());
   const pauseRef = useRef(false);
   const [regeneratingSummaries, setRegeneratingSummaries] = useState<Record<string, boolean>>({});
   const [textDialogProduct, setTextDialogProduct] = useState<ProductLaunch | null>(null);
@@ -169,6 +170,10 @@ export default function ProductsSelection({ products: initialProducts, selectedP
       return;
     }
 
+    // Mark all products in queue as queued
+    const queuedIds = new Set(queue.slice(startIndex).map(p => p.id));
+    setQueuedProductIds(queuedIds);
+
     setIsGeneratingSummaries(true);
     setIsSummaryPaused(false);
     pauseRef.current = false;
@@ -184,6 +189,8 @@ export default function ProductsSelection({ products: initialProducts, selectedP
         setSummaryQueueIndex(i);
         setIsSummaryPaused(true);
         setIsGeneratingSummaries(false);
+        // Clear queued state when paused
+        setQueuedProductIds(new Set());
         return;
       }
       
@@ -212,6 +219,12 @@ export default function ProductsSelection({ products: initialProducts, selectedP
             abort = true;
           }
         }
+        // Remove from queued set after processing
+        setQueuedProductIds(prev => {
+          const next = new Set(prev);
+          next.delete(product.id);
+          return next;
+        });
       }));
 
       if (!abort && i + chunkSize < queue.length) {
@@ -222,6 +235,7 @@ export default function ProductsSelection({ products: initialProducts, selectedP
     setIsGeneratingSummaries(false);
     setIsSummaryPaused(false);
     setSummaryQueueIndex(0);
+    setQueuedProductIds(new Set());
   };
 
   const handleToggleSummaries = () => {
@@ -479,6 +493,11 @@ export default function ProductsSelection({ products: initialProducts, selectedP
                       { (productSummaries[product.id] || product.summary) && (
                         <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
                           {productSummaries[product.id] || product.summary}
+                        </p>
+                      )}
+                      {!productSummaries[product.id] && !product.summary && queuedProductIds.has(product.id) && (
+                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed italic">
+                          Queued...
                         </p>
                       )}
                       <div className="flex items-center text-xs text-muted-foreground/80 mt-2 font-medium">

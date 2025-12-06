@@ -117,6 +117,35 @@ class ExtractionQueue {
     this.processQueue();
   }
 
+  // Add and process immediately, bypassing pause state (for individual manual extractions)
+  async addImmediate(url: string, callbacks: ExtractionCallbacks) {
+    this.pendingCount++;
+    // Add to front of queue
+    this.queue.unshift({ url, callbacks });
+    // Temporarily unpause to process this item
+    const wasPaused = this.paused;
+    if (wasPaused) {
+      this.paused = false;
+      if (this.pauseResolve) {
+        this.pauseResolve();
+        this.pauseResolve = null;
+      }
+    }
+    // Start processing if not already
+    if (!this.processing) {
+      this.processQueue();
+    }
+    // Re-pause after the item is added (the queue will pause again on next iteration)
+    if (wasPaused) {
+      // Give a small delay to let the current item start processing
+      setTimeout(() => {
+        if (!this.processing || this.queue.length > 0) {
+          this.paused = true;
+        }
+      }, 100);
+    }
+  }
+
   private async processQueue() {
     if (this.processing) return;
     this.processing = true;
@@ -330,7 +359,8 @@ const ArticleItem = ({
         setIsExtracting(false);
         setIsSummarizing(false);
         
-        extractionQueue.add(article.url, {
+        // Use addImmediate to bypass pause state for manual extractions
+        extractionQueue.addImmediate(article.url, {
             onExtractionStarted: () => {
                 setIsQueued(false);
                 setIsExtracting(true);
