@@ -60,8 +60,10 @@ class ExtractionQueue {
   private paused = false;
   private onAllCompleteCallback: (() => void) | null = null;
   private onPauseStateChangeCallback: ((isPaused: boolean) => void) | null = null;
+  private onResumeCallback: (() => void) | null = null;
   private pendingCount = 0;
   private pauseResolve: (() => void) | null = null;
+  private activeExtraction = false; // True when currently extracting an article
 
   setOnAllComplete(callback: () => void) {
     this.onAllCompleteCallback = callback;
@@ -71,12 +73,20 @@ class ExtractionQueue {
     this.onPauseStateChangeCallback = callback;
   }
 
+  setOnResume(callback: () => void) {
+    this.onResumeCallback = callback;
+  }
+
   isPaused() {
     return this.paused;
   }
 
   isProcessing() {
     return this.processing;
+  }
+
+  isActivelyExtracting() {
+    return this.activeExtraction;
   }
 
   pause() {
@@ -90,6 +100,10 @@ class ExtractionQueue {
     this.paused = false;
     if (this.onPauseStateChangeCallback) {
       this.onPauseStateChangeCallback(false);
+    }
+    // Notify listeners that we're resuming (so they can restore queued state)
+    if (this.onResumeCallback) {
+      this.onResumeCallback();
     }
     // If we were waiting on pause, resolve to continue
     if (this.pauseResolve) {
@@ -118,32 +132,39 @@ class ExtractionQueue {
   }
 
   // Add and process immediately, bypassing pause state (for individual manual extractions)
-  async addImmediate(url: string, callbacks: ExtractionCallbacks) {
-    this.pendingCount++;
-    // Add to front of queue
-    this.queue.unshift({ url, callbacks });
-    // Temporarily unpause to process this item
-    const wasPaused = this.paused;
-    if (wasPaused) {
-      this.paused = false;
-      if (this.pauseResolve) {
-        this.pauseResolve();
-        this.pauseResolve = null;
-      }
-    }
-    // Start processing if not already
-    if (!this.processing) {
-      this.processQueue();
-    }
-    // Re-pause after the item is added (the queue will pause again on next iteration)
-    if (wasPaused) {
-      // Give a small delay to let the current item start processing
-      setTimeout(() => {
-        if (!this.processing || this.queue.length > 0) {
-          this.paused = true;
+  async addImmediate(url: string, callbacks: ExtractionCallbacks): Promise<void> {
+    return new Promise((resolve) => {
+      this.pendingCount++;
+      // Wrap callbacks to resolve when complete
+      const wrappedCallbacks: ExtractionCallbacks = {
+        onExtractionStarted: () => callbacks.onExtractionStarted(),
+        onTextExtracted: (text) => callbacks.onTextExtracted(text),
+        onSummaryComplete: (sum) => {
+          callbacks.onSummaryComplete(sum);
+          resolve();
         }
-      }, 100);
-    }
+      };
+      // Add to front of queue
+      this.queue.unshift({ url, callbacks: wrappedCallbacks });
+      // Temporarily unpause to process this item
+      const wasPaused = this.paused;
+      if (wasPaused) {
+        this.paused = false;
+        if (this.pauseResolve) {
+          this.pauseResolve();
+          this.pauseResolve = null;
+        }
+      }
+      // Start processing if not already
+      if (!this.processing) {
+        this.processQueue().then(() => {
+          // Re-pause after processing if we were paused before
+          if (wasPaused && this.queue.length === 0) {
+            this.paused = true;
+          }
+        });
+      }
+    });
   }
 
   private async processQueue() {
@@ -166,6 +187,7 @@ class ExtractionQueue {
 
       // Notify that extraction is NOW starting for this article
       item.callbacks.onExtractionStarted();
+      this.activeExtraction = true;
 
       try {
         // Step 1: Extract article text (this is the rate-limited operation)
@@ -210,6 +232,8 @@ class ExtractionQueue {
         item.callbacks.onTextExtracted("Failed to extract article text.");
         item.callbacks.onSummaryComplete("");
         this.decrementPending();
+      } finally {
+        this.activeExtraction = false;
       }
 
       // Delay before the next extraction (but summarization continues in background)
@@ -260,6 +284,7 @@ const ArticleItem = ({
     selectionIndex,
   shouldExtract,
   isExtractionPaused,
+  isQueueBusy,
   onSummaryUpdate,
   isDeprioritized,
   onToggleDeprioritize,
@@ -280,6 +305,7 @@ const ArticleItem = ({
     selectionIndex: number;
   shouldExtract: boolean;
   isExtractionPaused: boolean;
+  isQueueBusy: boolean;
   onSummaryUpdate: (articleId: number, summary: string) => void;
   isDeprioritized: boolean;
   onToggleDeprioritize: () => void;
@@ -301,17 +327,27 @@ const ArticleItem = ({
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [isTextDialogOpen, setIsTextDialogOpen] = useState(false);
     const [hasBeenQueued, setHasBeenQueued] = useState(false);
+    const [wasPausedWhileQueued, setWasPausedWhileQueued] = useState(false);
 
   useEffect(() => {
     setSummary(article.summary || "");
   }, [article.summary]);
 
-    // Clear queued state when extraction is paused
+    // Track when paused while in queue state (so we can restore on resume)
     useEffect(() => {
         if (isExtractionPaused && isQueued && !isExtracting && !isSummarizing) {
+            setWasPausedWhileQueued(true);
             setIsQueued(false);
         }
     }, [isExtractionPaused, isQueued, isExtracting, isSummarizing]);
+
+    // Restore queued state when resumed
+    useEffect(() => {
+        if (!isExtractionPaused && wasPausedWhileQueued && !summary && hasBeenQueued) {
+            setIsQueued(true);
+            setWasPausedWhileQueued(false);
+        }
+    }, [isExtractionPaused, wasPausedWhileQueued, summary, hasBeenQueued]);
     
     // Auto-extract text and generate summary when shouldExtract becomes true
     useEffect(() => {
@@ -526,10 +562,13 @@ const ArticleItem = ({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9 rounded-full border border-border/40 bg-secondary/30 text-muted-foreground hover:text-primary"
+                        className={cn(
+                          "h-9 w-9 rounded-full border border-border/40 bg-secondary/30 text-muted-foreground hover:text-primary",
+                          isQueueBusy && !isExtracting && !isQueued && "opacity-50"
+                        )}
                         aria-label="Retry extraction"
                         onClick={handleRetryExtraction}
-                        disabled={isExtracting || isQueued}
+                        disabled={isExtracting || isQueued || isQueueBusy}
                       >
                         {(isExtracting || isQueued) ? (
                           <Loader className="h-4 w-4 animate-spin" />
@@ -593,12 +632,21 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   const [isExtractionComplete, setIsExtractionComplete] = useState(false);
   const [isExtractionPaused, setIsExtractionPaused] = useState(false);
+  const [isQueueBusy, setIsQueueBusy] = useState(false);
   const [dateInput, setDateInput] = useState(selectedDate);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [deprioritizedArticles, setDeprioritizedArticles] = useState<Set<number>>(new Set());
   const [prioritizedArticles, setPrioritizedArticles] = useState<Set<number>>(new Set());
   const [draggedArticleId, setDraggedArticleId] = useState<number | null>(null);
   const [dragOverArticleId, setDragOverArticleId] = useState<number | null>(null);
+
+  // Poll the queue to track if it's actively extracting
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsQueueBusy(extractionQueue.isActivelyExtracting());
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleDragStart = (articleId: number) => {
     setDraggedArticleId(articleId);
@@ -853,6 +901,7 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 selectionIndex={selectionIndex}
                 shouldExtract={isExtractionStarted}
                 isExtractionPaused={isExtractionPaused}
+                isQueueBusy={isQueueBusy}
                 onSummaryUpdate={onArticleSummaryUpdate}
                 isDeprioritized={deprioritizedArticles.has(article.id)}
                 onToggleDeprioritize={() => toggleDeprioritize(article.id)}
