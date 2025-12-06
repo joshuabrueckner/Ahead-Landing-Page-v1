@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, Star } from "lucide-react";
+import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, Star, GripVertical } from "lucide-react";
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
@@ -156,6 +156,7 @@ type NewsSelectionProps = {
   articles: NewsArticle[];
   selectedArticles: NewsArticle[];
   setSelectedArticles: (article: NewsArticle) => void;
+  onReorderArticles?: (articles: NewsArticle[]) => void;
   featuredArticle: NewsArticle | null;
   isLoading: boolean;
   onReloadArticle: (article: NewsArticle) => void;
@@ -179,6 +180,12 @@ const ArticleItem = ({
   onToggleDeprioritize,
   isPrioritized,
   onTogglePrioritize,
+  isDraggable,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+  isDragOver,
 }: { 
     article: NewsArticle, 
     isSelected: boolean,
@@ -192,6 +199,12 @@ const ArticleItem = ({
   onToggleDeprioritize: () => void;
   isPrioritized: boolean;
   onTogglePrioritize: () => void;
+  isDraggable: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  onDrop: () => void;
+  isDragOver: boolean;
 }) => {
     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
     const { toast } = useToast();
@@ -314,14 +327,25 @@ const ArticleItem = ({
 
     return (
         <TooltipProvider delayDuration={200}>
-        <div className={cn(
-          "px-6 py-4 transition-colors", 
-          isFeatured && "bg-secondary rounded-lg",
-          isDeprioritized && "opacity-40",
-          isPrioritized && "bg-yellow-50 dark:bg-yellow-950/20 border-l-2 border-yellow-400"
-        )}>
+        <div 
+          className={cn(
+            "px-6 py-4 transition-colors", 
+            isFeatured && "bg-secondary rounded-lg",
+            isDeprioritized && "opacity-40",
+            isPrioritized && "bg-yellow-50 dark:bg-yellow-950/20 border-l-2 border-yellow-400",
+            isDragOver && "bg-primary/10 border-t-2 border-primary"
+          )}
+          draggable={isDraggable}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+          onDrop={onDrop}
+        >
           <div className="flex items-start gap-4">
             <div className="flex items-center gap-4 flex-shrink-0 pt-1">
+                    {isDraggable && (
+                      <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                    )}
                     <span className="text-muted-foreground font-bold w-5 text-center">
                         {isSelected ? `${selectionIndex + 1}.` : ''}
                     </span>
@@ -470,7 +494,7 @@ const ArticleItem = ({
 };
 
 
-export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate, onAddArticle, onArticleSummaryUpdate }: NewsSelectionProps) {
+export default function NewsSelection({ articles, selectedArticles, setSelectedArticles, onReorderArticles, featuredArticle, isLoading, selectedDate, onDateChange, maxDate, onAddArticle, onArticleSummaryUpdate }: NewsSelectionProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExtractionStarted, setIsExtractionStarted] = useState(false);
   const [isExtractionComplete, setIsExtractionComplete] = useState(false);
@@ -478,6 +502,44 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [deprioritizedArticles, setDeprioritizedArticles] = useState<Set<number>>(new Set());
   const [prioritizedArticles, setPrioritizedArticles] = useState<Set<number>>(new Set());
+  const [draggedArticleId, setDraggedArticleId] = useState<number | null>(null);
+  const [dragOverArticleId, setDragOverArticleId] = useState<number | null>(null);
+
+  const handleDragStart = (articleId: number) => {
+    setDraggedArticleId(articleId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, articleId: number) => {
+    e.preventDefault();
+    if (draggedArticleId !== null && draggedArticleId !== articleId) {
+      setDragOverArticleId(articleId);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedArticleId(null);
+    setDragOverArticleId(null);
+  };
+
+  const handleDrop = (targetArticleId: number) => {
+    if (draggedArticleId === null || draggedArticleId === targetArticleId) return;
+    
+    const draggedIndex = articles.findIndex(a => a.id === draggedArticleId);
+    const targetIndex = articles.findIndex(a => a.id === targetArticleId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+    
+    const newArticles = [...articles];
+    const [draggedArticle] = newArticles.splice(draggedIndex, 1);
+    newArticles.splice(targetIndex, 0, draggedArticle);
+    
+    if (onReorderArticles) {
+      onReorderArticles(newArticles);
+    }
+    
+    setDraggedArticleId(null);
+    setDragOverArticleId(null);
+  };
 
   const toggleDeprioritize = (articleId: number) => {
     setDeprioritizedArticles(prev => {
@@ -681,6 +743,12 @@ export default function NewsSelection({ articles, selectedArticles, setSelectedA
                 onToggleDeprioritize={() => toggleDeprioritize(article.id)}
                 isPrioritized={prioritizedArticles.has(article.id)}
                 onTogglePrioritize={() => togglePrioritize(article.id)}
+                isDraggable={!!onReorderArticles}
+                onDragStart={() => handleDragStart(article.id)}
+                onDragOver={(e) => handleDragOver(e, article.id)}
+                onDragEnd={handleDragEnd}
+                onDrop={() => handleDrop(article.id)}
+                isDragOver={dragOverArticleId === article.id}
               />
             );
           })}

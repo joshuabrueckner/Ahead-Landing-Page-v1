@@ -25,7 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText, EyeOff, Eye, Star } from "lucide-react";
+import { Rocket, Plus, ArrowUp, Loader, Sparkles, RotateCcw, FileText, EyeOff, Eye, Star, GripVertical } from "lucide-react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { generateProductOutcomeSentenceAction } from "@/app/actions";
@@ -54,7 +54,43 @@ export default function ProductsSelection({ products: initialProducts, selectedP
   const [textDialogProduct, setTextDialogProduct] = useState<ProductLaunch | null>(null);
   const [deprioritizedProducts, setDeprioritizedProducts] = useState<Set<string>>(new Set());
   const [prioritizedProducts, setPrioritizedProducts] = useState<Set<string>>(new Set());
+  const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
+  const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const handleDragStart = (productId: string) => {
+    setDraggedProductId(productId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, productId: string) => {
+    e.preventDefault();
+    if (draggedProductId !== null && draggedProductId !== productId) {
+      setDragOverProductId(productId);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedProductId(null);
+    setDragOverProductId(null);
+  };
+
+  const handleDrop = (targetProductId: string) => {
+    if (draggedProductId === null || draggedProductId === targetProductId) return;
+    
+    const draggedIndex = products.findIndex(p => p.id === draggedProductId);
+    const targetIndex = products.findIndex(p => p.id === targetProductId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+    
+    const newProducts = [...products];
+    const [draggedProduct] = newProducts.splice(draggedIndex, 1);
+    newProducts.splice(targetIndex, 0, draggedProduct);
+    
+    setProducts(newProducts);
+    
+    setDraggedProductId(null);
+    setDragOverProductId(null);
+  };
 
   const toggleDeprioritize = (productId: string) => {
     setDeprioritizedProducts(prev => {
@@ -367,14 +403,25 @@ export default function ProductsSelection({ products: initialProducts, selectedP
             const selectionIndex = isSelected ? selectedProducts.findIndex(p => p.id === product.id) : -1;
             const isDeprioritized = deprioritizedProducts.has(product.id);
             const isPrioritized = prioritizedProducts.has(product.id);
+            const isDragOver = dragOverProductId === product.id;
             return (
-              <div key={product.id} className={cn(
-                "px-6 py-4", 
-                isDeprioritized && "opacity-40",
-                isPrioritized && "bg-yellow-50 dark:bg-yellow-950/20 border-l-2 border-yellow-400"
-              )}>
+              <div 
+                key={product.id} 
+                className={cn(
+                  "px-6 py-4 transition-colors", 
+                  isDeprioritized && "opacity-40",
+                  isPrioritized && "bg-yellow-50 dark:bg-yellow-950/20 border-l-2 border-yellow-400",
+                  isDragOver && "bg-primary/10 border-t-2 border-primary"
+                )}
+                draggable
+                onDragStart={() => handleDragStart(product.id)}
+                onDragOver={(e) => handleDragOver(e, product.id)}
+                onDragEnd={handleDragEnd}
+                onDrop={() => handleDrop(product.id)}
+              >
                 <div className="flex items-start gap-4">
                   <div className="flex items-center gap-4 flex-shrink-0 pt-1">
+                    <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab active:cursor-grabbing flex-shrink-0" />
                     <span className="text-muted-foreground font-bold w-5 text-center">
                       {isSelected ? `${selectionIndex + 1}.` : ''}
                     </span>

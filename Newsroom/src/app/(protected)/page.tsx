@@ -286,6 +286,7 @@ export default function Home() {
             articles={displayedArticles}
             selectedArticles={selectedArticles}
             setSelectedArticles={handleSelect}
+            onReorderArticles={setDisplayedArticles}
             featuredArticle={featuredArticle}
             isLoading={isLoading && displayedArticles.length === 0}
             onReloadArticle={() => {}}
