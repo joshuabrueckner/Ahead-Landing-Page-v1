@@ -43,11 +43,13 @@ Supporting articles:
 {{/each}}
 
 Generate a NEW title and summary that:
-1. The title MUST start with "Discusses" - for example: "Discusses overreliance of AI in writing", "Discusses OpenAI's shifting enterprise strategy"
-2. Keep the title SHORT (under 8 words), HUMAN, and SPECIFIC
-3. Avoid generic phrases, be specific about the topic
-4. The summary should be 1-2 sentences explaining the narrative angle
-5. Make sure it's DIFFERENT from the current title and summary while still being relevant to the supporting articles
+1. The title MUST start with "Discusses" followed by the topic (NOT "Discusses:" with a colon)
+2. Examples: "Discusses overreliance of AI in writing", "Discusses OpenAI's shifting enterprise strategy"
+3. Use lowercase after "Discusses" (not Title Case) - e.g. "Discusses why enterprises struggle" NOT "Discusses Why Enterprises Struggle"
+4. Keep the title SHORT (under 8 words), HUMAN, and SPECIFIC
+5. Avoid generic phrases, be specific about the topic
+6. The summary should be 1-2 sentences explaining the narrative angle
+7. Make sure it's DIFFERENT from the current title and summary while still being relevant to the supporting articles
 
 Generate a fresh perspective on the same articles.`,
 });

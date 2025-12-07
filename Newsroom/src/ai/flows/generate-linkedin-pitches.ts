@@ -65,7 +65,9 @@ Articles to analyze:
 {{/each}}
 
 Generate 8-10 pitch ideas. For each pitch:
-- Create a SHORT, HUMAN, SPECIFIC title that MUST start with "Discusses" - for example: "Discusses overreliance of AI in writing", "Discusses OpenAI's shifting enterprise strategy", "Discusses the gap between AI demos and production"
+- Create a SHORT, HUMAN, SPECIFIC title that MUST start with "Discusses" followed by the topic (NOT "Discusses:" with a colon)
+- Examples: "Discusses overreliance of AI in writing", "Discusses OpenAI's shifting enterprise strategy", "Discusses the gap between AI demos and production"
+- Use lowercase after "Discusses" (not Title Case) - e.g. "Discusses why enterprises struggle with AI adoption" NOT "Discusses Why Enterprises Struggle With AI Adoption"
 - Keep titles under 8 words, be specific about the topic, avoid generic phrases
 - Write a brief 1-2 sentence summary of the narrative angle
 - List 3-5 bullet points that would structure the post

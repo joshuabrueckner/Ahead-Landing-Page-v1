@@ -372,9 +372,7 @@ export default function LinkedInPage() {
         });
       } else {
         setArticles(result);
-        // Auto-select most recent 15 articles
-        const recentIds = new Set(result.slice(0, 15).map(a => a.id));
-        setSelectedArticleIds(recentIds);
+        // Don't auto-select any articles
         
         // Auto-generate quick ideas from most recent articles
         if (result.length >= 5) {
