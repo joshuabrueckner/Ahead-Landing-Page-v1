@@ -29,6 +29,11 @@ import {
   generateProductSummary,
   GenerateProductSummaryInput,
 } from "@/ai/flows/generate-product-summary";
+import {
+  regeneratePitchTitle,
+  RegeneratePitchTitleInput,
+  RegeneratePitchTitleOutput,
+} from "@/ai/flows/regenerate-pitch-title";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
 import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
@@ -1214,5 +1219,17 @@ export async function generateLinkedInPostAction(
   } catch (error: any) {
     console.error("Error generating LinkedIn post:", error);
     return { error: error.message || "Failed to generate post." };
+  }
+}
+
+export async function regeneratePitchTitleAction(
+  input: RegeneratePitchTitleInput
+): Promise<RegeneratePitchTitleOutput | { error: string }> {
+  try {
+    const result = await regeneratePitchTitle(input);
+    return result;
+  } catch (error: any) {
+    console.error("Error regenerating pitch title:", error);
+    return { error: error.message || "Failed to regenerate title." };
   }
 }

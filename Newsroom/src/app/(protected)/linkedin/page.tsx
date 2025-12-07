@@ -18,6 +18,7 @@ import {
   getStoredArticlesAction, 
   generateLinkedInPitchesAction, 
   generateLinkedInPostAction,
+  regeneratePitchTitleAction,
   type LinkedInPitch 
 } from "../../actions";
 
@@ -53,6 +54,8 @@ function QuickIdeaCard({
   const [editTitle, setEditTitle] = useState(idea.title);
   const [editSummary, setEditSummary] = useState(idea.summary);
   const [showAddSource, setShowAddSource] = useState(false);
+  const [sourceSearchQuery, setSourceSearchQuery] = useState("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const handleSaveEdit = () => {
     onUpdate({ title: editTitle, summary: editSummary });
@@ -63,6 +66,28 @@ function QuickIdeaCard({
     setEditTitle(idea.title);
     setEditSummary(idea.summary);
     setIsEditing(false);
+  };
+
+  const handleRegenerate = async () => {
+    setIsRegenerating(true);
+    try {
+      const result = await regeneratePitchTitleAction({
+        currentTitle: idea.title,
+        currentSummary: idea.summary,
+        supportingArticles: idea.supportingArticles,
+      });
+      if ('error' in result) {
+        console.error(result.error);
+      } else {
+        onUpdate({ title: result.title, summary: result.summary });
+        setEditTitle(result.title);
+        setEditSummary(result.summary);
+      }
+    } catch (error) {
+      console.error("Failed to regenerate:", error);
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const handleAddSource = (article: StoredArticle) => {
@@ -76,12 +101,21 @@ function QuickIdeaCard({
       supportingArticles: [...idea.supportingArticles, newSource],
     });
     setShowAddSource(false);
+    setSourceSearchQuery("");
   };
 
-  // Filter out already selected articles
-  const availableArticles = allArticles.filter(
-    a => !idea.supportingArticles.some(s => s.url === a.url)
-  );
+  // Filter out already selected articles and apply search
+  const availableArticles = allArticles.filter(a => {
+    // Exclude already selected
+    if (idea.supportingArticles.some(s => s.url === a.url)) return false;
+    // Apply search filter
+    if (sourceSearchQuery) {
+      const query = sourceSearchQuery.toLowerCase();
+      return a.title.toLowerCase().includes(query) || 
+             a.source.toLowerCase().includes(query);
+    }
+    return true;
+  });
 
   return (
     <div className="p-4 rounded-lg border bg-card transition-colors">
@@ -119,6 +153,16 @@ function QuickIdeaCard({
                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
               >
                 <Pencil className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                disabled={isRegenerating}
+                onClick={(e) => { e.stopPropagation(); handleRegenerate(); }}
+                title="Regenerate title and summary"
+              >
+                {isRegenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               </Button>
               <Button
                 variant="ghost"
@@ -183,9 +227,21 @@ function QuickIdeaCard({
               
               {showAddSource ? (
                 <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      placeholder="Search headlines..."
+                      value={sourceSearchQuery}
+                      onChange={(e) => setSourceSearchQuery(e.target.value)}
+                      className="h-7 text-xs pl-7"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                   <ScrollArea className="h-[150px] border rounded p-2">
                     {availableArticles.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-4">No more articles available</p>
+                      <p className="text-xs text-muted-foreground text-center py-4">
+                        {sourceSearchQuery ? "No matching articles found" : "No more articles available"}
+                      </p>
                     ) : (
                       availableArticles.slice(0, 20).map((article) => (
                         <div
@@ -205,7 +261,7 @@ function QuickIdeaCard({
                     variant="ghost"
                     size="sm"
                     className="w-full h-7 text-xs"
-                    onClick={(e) => { e.stopPropagation(); setShowAddSource(false); }}
+                    onClick={(e) => { e.stopPropagation(); setShowAddSource(false); setSourceSearchQuery(""); }}
                   >
                     Cancel
                   </Button>
