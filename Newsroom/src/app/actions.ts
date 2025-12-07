@@ -1030,3 +1030,72 @@ export async function getGoogleAnalyticsDataAction(
     return { error: error.message || "Failed to fetch Google Analytics data." };
   }
 }
+
+// =====================
+// Article Storage Actions
+// =====================
+
+export async function storeArticleAction(article: { 
+  title: string; 
+  url: string; 
+  source: string; 
+  date: string; 
+  summary?: string; 
+  imageUrl?: string; 
+  text?: string;
+}): Promise<{ success: boolean; docId?: string; error?: string }> {
+  try {
+    const articlesCollection = collection(db, 'newsArticles');
+    
+    // Check for duplicate by URL
+    const existingQuery = await getDocs(articlesCollection);
+    const isDuplicate = existingQuery.docs.some(doc => doc.data().url === article.url);
+    
+    if (isDuplicate) {
+      return { success: false, error: 'Article already exists' };
+    }
+
+    // Required fields
+    const docData: Record<string, any> = {
+      title: article.title,
+      url: article.url,
+      source: article.source,
+      date: article.date,
+      titleLower: article.title.toLowerCase(),
+      extractedAt: serverTimestamp(),
+    };
+
+    // Optional fields - only add if they have values
+    if (article.summary) docData.summary = article.summary;
+    if (article.imageUrl) docData.imageUrl = article.imageUrl;
+    if (article.text) docData.text = article.text;
+
+    const docRef = await addDoc(articlesCollection, docData);
+    
+    return { success: true, docId: docRef.id };
+  } catch (error: any) {
+    console.error("Error storing article:", error);
+    return { success: false, error: error.message || "Failed to store article." };
+  }
+}
+
+export async function searchArticlesAction(searchQuery: string): Promise<{ id: string; title: string; url: string; source: string; date: string; summary?: string; imageUrl?: string }[] | { error: string }> {
+  try {
+    const articlesCollection = collection(db, 'newsArticles');
+    const snapshot = await getDocs(articlesCollection);
+    
+    const searchLower = searchQuery.toLowerCase();
+    const articles = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as { id: string; title: string; url: string; source: string; date: string; titleLower?: string; summary?: string; imageUrl?: string }))
+      .filter(article => 
+        article.titleLower?.includes(searchLower) || 
+        article.summary?.toLowerCase().includes(searchLower) ||
+        article.source?.toLowerCase().includes(searchLower)
+      );
+    
+    return articles;
+  } catch (error: any) {
+    console.error("Error searching articles:", error);
+    return { error: error.message || "Failed to search articles." };
+  }
+}

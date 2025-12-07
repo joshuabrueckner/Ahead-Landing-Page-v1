@@ -29,7 +29,7 @@ import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, St
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
-import { extractArticleTextAction, generateArticleOneSentenceSummary } from "@/app/actions";
+import { extractArticleTextAction, generateArticleOneSentenceSummary, storeArticleAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -375,13 +375,30 @@ const ArticleItem = ({
                         setIsSummarizing(true);
                     }
                 },
-                onSummaryComplete: (sum) => {
+                onSummaryComplete: async (sum) => {
                     // Phase 2: Summary is ready - update UI
                     console.log('Summary complete:', article.title, 'Summary:', sum);
                     const normalized = (sum || "").trim();
                     setSummary(normalized);
                     onSummaryUpdate(article.id, normalized);
                     setIsSummarizing(false);
+                    
+                    // Store article to Firestore
+                    const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
+                    const storeResult = await storeArticleAction({
+                        title: article.title,
+                        url: article.url,
+                        source: sourceName || '',
+                        date: article.date || '',
+                        summary: normalized || undefined,
+                        imageUrl: article.imageUrl || undefined,
+                        text: extractedText || undefined,
+                    });
+                    if (storeResult.success) {
+                        console.log('Article stored to Firestore:', article.title);
+                    } else if (storeResult.error !== 'Article already exists') {
+                        console.error('Failed to store article:', storeResult.error);
+                    }
                 }
             });
         }
@@ -410,12 +427,29 @@ const ArticleItem = ({
                     setIsSummarizing(true);
                 }
             },
-            onSummaryComplete: (sum) => {
+            onSummaryComplete: async (sum) => {
                 console.log('Summary re-generated:', article.title, 'Summary:', sum);
                 const normalized = (sum || "").trim();
                 setSummary(normalized);
                 onSummaryUpdate(article.id, normalized);
                 setIsSummarizing(false);
+                
+                // Store article to Firestore (retry)
+                const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
+                const storeResult = await storeArticleAction({
+                    title: article.title,
+                    url: article.url,
+                    source: sourceName || '',
+                    date: article.date || '',
+                    summary: normalized || undefined,
+                    imageUrl: article.imageUrl || undefined,
+                    text: extractedText || undefined,
+                });
+                if (storeResult.success) {
+                    console.log('Article stored to Firestore (retry):', article.title);
+                } else if (storeResult.error !== 'Article already exists') {
+                    console.error('Failed to store article (retry):', storeResult.error);
+                }
             }
         });
     };
