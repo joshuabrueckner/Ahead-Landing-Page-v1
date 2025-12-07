@@ -11,14 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar, ChevronDown, ChevronUp, Pencil, Trash2, Plus, Lightbulb } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getBasePath, withBasePath } from "@/lib/base-path";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   getStoredArticlesAction, 
   generateLinkedInPitchesAction, 
   generateLinkedInPostAction,
   regeneratePitchTitleAction,
+  findRelevantArticlesAction,
   type LinkedInPitch 
 } from "../../actions";
 
@@ -313,6 +315,12 @@ export default function LinkedInPage() {
   const [quickIdeas, setQuickIdeas] = useState<LinkedInPitch[]>([]);
   const [isGeneratingQuickIdeas, setIsGeneratingQuickIdeas] = useState(false);
   
+  // Custom idea state
+  const [showCustomIdeaDialog, setShowCustomIdeaDialog] = useState(false);
+  const [customIdeaText, setCustomIdeaText] = useState("");
+  const [customIdeaArticles, setCustomIdeaArticles] = useState<string[]>([]);
+  const [isFindingArticles, setIsFindingArticles] = useState(false);
+  
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -396,6 +404,78 @@ export default function LinkedInPage() {
   const handleRefreshQuickIdeas = () => {
     if (articles.length >= 5) {
       generateQuickIdeas(articles.slice(0, 20));
+    }
+  };
+
+  const handleCreateCustomIdea = async () => {
+    if (!customIdeaText.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Please enter your idea",
+        description: "Describe your LinkedIn post idea to find relevant articles.",
+      });
+      return;
+    }
+
+    setIsFindingArticles(true);
+    try {
+      const result = await findRelevantArticlesAction({
+        userIdea: customIdeaText,
+        existingArticleUrls: customIdeaArticles,
+        availableArticles: articles.map(a => ({
+          id: a.id,
+          title: a.title,
+          url: a.url,
+          source: a.source,
+          date: a.date,
+          summary: a.summary,
+        })),
+      });
+
+      if ('error' in result) {
+        toast({
+          variant: "destructive",
+          title: "Error finding articles",
+          description: result.error,
+        });
+      } else {
+        // Create a new quick idea with the matched articles
+        const matchedArticles = articles.filter(a => result.matchedArticleIds.includes(a.id));
+        const newIdea: LinkedInPitch = {
+          id: `custom-${Date.now()}`,
+          title: result.title,
+          summary: result.summary,
+          bullets: [],
+          supportingArticles: matchedArticles.map(a => ({
+            title: a.title,
+            source: a.source,
+            date: a.date,
+            url: a.url,
+          })),
+        };
+        
+        // Add to the beginning of quick ideas
+        setQuickIdeas(prev => [newIdea, ...prev]);
+        
+        // Close dialog and reset
+        setShowCustomIdeaDialog(false);
+        setCustomIdeaText("");
+        setCustomIdeaArticles([]);
+        
+        toast({
+          title: "Idea created!",
+          description: `Found ${matchedArticles.length} relevant articles for your idea.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error creating custom idea:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to find relevant articles.",
+      });
+    } finally {
+      setIsFindingArticles(false);
     }
   };
 
@@ -639,15 +719,84 @@ export default function LinkedInPage() {
                     <Sparkles className="h-5 w-5 text-primary" />
                     <span>Quick Ideas</span>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={handleRefreshQuickIdeas}
-                    disabled={isGeneratingQuickIdeas || articles.length < 5}
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-1 ${isGeneratingQuickIdeas ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Dialog open={showCustomIdeaDialog} onOpenChange={setShowCustomIdeaDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Lightbulb className="h-4 w-4 mr-1" />
+                          Your Idea
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>Create Your Own Idea</DialogTitle>
+                          <DialogDescription>
+                            Describe your LinkedIn post idea and we'll find articles that support it or add unique perspectives.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-4">
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Your idea</label>
+                            <Textarea
+                              placeholder="e.g., I want to write about how AI is changing software development workflows, specifically around code review and testing..."
+                              value={customIdeaText}
+                              onChange={(e) => setCustomIdeaText(e.target.value)}
+                              className="min-h-[100px]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Articles you already have (optional)</label>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Paste URLs of articles you want to include, one per line
+                            </p>
+                            <Textarea
+                              placeholder="https://example.com/article1&#10;https://example.com/article2"
+                              value={customIdeaArticles.join('\n')}
+                              onChange={(e) => setCustomIdeaArticles(e.target.value.split('\n').filter(url => url.trim()))}
+                              className="min-h-[80px] text-sm"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowCustomIdeaDialog(false);
+                                setCustomIdeaText("");
+                                setCustomIdeaArticles([]);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleCreateCustomIdea}
+                              disabled={isFindingArticles || !customIdeaText.trim()}
+                            >
+                              {isFindingArticles ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Finding articles...
+                                </>
+                              ) : (
+                                <>
+                                  <Search className="h-4 w-4 mr-2" />
+                                  Find Articles
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleRefreshQuickIdeas}
+                      disabled={isGeneratingQuickIdeas || articles.length < 5}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-1 ${isGeneratingQuickIdeas ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
                 </CardTitle>
                 <CardDescription>
                   AI-generated post ideas based on your recent articles. Click one to generate a post instantly.

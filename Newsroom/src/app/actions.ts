@@ -34,6 +34,11 @@ import {
   RegeneratePitchTitleInput,
   RegeneratePitchTitleOutput,
 } from "@/ai/flows/regenerate-pitch-title";
+import {
+  findRelevantArticles,
+  FindRelevantArticlesInput,
+  FindRelevantArticlesOutput,
+} from "@/ai/flows/find-relevant-articles";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
 import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
@@ -1231,5 +1236,17 @@ export async function regeneratePitchTitleAction(
   } catch (error: any) {
     console.error("Error regenerating pitch title:", error);
     return { error: error.message || "Failed to regenerate title." };
+  }
+}
+
+export async function findRelevantArticlesAction(
+  input: FindRelevantArticlesInput
+): Promise<FindRelevantArticlesOutput | { error: string }> {
+  try {
+    const result = await findRelevantArticles(input);
+    return result;
+  } catch (error: any) {
+    console.error("Error finding relevant articles:", error);
+    return { error: error.message || "Failed to find relevant articles." };
   }
 }
