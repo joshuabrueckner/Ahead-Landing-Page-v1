@@ -416,7 +416,7 @@ Write ONLY the summary sentence:`,
 
 export async function extractArticleTextAction(
   articleUrl: string
-): Promise<{ text?: string; error?: string; imageUrl?: string; title?: string; source?: string; resolvedUrl?: string }> {
+): Promise<{ text?: string; error?: string; imageUrl?: string; title?: string; source?: string; resolvedUrl?: string; date?: string }> {
   const token = process.env.DIFFBOT_TOKEN;
   if (!token) {
     console.error("Diffbot token is not configured.");
@@ -426,7 +426,7 @@ export async function extractArticleTextAction(
   const params = new URLSearchParams({
     token,
     url: articleUrl,
-    fields: "title,text,siteName,pageUrl,images",
+    fields: "title,text,siteName,pageUrl,images,date",
   });
 
   const diffbotUrl = `https://api.diffbot.com/v3/article?${params.toString()}`;
@@ -455,12 +455,26 @@ export async function extractArticleTextAction(
 
     const primaryImage = articleObject.images?.find((img: any) => img.primary);
 
+    // Parse date from Diffbot (comes as timestamp in ms or ISO string)
+    let articleDate: string | undefined;
+    if (articleObject.date) {
+      try {
+        const parsedDate = new Date(articleObject.date);
+        if (!isNaN(parsedDate.getTime())) {
+          articleDate = parsedDate.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        // If parsing fails, leave undefined
+      }
+    }
+
     return {
       text: articleObject.text || "",
       imageUrl: primaryImage?.url,
       title: articleObject.title || "",
       source: cleanSourceName(articleObject.siteName || articleObject.publisher || ""),
       resolvedUrl: articleObject.pageUrl || articleUrl,
+      date: articleDate,
     };
   } catch (error: any) {
     console.error("Error extracting article text via Diffbot:", error);

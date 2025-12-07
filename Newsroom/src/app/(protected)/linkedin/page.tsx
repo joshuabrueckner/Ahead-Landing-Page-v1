@@ -504,12 +504,12 @@ export default function LinkedInPage() {
       }
       
       // Store to database
-      const today = new Date().toISOString().split('T')[0];
+      const articleDate = extractResult.date || new Date().toISOString().split('T')[0];
       const storeResult = await storeArticleAction({
         title: extractResult.title || "Untitled",
         url: extractResult.resolvedUrl || url,
         source: extractResult.source || "Unknown",
-        date: today,
+        date: articleDate,
         text: extractResult.text,
         imageUrl: extractResult.imageUrl,
       });
@@ -520,7 +520,7 @@ export default function LinkedInPage() {
         title: extractResult.title || "Untitled",
         url: extractResult.resolvedUrl || url,
         source: extractResult.source || "Unknown",
-        date: today,
+        date: articleDate,
       };
       
       setCustomIdeaSelectedArticles(prev => [...prev, newArticle]);
@@ -861,7 +861,7 @@ export default function LinkedInPage() {
                                      a.source.toLowerCase().includes(query);
                             }
                             return true;
-                          }).slice(0, 30).map((article) => (
+                          }).map((article) => (
                             <div
                               key={article.id}
                               className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer text-sm"
