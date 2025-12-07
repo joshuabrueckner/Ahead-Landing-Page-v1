@@ -45,8 +45,8 @@ type ExtractionResult = {
 // Three-phase callback: when extraction starts, when text is ready, when summary is ready
 type ExtractionCallbacks = {
   onExtractionStarted: () => void;
-  onTextExtracted: (text: string) => void;
-  onSummaryComplete: (summary: string, extractedText: string) => void;
+  onTextExtracted: (text: string, extractedDate?: string) => void;
+  onSummaryComplete: (summary: string, extractedText: string, extractedDate?: string) => void;
 };
 
 // Global extraction queue manager with overlapped processing:
@@ -193,18 +193,19 @@ class ExtractionQueue {
         // Step 1: Extract article text (this is the rate-limited operation)
         const result = await extractArticleTextAction(item.url);
         let text = "";
+        const extractedDate = result.date; // Get the publication date from Diffbot
 
         if (result.error) {
           console.error("Auto-extraction failed:", result.error);
           text = "Failed to extract article text.";
-          item.callbacks.onTextExtracted(text);
-          item.callbacks.onSummaryComplete("", text);
+          item.callbacks.onTextExtracted(text, extractedDate);
+          item.callbacks.onSummaryComplete("", text, extractedDate);
           this.decrementPending();
         } else {
           text = result.text || "No text was extracted.";
           
           // IMMEDIATELY notify UI that text is ready (don't wait for summary)
-          item.callbacks.onTextExtracted(text);
+          item.callbacks.onTextExtracted(text, extractedDate);
           
           // Step 2: Start summarization in the background (non-blocking)
           // This runs in parallel with the next article's extraction
@@ -213,17 +214,17 @@ class ExtractionQueue {
               try {
                 const summaryResult = await generateArticleOneSentenceSummary(text);
                 const summary = summaryResult.error ? "" : (summaryResult.summary || "");
-                item.callbacks.onSummaryComplete(summary, text);
+                item.callbacks.onSummaryComplete(summary, text, extractedDate);
               } catch (err) {
                 console.error("Summary generation error:", err);
-                item.callbacks.onSummaryComplete("", text);
+                item.callbacks.onSummaryComplete("", text, extractedDate);
               } finally {
                 this.decrementPending();
               }
             })();
             pendingSummaries.push(summaryPromise);
           } else {
-            item.callbacks.onSummaryComplete("", text);
+            item.callbacks.onSummaryComplete("", text, extractedDate);
             this.decrementPending();
           }
         }
@@ -365,9 +366,9 @@ const ArticleItem = ({
                     setIsQueued(false);
                     setIsExtracting(true);
                 },
-                onTextExtracted: (text) => {
+                onTextExtracted: (text, extractedDate) => {
                     // Phase 1: Text is ready - show it immediately
-                    console.log('Text extracted:', article.title);
+                    console.log('Text extracted:', article.title, 'Date:', extractedDate);
                     setExtractedText(text);
                     setIsExtracting(false);
                     // Start showing summarizing state
@@ -375,21 +376,21 @@ const ArticleItem = ({
                         setIsSummarizing(true);
                     }
                 },
-                onSummaryComplete: async (sum, text) => {
+                onSummaryComplete: async (sum, text, extractedDate) => {
                     // Phase 2: Summary is ready - update UI
-                    console.log('Summary complete:', article.title, 'Summary:', sum);
+                    console.log('Summary complete:', article.title, 'Summary:', sum, 'Date:', extractedDate);
                     const normalized = (sum || "").trim();
                     setSummary(normalized);
                     onSummaryUpdate(article.id, normalized);
                     setIsSummarizing(false);
                     
-                    // Store article to Firestore
+                    // Store article to Firestore - use extracted date (publication date) from Diffbot
                     const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
                     const storeResult = await storeArticleAction({
                         title: article.title,
                         url: article.url,
                         source: sourceName || '',
-                        date: article.date || '',
+                        date: extractedDate || article.date || '',
                         summary: normalized || undefined,
                         imageUrl: article.imageUrl || undefined,
                         text: text || undefined,
@@ -419,28 +420,28 @@ const ArticleItem = ({
                 setIsQueued(false);
                 setIsExtracting(true);
             },
-            onTextExtracted: (text) => {
-                console.log('Text re-extracted:', article.title);
+            onTextExtracted: (text, extractedDate) => {
+                console.log('Text re-extracted:', article.title, 'Date:', extractedDate);
                 setExtractedText(text);
                 setIsExtracting(false);
                 if (text && !text.includes("Failed") && text !== "No text was extracted.") {
                     setIsSummarizing(true);
                 }
             },
-            onSummaryComplete: async (sum, text) => {
-                console.log('Summary re-generated:', article.title, 'Summary:', sum);
+            onSummaryComplete: async (sum, text, extractedDate) => {
+                console.log('Summary re-generated:', article.title, 'Summary:', sum, 'Date:', extractedDate);
                 const normalized = (sum || "").trim();
                 setSummary(normalized);
                 onSummaryUpdate(article.id, normalized);
                 setIsSummarizing(false);
                 
-                // Store article to Firestore (retry)
+                // Store article to Firestore (retry) - use extracted date from Diffbot
                 const sourceName = typeof article.source === 'object' && article.source !== null ? (article.source as any).name : article.source;
                 const storeResult = await storeArticleAction({
                     title: article.title,
                     url: article.url,
                     source: sourceName || '',
-                    date: article.date || '',
+                    date: extractedDate || article.date || '',
                     summary: normalized || undefined,
                     imageUrl: article.imageUrl || undefined,
                     text: text || undefined,
