@@ -46,7 +46,7 @@ type ExtractionResult = {
 type ExtractionCallbacks = {
   onExtractionStarted: () => void;
   onTextExtracted: (text: string) => void;
-  onSummaryComplete: (summary: string) => void;
+  onSummaryComplete: (summary: string, extractedText: string) => void;
 };
 
 // Global extraction queue manager with overlapped processing:
@@ -139,8 +139,8 @@ class ExtractionQueue {
       const wrappedCallbacks: ExtractionCallbacks = {
         onExtractionStarted: () => callbacks.onExtractionStarted(),
         onTextExtracted: (text) => callbacks.onTextExtracted(text),
-        onSummaryComplete: (sum) => {
-          callbacks.onSummaryComplete(sum);
+        onSummaryComplete: (sum, text) => {
+          callbacks.onSummaryComplete(sum, text);
           resolve();
         }
       };
@@ -198,7 +198,7 @@ class ExtractionQueue {
           console.error("Auto-extraction failed:", result.error);
           text = "Failed to extract article text.";
           item.callbacks.onTextExtracted(text);
-          item.callbacks.onSummaryComplete("");
+          item.callbacks.onSummaryComplete("", text);
           this.decrementPending();
         } else {
           text = result.text || "No text was extracted.";
@@ -213,24 +213,24 @@ class ExtractionQueue {
               try {
                 const summaryResult = await generateArticleOneSentenceSummary(text);
                 const summary = summaryResult.error ? "" : (summaryResult.summary || "");
-                item.callbacks.onSummaryComplete(summary);
+                item.callbacks.onSummaryComplete(summary, text);
               } catch (err) {
                 console.error("Summary generation error:", err);
-                item.callbacks.onSummaryComplete("");
+                item.callbacks.onSummaryComplete("", text);
               } finally {
                 this.decrementPending();
               }
             })();
             pendingSummaries.push(summaryPromise);
           } else {
-            item.callbacks.onSummaryComplete("");
+            item.callbacks.onSummaryComplete("", text);
             this.decrementPending();
           }
         }
       } catch (error) {
         console.error("Extraction error:", error);
         item.callbacks.onTextExtracted("Failed to extract article text.");
-        item.callbacks.onSummaryComplete("");
+        item.callbacks.onSummaryComplete("", "");
         this.decrementPending();
       } finally {
         this.activeExtraction = false;
@@ -375,7 +375,7 @@ const ArticleItem = ({
                         setIsSummarizing(true);
                     }
                 },
-                onSummaryComplete: async (sum) => {
+                onSummaryComplete: async (sum, text) => {
                     // Phase 2: Summary is ready - update UI
                     console.log('Summary complete:', article.title, 'Summary:', sum);
                     const normalized = (sum || "").trim();
@@ -392,7 +392,7 @@ const ArticleItem = ({
                         date: article.date || '',
                         summary: normalized || undefined,
                         imageUrl: article.imageUrl || undefined,
-                        text: extractedText || undefined,
+                        text: text || undefined,
                     });
                     if (storeResult.success) {
                         console.log('Article stored to Firestore:', article.title);
@@ -427,7 +427,7 @@ const ArticleItem = ({
                     setIsSummarizing(true);
                 }
             },
-            onSummaryComplete: async (sum) => {
+            onSummaryComplete: async (sum, text) => {
                 console.log('Summary re-generated:', article.title, 'Summary:', sum);
                 const normalized = (sum || "").trim();
                 setSummary(normalized);
@@ -443,7 +443,7 @@ const ArticleItem = ({
                     date: article.date || '',
                     summary: normalized || undefined,
                     imageUrl: article.imageUrl || undefined,
-                    text: extractedText || undefined,
+                    text: text || undefined,
                 });
                 if (storeResult.success) {
                     console.log('Article stored to Firestore (retry):', article.title);
