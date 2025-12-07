@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { AppLogo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getBasePath, withBasePath } from "@/lib/base-path";
 import { 
@@ -40,6 +41,11 @@ export default function LinkedInPage() {
   const [isGeneratingPitches, setIsGeneratingPitches] = useState(false);
   const [isGeneratingPost, setIsGeneratingPost] = useState(false);
   
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  
   const [pitches, setPitches] = useState<LinkedInPitch[]>([]);
   const [selectedPitch, setSelectedPitch] = useState<LinkedInPitch | null>(null);
   const [generatedPost, setGeneratedPost] = useState<string>("");
@@ -48,6 +54,31 @@ export default function LinkedInPage() {
   
   // View state: 'articles' | 'pitches' | 'post'
   const [view, setView] = useState<'articles' | 'pitches' | 'post'>('articles');
+
+  // Filtered articles based on search and date
+  const filteredArticles = useMemo(() => {
+    return articles.filter(article => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          article.title.toLowerCase().includes(query) ||
+          article.source.toLowerCase().includes(query) ||
+          (article.summary && article.summary.toLowerCase().includes(query));
+        if (!matchesSearch) return false;
+      }
+      
+      // Date filter
+      if (startDate && article.date) {
+        if (article.date < startDate) return false;
+      }
+      if (endDate && article.date) {
+        if (article.date > endDate) return false;
+      }
+      
+      return true;
+    });
+  }, [articles, searchQuery, startDate, endDate]);
 
   useEffect(() => {
     const resolved = getBasePath();
@@ -91,11 +122,34 @@ export default function LinkedInPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedArticleIds.size === articles.length) {
-      setSelectedArticleIds(new Set());
+    const filteredIds = new Set(filteredArticles.map(a => a.id));
+    const allFilteredSelected = filteredArticles.every(a => selectedArticleIds.has(a.id));
+    
+    if (allFilteredSelected) {
+      // Deselect all filtered articles
+      setSelectedArticleIds(prev => {
+        const newSet = new Set(prev);
+        filteredArticles.forEach(a => newSet.delete(a.id));
+        return newSet;
+      });
     } else {
-      setSelectedArticleIds(new Set(articles.map(a => a.id)));
+      // Select all filtered articles
+      setSelectedArticleIds(prev => {
+        const newSet = new Set(prev);
+        filteredArticles.forEach(a => newSet.add(a.id));
+        return newSet;
+      });
     }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedArticleIds(new Set());
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setStartDate("");
+    setEndDate("");
   };
 
   const handleGeneratePitches = async () => {
@@ -249,14 +303,87 @@ export default function LinkedInPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between">
-                      <Button variant="ghost" size="sm" onClick={handleSelectAll}>
-                        {selectedArticleIds.size === articles.length ? 'Deselect All' : 'Select All'}
-                      </Button>
+                    {/* Search and Filters */}
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search articles by title, source, or summary..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9 pr-9"
+                        />
+                        {searchQuery && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                            onClick={() => setSearchQuery("")}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            placeholder="Start date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-[150px] h-9"
+                          />
+                          <span className="text-muted-foreground">to</span>
+                          <Input
+                            type="date"
+                            placeholder="End date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-[150px] h-9"
+                          />
+                        </div>
+                        
+                        {(searchQuery || startDate || endDate) && (
+                          <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+                            <X className="h-4 w-4 mr-1" />
+                            Clear filters
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Selection controls */}
+                    <div className="flex items-center justify-between border-t pt-3">
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={handleSelectAll}>
+                          {filteredArticles.length > 0 && filteredArticles.every(a => selectedArticleIds.has(a.id)) 
+                            ? 'Deselect All' 
+                            : `Select All${filteredArticles.length !== articles.length ? ` (${filteredArticles.length})` : ''}`}
+                        </Button>
+                        {selectedArticleIds.size > 0 && (
+                          <Button variant="ghost" size="sm" onClick={handleClearSelection} className="text-destructive hover:text-destructive">
+                            <X className="h-4 w-4 mr-1" />
+                            Clear Selection ({selectedArticleIds.size})
+                          </Button>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {filteredArticles.length} of {articles.length} articles
+                      </span>
                     </div>
                     <ScrollArea className="h-[400px] pr-4">
                       <div className="space-y-2">
-                        {articles.map((article) => (
+                        {filteredArticles.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>No articles match your filters.</p>
+                            <Button variant="link" onClick={handleClearFilters} className="mt-2">
+                              Clear filters
+                            </Button>
+                          </div>
+                        ) : (
+                          filteredArticles.map((article) => (
                           <div
                             key={article.id}
                             className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -280,7 +407,8 @@ export default function LinkedInPage() {
                               </div>
                             </div>
                           </div>
-                        ))}
+                        ))
+                        )}
                       </div>
                     </ScrollArea>
                     <Button 
