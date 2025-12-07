@@ -29,7 +29,7 @@ import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, St
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
-import { extractArticleTextAction, generateArticleOneSentenceSummary, storeArticleAction } from "@/app/actions";
+import { extractArticleTextAction, generateArticleOneSentenceSummary, storeArticleAction, updateArticleByUrlAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -470,10 +470,25 @@ const ArticleItem = ({
                 const regenerated = (result.summary || "").trim();
                 setSummary(regenerated);
                 onSummaryUpdate(article.id, regenerated);
-                toast({
-                    title: "Success",
-                    description: "Summary regenerated successfully.",
+                
+                // Update article in Firebase with new text and summary
+                const updateResult = await updateArticleByUrlAction(article.url, {
+                    text: extractedText,
+                    summary: regenerated,
                 });
+                if (updateResult.success) {
+                    toast({
+                        title: "Success",
+                        description: "Summary regenerated and saved to database.",
+                    });
+                } else {
+                    console.error("Failed to update article in Firebase:", updateResult.error);
+                    toast({
+                        title: "Success",
+                        description: "Summary regenerated (but failed to save to database).",
+                    });
+                }
+                
               if (isTextDialogOpen) {
                 setIsTextDialogOpen(false);
               }

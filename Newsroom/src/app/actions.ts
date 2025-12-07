@@ -31,7 +31,7 @@ import {
 } from "@/ai/flows/generate-product-summary";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { db } from "@/firebase/index";
-import { collection, addDoc, getDocs, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
 import { ai } from "@/ai/genkit";
 import { load } from "cheerio";
 
@@ -1103,5 +1103,36 @@ export async function searchArticlesAction(searchQuery: string): Promise<{ id: s
   } catch (error: any) {
     console.error("Error searching articles:", error);
     return { error: error.message || "Failed to search articles." };
+  }
+}
+
+export async function updateArticleByUrlAction(url: string, updates: { text?: string; summary?: string }): Promise<{ success: boolean; error?: string }> {
+  try {
+    const articlesCollection = collection(db, 'newsArticles');
+    const snapshot = await getDocs(articlesCollection);
+    
+    // Find the document with matching URL
+    const matchingDoc = snapshot.docs.find(doc => doc.data().url === url);
+    
+    if (!matchingDoc) {
+      return { success: false, error: 'Article not found in database' };
+    }
+
+    // Build update object with only provided fields
+    const updateData: Record<string, any> = {};
+    if (updates.text !== undefined) updateData.text = updates.text;
+    if (updates.summary !== undefined) updateData.summary = updates.summary;
+    
+    if (Object.keys(updateData).length === 0) {
+      return { success: false, error: 'No updates provided' };
+    }
+
+    await updateDoc(matchingDoc.ref, updateData);
+    console.log('Article updated in Firestore:', url);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating article:", error);
+    return { success: false, error: error.message || "Failed to update article." };
   }
 }
