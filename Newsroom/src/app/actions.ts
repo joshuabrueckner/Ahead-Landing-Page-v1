@@ -1136,3 +1136,83 @@ export async function updateArticleByUrlAction(url: string, updates: { text?: st
     return { success: false, error: error.message || "Failed to update article." };
   }
 }
+
+// =====================
+// LinkedIn Content Generation Actions
+// =====================
+
+import {
+  generateLinkedInPitches,
+  type GenerateLinkedInPitchesOutput,
+  type LinkedInPitch,
+} from "@/ai/flows/generate-linkedin-pitches";
+import {
+  generateLinkedInPost,
+  type GenerateLinkedInPostInput,
+  type GenerateLinkedInPostOutput,
+} from "@/ai/flows/generate-linkedin-post";
+
+export type { LinkedInPitch };
+
+export async function getStoredArticlesAction(limit?: number): Promise<{ 
+  id: string; 
+  title: string; 
+  url: string; 
+  source: string; 
+  date: string; 
+  summary?: string;
+}[] | { error: string }> {
+  try {
+    const articlesCollection = collection(db, 'newsArticles');
+    const snapshot = await getDocs(articlesCollection);
+    
+    const articles = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title,
+        url: data.url,
+        source: data.source || 'Unknown',
+        date: data.date || '',
+        summary: data.summary,
+      };
+    });
+
+    // Sort by date descending (most recent first)
+    articles.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return b.date.localeCompare(a.date);
+    });
+
+    return limit ? articles.slice(0, limit) : articles;
+  } catch (error: any) {
+    console.error("Error fetching stored articles:", error);
+    return { error: error.message || "Failed to fetch articles." };
+  }
+}
+
+export async function generateLinkedInPitchesAction(
+  articles: { title: string; url: string; source: string; date: string; summary?: string }[]
+): Promise<GenerateLinkedInPitchesOutput | { error: string }> {
+  try {
+    const result = await generateLinkedInPitches({ articles });
+    return result;
+  } catch (error: any) {
+    console.error("Error generating LinkedIn pitches:", error);
+    return { error: error.message || "Failed to generate pitches." };
+  }
+}
+
+export async function generateLinkedInPostAction(
+  input: GenerateLinkedInPostInput
+): Promise<GenerateLinkedInPostOutput | { error: string }> {
+  try {
+    const result = await generateLinkedInPost(input);
+    return result;
+  } catch (error: any) {
+    console.error("Error generating LinkedIn post:", error);
+    return { error: error.message || "Failed to generate post." };
+  }
+}

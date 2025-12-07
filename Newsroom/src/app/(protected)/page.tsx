@@ -13,6 +13,7 @@ import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { getTopAIProductsAction } from "../actions";
 import { useToast } from "@/hooks/use-toast";
 import { buildApiPath, getBasePath, withBasePath } from "@/lib/base-path";
+import { Linkedin } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
@@ -271,6 +272,12 @@ export default function Home() {
             </h1>
           </div>
           <div className="flex items-center gap-4">
+            <Button variant="outline" asChild>
+              <Link href={withBasePath("/linkedin", basePath)}>
+                <Linkedin className="h-4 w-4 mr-2" />
+                LinkedIn
+              </Link>
+            </Button>
             <Button variant="outline" asChild>
               <Link href={withBasePath("/subscribers", basePath)}>Subscribers</Link>
             </Button>

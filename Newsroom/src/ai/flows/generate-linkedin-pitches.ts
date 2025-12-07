@@ -1,0 +1,86 @@
+'use server';
+
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+
+const ArticleSchema = z.object({
+  title: z.string(),
+  url: z.string(),
+  source: z.string(),
+  date: z.string(),
+  summary: z.string().optional(),
+});
+
+const GenerateLinkedInPitchesInputSchema = z.object({
+  articles: z.array(ArticleSchema).describe('Array of recent AI news articles'),
+});
+export type GenerateLinkedInPitchesInput = z.infer<typeof GenerateLinkedInPitchesInputSchema>;
+
+const PitchSchema = z.object({
+  id: z.string().describe('Unique identifier for this pitch'),
+  title: z.string().describe('Catchy title for the LinkedIn post idea'),
+  summary: z.string().describe('Brief 1-2 sentence summary of the narrative angle'),
+  bullets: z.array(z.string()).describe('3-5 supporting points that build the narrative'),
+  supportingArticles: z.array(z.object({
+    title: z.string(),
+    source: z.string(),
+    date: z.string(),
+    url: z.string(),
+  })).describe('The articles that support this pitch'),
+});
+
+const GenerateLinkedInPitchesOutputSchema = z.object({
+  pitches: z.array(PitchSchema).describe('3-5 LinkedIn post pitch ideas'),
+});
+export type GenerateLinkedInPitchesOutput = z.infer<typeof GenerateLinkedInPitchesOutputSchema>;
+export type LinkedInPitch = z.infer<typeof PitchSchema>;
+
+export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInput): Promise<GenerateLinkedInPitchesOutput> {
+  return generateLinkedInPitchesFlow(input);
+}
+
+const prompt = ai.definePrompt({
+  name: 'generateLinkedInPitchesPrompt',
+  input: { schema: GenerateLinkedInPitchesInputSchema },
+  output: { schema: GenerateLinkedInPitchesOutputSchema },
+  prompt: `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
+
+Given the following recent AI news articles, identify 3-5 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
+
+Each pitch should:
+1. Connect 2-4 articles that share a common theme or tell a bigger story together
+2. Offer a unique, insightful observation that goes beyond just summarizing the news
+3. Be relevant to business professionals and AI practitioners
+4. Encourage engagement and discussion
+5. Feel authentic and thoughtful, not clickbait
+
+Articles to analyze:
+{{#each articles}}
+- Title: {{this.title}}
+  Source: {{this.source}}
+  Date: {{this.date}}
+  URL: {{this.url}}
+  {{#if this.summary}}Summary: {{this.summary}}{{/if}}
+
+{{/each}}
+
+Generate 3-5 pitch ideas. For each pitch:
+- Create a compelling title that captures the insight
+- Write a brief 1-2 sentence summary of the narrative angle
+- List 3-5 bullet points that would structure the post
+- Include the specific articles that support this pitch
+
+Make each pitch distinct and approach the articles from different angles.`,
+});
+
+const generateLinkedInPitchesFlow = ai.defineFlow(
+  {
+    name: 'generateLinkedInPitchesFlow',
+    inputSchema: GenerateLinkedInPitchesInputSchema,
+    outputSchema: GenerateLinkedInPitchesOutputSchema,
+  },
+  async input => {
+    const { output } = await prompt(input);
+    return output!;
+  }
+);
