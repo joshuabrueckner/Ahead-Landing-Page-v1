@@ -346,7 +346,8 @@ export default function LinkedInPage() {
   useEffect(() => {
     async function fetchArticles() {
       setIsLoadingArticles(true);
-      const result = await getStoredArticlesAction(50);
+      // Fetch all articles (no limit) so users can search through all of them
+      const result = await getStoredArticlesAction();
       if ('error' in result) {
         toast({
           variant: "destructive",
