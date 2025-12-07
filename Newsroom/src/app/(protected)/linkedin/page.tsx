@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getBasePath, withBasePath } from "@/lib/base-path";
 import { 
@@ -29,6 +29,204 @@ type StoredArticle = {
   date: string;
   summary?: string;
 };
+
+// Quick Idea Card Component
+function QuickIdeaCard({
+  idea,
+  index,
+  onSelect,
+  onUpdate,
+  onRemoveSource,
+  onDelete,
+  allArticles,
+}: {
+  idea: LinkedInPitch;
+  index: number;
+  onSelect: () => void;
+  onUpdate: (updates: Partial<LinkedInPitch>) => void;
+  onRemoveSource: (sourceIndex: number) => void;
+  onDelete: () => void;
+  allArticles: StoredArticle[];
+}) {
+  const [showSources, setShowSources] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(idea.title);
+  const [editSummary, setEditSummary] = useState(idea.summary);
+  const [showAddSource, setShowAddSource] = useState(false);
+
+  const handleSaveEdit = () => {
+    onUpdate({ title: editTitle, summary: editSummary });
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditTitle(idea.title);
+    setEditSummary(idea.summary);
+    setIsEditing(false);
+  };
+
+  const handleAddSource = (article: StoredArticle) => {
+    const newSource = {
+      title: article.title,
+      source: article.source,
+      date: article.date,
+      url: article.url,
+    };
+    onUpdate({
+      supportingArticles: [...idea.supportingArticles, newSource],
+    });
+    setShowAddSource(false);
+  };
+
+  // Filter out already selected articles
+  const availableArticles = allArticles.filter(
+    a => !idea.supportingArticles.some(s => s.url === a.url)
+  );
+
+  return (
+    <div className="p-4 rounded-lg border bg-card transition-colors">
+      {isEditing ? (
+        <div className="space-y-3">
+          <Input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="Title"
+            className="font-medium text-sm"
+          />
+          <Textarea
+            value={editSummary}
+            onChange={(e) => setEditSummary(e.target.value)}
+            placeholder="Summary"
+            className="text-xs min-h-[60px]"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+            <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm line-clamp-2">{idea.title}</p>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{idea.summary}</p>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={(e) => { e.stopPropagation(); setShowSources(!showSources); }}
+            >
+              {showSources ? <ChevronUp className="h-3 w-3 mr-1" /> : <ChevronDown className="h-3 w-3 mr-1" />}
+              {idea.supportingArticles.length} sources
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs ml-auto"
+              onClick={onSelect}
+            >
+              Generate
+              <ChevronRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
+
+          {showSources && (
+            <div className="mt-3 space-y-2 pt-3 border-t">
+              {idea.supportingArticles.map((source, sourceIndex) => (
+                <div key={sourceIndex} className="flex items-start gap-2 text-xs p-2 bg-muted/50 rounded">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium line-clamp-1">{source.title}</p>
+                    <p className="text-muted-foreground">{source.source} • {source.date}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary/80"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); onRemoveSource(sourceIndex); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              
+              {showAddSource ? (
+                <div className="space-y-2">
+                  <ScrollArea className="h-[150px] border rounded p-2">
+                    {availableArticles.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">No more articles available</p>
+                    ) : (
+                      availableArticles.slice(0, 20).map((article) => (
+                        <div
+                          key={article.id}
+                          className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer text-xs"
+                          onClick={(e) => { e.stopPropagation(); handleAddSource(article); }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium line-clamp-1">{article.title}</p>
+                            <p className="text-muted-foreground">{article.source} • {article.date}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </ScrollArea>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-7 text-xs"
+                    onClick={(e) => { e.stopPropagation(); setShowAddSource(false); }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-7 text-xs"
+                  onClick={(e) => { e.stopPropagation(); setShowAddSource(true); }}
+                >
+                  + Add Source
+                </Button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function LinkedInPage() {
   const { toast } = useToast();
@@ -122,7 +320,7 @@ export default function LinkedInPage() {
     setIsGeneratingQuickIdeas(true);
     const result = await generateLinkedInPitchesAction(articlesToUse);
     if (!('error' in result)) {
-      setQuickIdeas(result.pitches.slice(0, 6));
+      setQuickIdeas(result.pitches.slice(0, 10));
     }
     setIsGeneratingQuickIdeas(false);
   };
@@ -131,6 +329,30 @@ export default function LinkedInPage() {
     if (articles.length >= 5) {
       generateQuickIdeas(articles.slice(0, 20));
     }
+  };
+
+  const handleUpdateQuickIdea = (index: number, updates: Partial<LinkedInPitch>) => {
+    setQuickIdeas(prev => {
+      const newIdeas = [...prev];
+      newIdeas[index] = { ...newIdeas[index], ...updates };
+      return newIdeas;
+    });
+  };
+
+  const handleRemoveSourceFromIdea = (ideaIndex: number, sourceIndex: number) => {
+    setQuickIdeas(prev => {
+      const newIdeas = [...prev];
+      const idea = newIdeas[ideaIndex];
+      newIdeas[ideaIndex] = {
+        ...idea,
+        supportingArticles: idea.supportingArticles.filter((_, i) => i !== sourceIndex),
+      };
+      return newIdeas;
+    });
+  };
+
+  const handleDeleteQuickIdea = (index: number) => {
+    setQuickIdeas(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSelectQuickIdea = (pitch: LinkedInPitch) => {
@@ -376,28 +598,16 @@ export default function LinkedInPage() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {quickIdeas.map((idea, index) => (
-                      <div
+                      <QuickIdeaCard
                         key={idea.id || index}
-                        className="p-4 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors group"
-                        onClick={() => handleSelectQuickIdea(idea)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
-                              {idea.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {idea.summary}
-                            </p>
-                            <div className="flex items-center gap-1 mt-2">
-                              <Badge variant="outline" className="text-xs">
-                                {idea.supportingArticles.length} articles
-                              </Badge>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-1" />
-                        </div>
-                      </div>
+                        idea={idea}
+                        index={index}
+                        onSelect={() => handleSelectQuickIdea(idea)}
+                        onUpdate={(updates) => handleUpdateQuickIdea(index, updates)}
+                        onRemoveSource={(sourceIndex) => handleRemoveSourceFromIdea(index, sourceIndex)}
+                        onDelete={() => handleDeleteQuickIdea(index)}
+                        allArticles={articles}
+                      />
                     ))}
                   </div>
                 )}

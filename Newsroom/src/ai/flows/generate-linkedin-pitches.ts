@@ -30,7 +30,7 @@ const PitchSchema = z.object({
 });
 
 const GenerateLinkedInPitchesOutputSchema = z.object({
-  pitches: z.array(PitchSchema).describe('3-5 LinkedIn post pitch ideas'),
+  pitches: z.array(PitchSchema).describe('5-10 LinkedIn post pitch ideas'),
 });
 export type GenerateLinkedInPitchesOutput = z.infer<typeof GenerateLinkedInPitchesOutputSchema>;
 export type LinkedInPitch = z.infer<typeof PitchSchema>;
@@ -45,7 +45,7 @@ const prompt = ai.definePrompt({
   output: { schema: GenerateLinkedInPitchesOutputSchema },
   prompt: `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
 
-Given the following recent AI news articles, identify 3-5 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
+Given the following recent AI news articles, identify 8-10 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
 
 Each pitch should:
 1. Connect 2-4 articles that share a common theme or tell a bigger story together
@@ -64,13 +64,13 @@ Articles to analyze:
 
 {{/each}}
 
-Generate 3-5 pitch ideas. For each pitch:
+Generate 8-10 pitch ideas. For each pitch:
 - Create a compelling title that captures the insight
 - Write a brief 1-2 sentence summary of the narrative angle
 - List 3-5 bullet points that would structure the post
 - Include the specific articles that support this pitch
 
-Make each pitch distinct and approach the articles from different angles.`,
+Make each pitch distinct and approach the articles from different angles - consider themes like industry impact, technical breakthroughs, competitive dynamics, societal implications, investment trends, and strategic business considerations.`,
 });
 
 const generateLinkedInPitchesFlow = ai.defineFlow(
