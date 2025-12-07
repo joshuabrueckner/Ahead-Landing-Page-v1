@@ -1044,14 +1044,18 @@ export async function storeArticleAction(article: {
   imageUrl?: string; 
   text?: string;
 }): Promise<{ success: boolean; docId?: string; error?: string }> {
+  console.log("storeArticleAction called with:", { title: article.title, url: article.url, source: article.source, date: article.date });
   try {
     const articlesCollection = collection(db, 'newsArticles');
+    console.log("Got articles collection reference");
     
     // Check for duplicate by URL
     const existingQuery = await getDocs(articlesCollection);
+    console.log("Checked for duplicates, found", existingQuery.docs.length, "existing docs");
     const isDuplicate = existingQuery.docs.some(doc => doc.data().url === article.url);
     
     if (isDuplicate) {
+      console.log("Article already exists, skipping");
       return { success: false, error: 'Article already exists' };
     }
 
@@ -1070,7 +1074,9 @@ export async function storeArticleAction(article: {
     if (article.imageUrl) docData.imageUrl = article.imageUrl;
     if (article.text) docData.text = article.text;
 
+    console.log("About to add doc with data:", { ...docData, text: docData.text ? "[text present]" : undefined });
     const docRef = await addDoc(articlesCollection, docData);
+    console.log("Doc added successfully with ID:", docRef.id);
     
     return { success: true, docId: docRef.id };
   } catch (error: any) {
