@@ -41,6 +41,10 @@ export default function LinkedInPage() {
   const [isGeneratingPitches, setIsGeneratingPitches] = useState(false);
   const [isGeneratingPost, setIsGeneratingPost] = useState(false);
   
+  // Quick ideas state
+  const [quickIdeas, setQuickIdeas] = useState<LinkedInPitch[]>([]);
+  const [isGeneratingQuickIdeas, setIsGeneratingQuickIdeas] = useState(false);
+  
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -103,11 +107,68 @@ export default function LinkedInPage() {
         // Auto-select most recent 15 articles
         const recentIds = new Set(result.slice(0, 15).map(a => a.id));
         setSelectedArticleIds(recentIds);
+        
+        // Auto-generate quick ideas from most recent articles
+        if (result.length >= 5) {
+          generateQuickIdeas(result.slice(0, 20));
+        }
       }
       setIsLoadingArticles(false);
     }
     fetchArticles();
   }, [toast]);
+
+  const generateQuickIdeas = async (articlesToUse: StoredArticle[]) => {
+    setIsGeneratingQuickIdeas(true);
+    const result = await generateLinkedInPitchesAction(articlesToUse);
+    if (!('error' in result)) {
+      setQuickIdeas(result.pitches.slice(0, 6));
+    }
+    setIsGeneratingQuickIdeas(false);
+  };
+
+  const handleRefreshQuickIdeas = () => {
+    if (articles.length >= 5) {
+      generateQuickIdeas(articles.slice(0, 20));
+    }
+  };
+
+  const handleSelectQuickIdea = (pitch: LinkedInPitch) => {
+    // Select the articles from this pitch
+    const pitchArticleUrls = new Set(pitch.supportingArticles.map(a => a.url));
+    const matchingArticleIds = articles
+      .filter(a => pitchArticleUrls.has(a.url))
+      .map(a => a.id);
+    
+    // Set these as selected and go straight to generating the post
+    setSelectedArticleIds(new Set(matchingArticleIds));
+    setSelectedPitch(pitch);
+    handleSelectPitchDirect(pitch);
+  };
+
+  const handleSelectPitchDirect = async (pitch: LinkedInPitch) => {
+    setIsGeneratingPost(true);
+    setView('post');
+    setFeedback("");
+    
+    const result = await generateLinkedInPostAction({
+      title: pitch.title,
+      summary: pitch.summary,
+      bullets: pitch.bullets,
+      supportingArticles: pitch.supportingArticles,
+    });
+    
+    if ('error' in result) {
+      toast({
+        variant: "destructive",
+        title: "Error generating post",
+        description: result.error,
+      });
+    } else {
+      setGeneratedPost(result.post);
+    }
+    setIsGeneratingPost(false);
+  };
 
   const handleToggleArticle = (id: string) => {
     setSelectedArticleIds(prev => {
@@ -279,6 +340,71 @@ export default function LinkedInPage() {
           
           {/* Articles Selection View */}
           {view === 'articles' && (
+            <>
+            {/* Quick Ideas Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    <span>Quick Ideas</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRefreshQuickIdeas}
+                    disabled={isGeneratingQuickIdeas || articles.length < 5}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-1 ${isGeneratingQuickIdeas ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </CardTitle>
+                <CardDescription>
+                  AI-generated post ideas based on your recent articles. Click one to generate a post instantly.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isGeneratingQuickIdeas ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Generating ideas...</span>
+                  </div>
+                ) : quickIdeas.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Loading ideas from your recent articles...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {quickIdeas.map((idea, index) => (
+                      <div
+                        key={idea.id || index}
+                        className="p-4 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors group"
+                        onClick={() => handleSelectQuickIdea(idea)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                              {idea.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {idea.summary}
+                            </p>
+                            <div className="flex items-center gap-1 mt-2">
+                              <Badge variant="outline" className="text-xs">
+                                {idea.supportingArticles.length} articles
+                              </Badge>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-1" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Select Articles Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -432,6 +558,7 @@ export default function LinkedInPage() {
                 )}
               </CardContent>
             </Card>
+            </>
           )}
 
           {/* Pitches View */}
