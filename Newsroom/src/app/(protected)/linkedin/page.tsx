@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { AppLogo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar, ChevronDown, ChevronUp, Pencil, Trash2, Lightbulb, Plus, Link as LinkIcon } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, ChevronDown, ChevronUp, Pencil, Trash2, Lightbulb, Plus, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getBasePath, withBasePath } from "@/lib/base-path";
 import { 
@@ -43,6 +42,7 @@ function QuickIdeaCard({
   onRemoveSource,
   onDelete,
   allArticles,
+  isUserSparked = false,
 }: {
   idea: LinkedInPitch;
   index: number;
@@ -51,6 +51,7 @@ function QuickIdeaCard({
   onRemoveSource: (sourceIndex: number) => void;
   onDelete: () => void;
   allArticles: StoredArticle[];
+  isUserSparked?: boolean;
 }) {
   const [showSources, setShowSources] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -135,7 +136,7 @@ function QuickIdeaCard({
   });
 
   return (
-    <div className="p-4 rounded-lg border bg-card transition-colors">
+    <div className={`p-4 rounded-lg border transition-colors ${isUserSparked ? 'bg-primary/10 border-primary/30' : 'bg-card'}`}>
       {isEditing ? (
         <div className="space-y-3">
           <Input
@@ -307,28 +308,23 @@ export default function LinkedInPage() {
   
   // State
   const [articles, setArticles] = useState<StoredArticle[]>([]);
-  const [selectedArticleIds, setSelectedArticleIds] = useState<Set<string>>(new Set());
   const [isLoadingArticles, setIsLoadingArticles] = useState(true);
-  const [isGeneratingPitches, setIsGeneratingPitches] = useState(false);
   const [isGeneratingPost, setIsGeneratingPost] = useState(false);
   
   // Quick ideas state
   const [quickIdeas, setQuickIdeas] = useState<LinkedInPitch[]>([]);
+  const [userSparkedIdeaIds, setUserSparkedIdeaIds] = useState<Set<string>>(new Set());
   const [isGeneratingQuickIdeas, setIsGeneratingQuickIdeas] = useState(false);
   
   // Custom idea state
   const [customIdeaText, setCustomIdeaText] = useState("");
   const [customIdeaSelectedArticles, setCustomIdeaSelectedArticles] = useState<StoredArticle[]>([]);
   const [isFindingArticles, setIsFindingArticles] = useState(false);
+  const [isGeneratingDirectPost, setIsGeneratingDirectPost] = useState(false);
   const [showArticleSelector, setShowArticleSelector] = useState(false);
   const [articleSelectorSearch, setArticleSelectorSearch] = useState("");
   const [externalUrlInput, setExternalUrlInput] = useState("");
   const [isLoadingExternalUrl, setIsLoadingExternalUrl] = useState(false);
-  
-  // Search and filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   
   const [pitches, setPitches] = useState<LinkedInPitch[]>([]);
   const [selectedPitch, setSelectedPitch] = useState<LinkedInPitch | null>(null);
@@ -338,31 +334,6 @@ export default function LinkedInPage() {
   
   // View state: 'articles' | 'pitches' | 'post'
   const [view, setView] = useState<'articles' | 'pitches' | 'post'>('articles');
-
-  // Filtered articles based on search and date
-  const filteredArticles = useMemo(() => {
-    return articles.filter(article => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch = 
-          article.title.toLowerCase().includes(query) ||
-          article.source.toLowerCase().includes(query) ||
-          (article.summary && article.summary.toLowerCase().includes(query));
-        if (!matchesSearch) return false;
-      }
-      
-      // Date filter
-      if (startDate && article.date) {
-        if (article.date < startDate) return false;
-      }
-      if (endDate && article.date) {
-        if (article.date > endDate) return false;
-      }
-      
-      return true;
-    });
-  }, [articles, searchQuery, startDate, endDate]);
 
   useEffect(() => {
     const resolved = getBasePath();
@@ -466,8 +437,9 @@ export default function LinkedInPage() {
           })),
         };
         
-        // Add to the beginning of quick ideas
+        // Add to the beginning of quick ideas and mark as user-sparked
         setQuickIdeas(prev => [newIdea, ...prev]);
+        setUserSparkedIdeaIds(prev => new Set([...prev, newIdea.id]));
         
         // Reset form
         setCustomIdeaText("");
@@ -577,6 +549,67 @@ export default function LinkedInPage() {
     setCustomIdeaSelectedArticles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleDirectGeneratePost = async () => {
+    if (!customIdeaText.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Please enter your idea",
+        description: "Describe your LinkedIn post idea first.",
+      });
+      return;
+    }
+
+    setIsGeneratingDirectPost(true);
+    try {
+      // Create a pitch from the user's input directly
+      const pitch: LinkedInPitch = {
+        id: `direct-${Date.now()}`,
+        title: `Discusses ${customIdeaText.slice(0, 50)}...`,
+        summary: customIdeaText,
+        bullets: [],
+        supportingArticles: customIdeaSelectedArticles.map(a => ({
+          title: a.title,
+          source: a.source,
+          date: a.date,
+          url: a.url,
+        })),
+      };
+
+      setSelectedPitch(pitch);
+      setView('post');
+      setFeedback("");
+
+      const result = await generateLinkedInPostAction({
+        title: pitch.title,
+        summary: pitch.summary,
+        bullets: pitch.bullets,
+        supportingArticles: pitch.supportingArticles,
+      });
+
+      if ('error' in result) {
+        toast({
+          variant: "destructive",
+          title: "Error generating post",
+          description: result.error,
+        });
+      } else {
+        setGeneratedPost(result.post);
+        // Reset form
+        setCustomIdeaText("");
+        setCustomIdeaSelectedArticles([]);
+      }
+    } catch (error) {
+      console.error("Error generating post:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to generate post.",
+      });
+    } finally {
+      setIsGeneratingDirectPost(false);
+    }
+  };
+
   const handleUpdateQuickIdea = (index: number, updates: Partial<LinkedInPitch>) => {
     setQuickIdeas(prev => {
       const newIdeas = [...prev];
@@ -636,77 +669,6 @@ export default function LinkedInPage() {
       setGeneratedPost(result.post);
     }
     setIsGeneratingPost(false);
-  };
-
-  const handleToggleArticle = (id: string) => {
-    setSelectedArticleIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = () => {
-    const filteredIds = new Set(filteredArticles.map(a => a.id));
-    const allFilteredSelected = filteredArticles.every(a => selectedArticleIds.has(a.id));
-    
-    if (allFilteredSelected) {
-      // Deselect all filtered articles
-      setSelectedArticleIds(prev => {
-        const newSet = new Set(prev);
-        filteredArticles.forEach(a => newSet.delete(a.id));
-        return newSet;
-      });
-    } else {
-      // Select all filtered articles
-      setSelectedArticleIds(prev => {
-        const newSet = new Set(prev);
-        filteredArticles.forEach(a => newSet.add(a.id));
-        return newSet;
-      });
-    }
-  };
-
-  const handleClearSelection = () => {
-    setSelectedArticleIds(new Set());
-  };
-
-  const handleClearFilters = () => {
-    setSearchQuery("");
-    setStartDate("");
-    setEndDate("");
-  };
-
-  const handleGeneratePitches = async () => {
-    const selectedArticles = articles.filter(a => selectedArticleIds.has(a.id));
-    
-    if (selectedArticles.length < 3) {
-      toast({
-        variant: "destructive",
-        title: "Not enough articles",
-        description: "Please select at least 3 articles to generate pitch ideas.",
-      });
-      return;
-    }
-
-    setIsGeneratingPitches(true);
-    const result = await generateLinkedInPitchesAction(selectedArticles);
-    
-    if ('error' in result) {
-      toast({
-        variant: "destructive",
-        title: "Error generating pitches",
-        description: result.error,
-      });
-    } else {
-      setPitches(result.pitches);
-      setView('pitches');
-    }
-    setIsGeneratingPitches(false);
   };
 
   const handleSelectPitch = async (pitch: LinkedInPitch) => {
@@ -970,21 +932,39 @@ export default function LinkedInPage() {
                   )}
                 </div>
                 
-                <div className="flex justify-center pt-2">
+                <div className="flex justify-center gap-3 pt-2">
                   <Button
+                    variant="outline"
                     size="lg"
                     onClick={handleCreateCustomIdea}
-                    disabled={isFindingArticles || !customIdeaText.trim()}
+                    disabled={isFindingArticles || isGeneratingDirectPost || !customIdeaText.trim()}
                   >
                     {isFindingArticles ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Finding articles...
+                        Building...
                       </>
                     ) : (
                       <>
-                        <Search className="h-4 w-4 mr-2" />
-                        Find Articles & Create Idea
+                        <Lightbulb className="h-4 w-4 mr-2" />
+                        Build on Idea
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={handleDirectGeneratePost}
+                    disabled={isFindingArticles || isGeneratingDirectPost || !customIdeaText.trim()}
+                  >
+                    {isGeneratingDirectPost ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Generate Post
                       </>
                     )}
                   </Button>
@@ -1036,164 +1016,10 @@ export default function LinkedInPage() {
                         onRemoveSource={(sourceIndex) => handleRemoveSourceFromIdea(index, sourceIndex)}
                         onDelete={() => handleDeleteQuickIdea(index)}
                         allArticles={articles}
+                        isUserSparked={userSparkedIdeaIds.has(idea.id)}
                       />
                     ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Select Articles Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Select Articles</span>
-                  <Badge variant="secondary">
-                    {selectedArticleIds.size} selected
-                  </Badge>
-                </CardTitle>
-                <CardDescription>
-                  Choose articles to generate LinkedIn post ideas from. Select articles that might connect into interesting narratives.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingArticles ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : articles.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <p>No articles found in your database.</p>
-                    <p className="text-sm mt-2">Extract some articles from the newsroom first.</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Search and Filters */}
-                    <div className="space-y-3">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search articles by title, source, or summary..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-9 pr-9"
-                        />
-                        {searchQuery && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <Input
-                            type="date"
-                            placeholder="Start date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="w-[150px] h-9"
-                          />
-                          <span className="text-muted-foreground">to</span>
-                          <Input
-                            type="date"
-                            placeholder="End date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="w-[150px] h-9"
-                          />
-                        </div>
-                        
-                        {(searchQuery || startDate || endDate) && (
-                          <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-                            <X className="h-4 w-4 mr-1" />
-                            Clear filters
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Selection controls */}
-                    <div className="flex items-center justify-between border-t pt-3">
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleSelectAll}>
-                          {filteredArticles.length > 0 && filteredArticles.every(a => selectedArticleIds.has(a.id)) 
-                            ? 'Deselect All' 
-                            : `Select All${filteredArticles.length !== articles.length ? ` (${filteredArticles.length})` : ''}`}
-                        </Button>
-                        {selectedArticleIds.size > 0 && (
-                          <Button variant="ghost" size="sm" onClick={handleClearSelection} className="text-destructive hover:text-destructive">
-                            <X className="h-4 w-4 mr-1" />
-                            Clear Selection ({selectedArticleIds.size})
-                          </Button>
-                        )}
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {filteredArticles.length} of {articles.length} articles
-                      </span>
-                    </div>
-                    <ScrollArea className="h-[400px] pr-4">
-                      <div className="space-y-2">
-                        {filteredArticles.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <p>No articles match your filters.</p>
-                            <Button variant="link" onClick={handleClearFilters} className="mt-2">
-                              Clear filters
-                            </Button>
-                          </div>
-                        ) : (
-                          filteredArticles.map((article) => (
-                          <div
-                            key={article.id}
-                            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                              selectedArticleIds.has(article.id)
-                                ? 'bg-primary/5 border-primary/30'
-                                : 'bg-card hover:bg-muted/50'
-                            }`}
-                            onClick={() => handleToggleArticle(article.id)}
-                          >
-                            <Checkbox
-                              checked={selectedArticleIds.has(article.id)}
-                              onCheckedChange={() => handleToggleArticle(article.id)}
-                              className="mt-1"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm line-clamp-2">{article.title}</p>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                <span>{article.source}</span>
-                                <span>•</span>
-                                <span>{article.date}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                    <Button 
-                      onClick={handleGeneratePitches} 
-                      disabled={selectedArticleIds.size < 3 || isGeneratingPitches}
-                      className="w-full"
-                    >
-                      {isGeneratingPitches ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Generating Ideas...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          Generate Pitch Ideas
-                        </>
-                      )}
-                    </Button>
-                  </>
                 )}
               </CardContent>
             </Card>
