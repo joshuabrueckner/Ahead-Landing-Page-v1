@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar, ChevronDown, ChevronUp, Pencil, Trash2, Lightbulb } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, Copy, Check, ExternalLink, ArrowLeft, ChevronRight, Search, X, Calendar, ChevronDown, ChevronUp, Pencil, Trash2, Lightbulb, Plus, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getBasePath, withBasePath } from "@/lib/base-path";
 import { 
@@ -20,6 +20,8 @@ import {
   generateLinkedInPostAction,
   regeneratePitchTitleAction,
   findRelevantArticlesAction,
+  extractArticleTextAction,
+  storeArticleAction,
   type LinkedInPitch 
 } from "../../actions";
 
@@ -316,8 +318,12 @@ export default function LinkedInPage() {
   
   // Custom idea state
   const [customIdeaText, setCustomIdeaText] = useState("");
-  const [customIdeaArticles, setCustomIdeaArticles] = useState<string[]>([]);
+  const [customIdeaSelectedArticles, setCustomIdeaSelectedArticles] = useState<StoredArticle[]>([]);
   const [isFindingArticles, setIsFindingArticles] = useState(false);
+  const [showArticleSelector, setShowArticleSelector] = useState(false);
+  const [articleSelectorSearch, setArticleSelectorSearch] = useState("");
+  const [externalUrlInput, setExternalUrlInput] = useState("");
+  const [isLoadingExternalUrl, setIsLoadingExternalUrl] = useState(false);
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -419,7 +425,7 @@ export default function LinkedInPage() {
     try {
       const result = await findRelevantArticlesAction({
         userIdea: customIdeaText,
-        existingArticleUrls: customIdeaArticles,
+        existingArticleUrls: customIdeaSelectedArticles.map(a => a.url),
         availableArticles: articles.map(a => ({
           id: a.id,
           title: a.title,
@@ -437,14 +443,22 @@ export default function LinkedInPage() {
           description: result.error,
         });
       } else {
-        // Create a new quick idea with the matched articles
+        // Create a new quick idea with the matched articles + user's pre-selected articles
         const matchedArticles = articles.filter(a => result.matchedArticleIds.includes(a.id));
+        // Combine user-selected articles with AI-found articles (avoid duplicates)
+        const allSupportingArticles = [...customIdeaSelectedArticles];
+        for (const article of matchedArticles) {
+          if (!allSupportingArticles.some(a => a.url === article.url)) {
+            allSupportingArticles.push(article);
+          }
+        }
+        
         const newIdea: LinkedInPitch = {
           id: `custom-${Date.now()}`,
           title: result.title,
           summary: result.summary,
           bullets: [],
-          supportingArticles: matchedArticles.map(a => ({
+          supportingArticles: allSupportingArticles.map(a => ({
             title: a.title,
             source: a.source,
             date: a.date,
@@ -457,11 +471,11 @@ export default function LinkedInPage() {
         
         // Reset form
         setCustomIdeaText("");
-        setCustomIdeaArticles([]);
+        setCustomIdeaSelectedArticles([]);
         
         toast({
           title: "Idea created!",
-          description: `Found ${matchedArticles.length} relevant articles for your idea.`,
+          description: `Found ${allSupportingArticles.length} relevant articles for your idea.`,
         });
       }
     } catch (error) {
@@ -474,6 +488,93 @@ export default function LinkedInPage() {
     } finally {
       setIsFindingArticles(false);
     }
+  };
+
+  const handleAddExternalUrl = async () => {
+    const url = externalUrlInput.trim();
+    if (!url) return;
+    
+    // Check if already added
+    if (customIdeaSelectedArticles.some(a => a.url === url)) {
+      toast({
+        variant: "destructive",
+        title: "Already added",
+        description: "This article is already in your list.",
+      });
+      return;
+    }
+    
+    // Check if it exists in the database
+    const existingArticle = articles.find(a => a.url === url);
+    if (existingArticle) {
+      setCustomIdeaSelectedArticles(prev => [...prev, existingArticle]);
+      setExternalUrlInput("");
+      toast({
+        title: "Article added",
+        description: "Found this article in your database.",
+      });
+      return;
+    }
+    
+    // Extract via Diffbot
+    setIsLoadingExternalUrl(true);
+    try {
+      const extractResult = await extractArticleTextAction(url);
+      
+      if (extractResult.error) {
+        toast({
+          variant: "destructive",
+          title: "Error extracting article",
+          description: extractResult.error,
+        });
+        return;
+      }
+      
+      // Store to database
+      const today = new Date().toISOString().split('T')[0];
+      const storeResult = await storeArticleAction({
+        title: extractResult.title || "Untitled",
+        url: extractResult.resolvedUrl || url,
+        source: extractResult.source || "Unknown",
+        date: today,
+        text: extractResult.text,
+        imageUrl: extractResult.imageUrl,
+      });
+      
+      // Create article object and add to selection
+      const newArticle: StoredArticle = {
+        id: storeResult.docId || `temp-${Date.now()}`,
+        title: extractResult.title || "Untitled",
+        url: extractResult.resolvedUrl || url,
+        source: extractResult.source || "Unknown",
+        date: today,
+      };
+      
+      setCustomIdeaSelectedArticles(prev => [...prev, newArticle]);
+      // Also add to main articles list
+      setArticles(prev => [newArticle, ...prev]);
+      setExternalUrlInput("");
+      
+      toast({
+        title: "Article added",
+        description: storeResult.success 
+          ? "Article extracted and saved to database." 
+          : "Article extracted (already exists in database).",
+      });
+    } catch (error) {
+      console.error("Error adding external URL:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to extract article.",
+      });
+    } finally {
+      setIsLoadingExternalUrl(false);
+    }
+  };
+
+  const handleRemoveCustomIdeaArticle = (index: number) => {
+    setCustomIdeaSelectedArticles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleUpdateQuickIdea = (index: number, updates: Partial<LinkedInPitch>) => {
@@ -710,39 +811,168 @@ export default function LinkedInPage() {
             <>
             {/* Create Your Idea Section */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5 text-primary" />
-                  <span>Create Your Idea</span>
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-xl">
+                  What do you want to post about?
                 </CardTitle>
-                <CardDescription>
-                  Describe your LinkedIn post idea and we'll find articles that support it or add unique perspectives.
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Your idea</label>
-                  <Textarea
-                    placeholder="e.g., I want to write about how AI is changing software development workflows, specifically around code review and testing..."
-                    value={customIdeaText}
-                    onChange={(e) => setCustomIdeaText(e.target.value)}
-                    className="min-h-[100px]"
-                  />
+                <Textarea
+                  placeholder="e.g., I want to write about how AI is changing software development workflows, specifically around code review and testing..."
+                  value={customIdeaText}
+                  onChange={(e) => setCustomIdeaText(e.target.value)}
+                  className="min-h-[100px]"
+                />
+                
+                {/* Selected Articles */}
+                {customIdeaSelectedArticles.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Selected articles ({customIdeaSelectedArticles.length})</label>
+                    <div className="space-y-2">
+                      {customIdeaSelectedArticles.map((article, index) => (
+                        <div key={article.id || index} className="flex items-start gap-2 text-xs p-2 bg-muted/50 rounded">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium line-clamp-1">{article.title}</p>
+                            <p className="text-muted-foreground">{article.source} • {article.date}</p>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <a
+                              href={article.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:text-primary/80"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveCustomIdeaArticle(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Add Articles Section */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Add articles (optional)</label>
+                  
+                  {showArticleSelector ? (
+                    <div className="space-y-2 border rounded-lg p-3">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search headlines..."
+                          value={articleSelectorSearch}
+                          onChange={(e) => setArticleSelectorSearch(e.target.value)}
+                          className="pl-8"
+                        />
+                      </div>
+                      <ScrollArea className="h-[200px] border rounded p-2">
+                        {articles.filter(a => {
+                          // Exclude already selected
+                          if (customIdeaSelectedArticles.some(s => s.url === a.url)) return false;
+                          // Apply search filter
+                          if (articleSelectorSearch) {
+                            const query = articleSelectorSearch.toLowerCase();
+                            return a.title.toLowerCase().includes(query) || 
+                                   a.source.toLowerCase().includes(query);
+                          }
+                          return true;
+                        }).length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            {articleSelectorSearch ? "No matching articles found" : "No more articles available"}
+                          </p>
+                        ) : (
+                          articles.filter(a => {
+                            if (customIdeaSelectedArticles.some(s => s.url === a.url)) return false;
+                            if (articleSelectorSearch) {
+                              const query = articleSelectorSearch.toLowerCase();
+                              return a.title.toLowerCase().includes(query) || 
+                                     a.source.toLowerCase().includes(query);
+                            }
+                            return true;
+                          }).slice(0, 30).map((article) => (
+                            <div
+                              key={article.id}
+                              className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer text-sm"
+                              onClick={() => {
+                                setCustomIdeaSelectedArticles(prev => [...prev, article]);
+                              }}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium line-clamp-1">{article.title}</p>
+                                <p className="text-xs text-muted-foreground">{article.source} • {article.date}</p>
+                              </div>
+                              <Plus className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          ))
+                        )}
+                      </ScrollArea>
+                      
+                      {/* Add External URL */}
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-muted-foreground mb-2">Or add an article by URL:</p>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="https://example.com/article"
+                              value={externalUrlInput}
+                              onChange={(e) => setExternalUrlInput(e.target.value)}
+                              className="pl-8 text-sm"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddExternalUrl();
+                                }
+                              }}
+                            />
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={handleAddExternalUrl}
+                            disabled={isLoadingExternalUrl || !externalUrlInput.trim()}
+                          >
+                            {isLoadingExternalUrl ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => { setShowArticleSelector(false); setArticleSelectorSearch(""); }}
+                      >
+                        Done
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowArticleSelector(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Articles
+                    </Button>
+                  )}
                 </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Articles you already have (optional)</label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Paste URLs of articles you want to include, one per line
-                  </p>
-                  <Textarea
-                    placeholder="https://example.com/article1&#10;https://example.com/article2"
-                    value={customIdeaArticles.join('\n')}
-                    onChange={(e) => setCustomIdeaArticles(e.target.value.split('\n').filter(url => url.trim()))}
-                    className="min-h-[80px] text-sm"
-                  />
-                </div>
-                <div className="flex justify-end">
+                
+                <div className="flex justify-center pt-2">
                   <Button
+                    size="lg"
                     onClick={handleCreateCustomIdea}
                     disabled={isFindingArticles || !customIdeaText.trim()}
                   >
