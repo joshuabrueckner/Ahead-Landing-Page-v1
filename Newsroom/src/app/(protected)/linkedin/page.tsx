@@ -56,6 +56,14 @@ function QuickIdeaCard({
   const [showAddSource, setShowAddSource] = useState(false);
   const [sourceSearchQuery, setSourceSearchQuery] = useState("");
   const [isRegenerating, setIsRegenerating] = useState(false);
+  
+  // Track local sources for when user modifies them before regenerating
+  const [localSources, setLocalSources] = useState(idea.supportingArticles);
+  
+  // Sync local sources when idea prop changes from parent
+  useEffect(() => {
+    setLocalSources(idea.supportingArticles);
+  }, [idea.supportingArticles]);
 
   const handleSaveEdit = () => {
     onUpdate({ title: editTitle, summary: editSummary });
@@ -74,7 +82,7 @@ function QuickIdeaCard({
       const result = await regeneratePitchTitleAction({
         currentTitle: idea.title,
         currentSummary: idea.summary,
-        supportingArticles: idea.supportingArticles,
+        supportingArticles: localSources,
       });
       if ('error' in result) {
         console.error(result.error);
@@ -97,17 +105,23 @@ function QuickIdeaCard({
       date: article.date,
       url: article.url,
     };
-    onUpdate({
-      supportingArticles: [...idea.supportingArticles, newSource],
-    });
+    const newSources = [...localSources, newSource];
+    setLocalSources(newSources);
+    onUpdate({ supportingArticles: newSources });
     setShowAddSource(false);
     setSourceSearchQuery("");
+  };
+  
+  const handleLocalRemoveSource = (sourceIndex: number) => {
+    const newSources = localSources.filter((_, i) => i !== sourceIndex);
+    setLocalSources(newSources);
+    onRemoveSource(sourceIndex);
   };
 
   // Filter out already selected articles and apply search
   const availableArticles = allArticles.filter(a => {
     // Exclude already selected
-    if (idea.supportingArticles.some(s => s.url === a.url)) return false;
+    if (localSources.some(s => s.url === a.url)) return false;
     // Apply search filter
     if (sourceSearchQuery) {
       const query = sourceSearchQuery.toLowerCase();
@@ -183,7 +197,7 @@ function QuickIdeaCard({
               onClick={(e) => { e.stopPropagation(); setShowSources(!showSources); }}
             >
               {showSources ? <ChevronUp className="h-3 w-3 mr-1" /> : <ChevronDown className="h-3 w-3 mr-1" />}
-              {idea.supportingArticles.length} sources
+              {localSources.length} sources
             </Button>
             <Button
               size="sm"
@@ -197,7 +211,7 @@ function QuickIdeaCard({
 
           {showSources && (
             <div className="mt-3 space-y-2 pt-3 border-t">
-              {idea.supportingArticles.map((source, sourceIndex) => (
+              {localSources.map((source, sourceIndex) => (
                 <div key={sourceIndex} className="flex items-start gap-2 text-xs p-2 bg-muted/50 rounded">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium line-clamp-1">{source.title}</p>
@@ -217,7 +231,7 @@ function QuickIdeaCard({
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); onRemoveSource(sourceIndex); }}
+                      onClick={(e) => { e.stopPropagation(); handleLocalRemoveSource(sourceIndex); }}
                     >
                       <X className="h-3 w-3" />
                     </Button>
