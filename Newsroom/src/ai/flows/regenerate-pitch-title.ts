@@ -8,6 +8,7 @@ const SupportingArticleSchema = z.object({
   source: z.string(),
   date: z.string(),
   url: z.string(),
+  text: z.string().optional(),
 });
 
 const RegeneratePitchTitleInputSchema = z.object({
@@ -40,6 +41,7 @@ Summary: {{currentSummary}}
 Supporting articles:
 {{#each supportingArticles}}
 - {{this.title}} ({{this.source}}, {{this.date}})
+{{#if this.text}}  Article Content: {{this.text}}{{/if}}
 {{/each}}
 
 Generate a NEW title and summary that:

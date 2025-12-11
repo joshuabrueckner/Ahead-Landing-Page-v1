@@ -8,6 +8,7 @@ const SupportingArticleSchema = z.object({
   source: z.string(),
   date: z.string(),
   url: z.string(),
+  text: z.string().optional(),
 });
 
 const GenerateLinkedInPostInputSchema = z.object({
@@ -51,6 +52,9 @@ Key points to cover:
 Supporting articles (cite these with source names and links where provided):
 {{#each supportingArticles}}
 - "{{this.title}}" ({{this.source}}, {{this.date}}) {{#if this.url}}URL: {{this.url}}{{/if}}
+{{#if this.text}}
+  Article Content: {{this.text}}
+{{/if}}
 {{/each}}
 
 {{#if feedback}}

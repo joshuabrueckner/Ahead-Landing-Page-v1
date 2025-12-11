@@ -1185,6 +1185,7 @@ export async function getStoredArticlesAction(limit?: number): Promise<{
   source: string; 
   date: string; 
   summary?: string;
+  text?: string;
 }[] | { error: string }> {
   try {
     const articlesCollection = collection(db, 'newsArticles');
@@ -1199,6 +1200,7 @@ export async function getStoredArticlesAction(limit?: number): Promise<{
         source: data.source || 'Unknown',
         date: data.date || '',
         summary: data.summary,
+        text: data.text,
       };
     });
 
@@ -1218,7 +1220,7 @@ export async function getStoredArticlesAction(limit?: number): Promise<{
 }
 
 export async function generateLinkedInPitchesAction(
-  articles: { title: string; url: string; source: string; date: string; summary?: string }[]
+  articles: { title: string; url: string; source: string; date: string; summary?: string; text?: string }[]
 ): Promise<GenerateLinkedInPitchesOutput | { error: string }> {
   try {
     const result = await generateLinkedInPitches({ articles });

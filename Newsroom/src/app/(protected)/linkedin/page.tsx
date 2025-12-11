@@ -31,6 +31,7 @@ type StoredArticle = {
   source: string;
   date: string;
   summary?: string;
+  text?: string;
 };
 
 // Quick Idea Card Component
@@ -108,6 +109,7 @@ function QuickIdeaCard({
       source: article.source,
       date: article.date,
       url: article.url,
+      text: article.text,
     };
     const newSources = [...localSources, newSource];
     setLocalSources(newSources);
@@ -435,6 +437,7 @@ export default function LinkedInPage() {
             source: a.source,
             date: a.date,
             url: a.url,
+            text: a.text,
           })),
         };
         
@@ -573,6 +576,7 @@ export default function LinkedInPage() {
           source: a.source,
           date: a.date,
           url: a.url,
+          text: a.text,
         })),
       };
 

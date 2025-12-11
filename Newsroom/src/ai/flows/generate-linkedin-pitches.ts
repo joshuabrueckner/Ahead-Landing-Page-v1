@@ -9,6 +9,7 @@ const ArticleSchema = z.object({
   source: z.string(),
   date: z.string(),
   summary: z.string().optional(),
+  text: z.string().optional(),
 });
 
 const GenerateLinkedInPitchesInputSchema = z.object({
@@ -26,6 +27,7 @@ const PitchSchema = z.object({
     source: z.string(),
     date: z.string(),
     url: z.string(),
+    text: z.string().optional(),
   })).describe('The articles that support this pitch'),
 });
 
@@ -61,6 +63,7 @@ Articles to analyze:
   Date: {{this.date}}
   URL: {{this.url}}
   {{#if this.summary}}Summary: {{this.summary}}{{/if}}
+  {{#if this.text}}Full Article Text: {{this.text}}{{/if}}
 
 {{/each}}
 
