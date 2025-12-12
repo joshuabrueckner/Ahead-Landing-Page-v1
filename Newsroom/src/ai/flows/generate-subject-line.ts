@@ -8,8 +8,8 @@
  * @exports GenerateSubjectLineOutput - The output type for the generateSubjectLine function.
  */
 
-import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { openaiGenerateJson } from '@/ai/openai';
 
 const GenerateSubjectLineInputSchema = z.object({
   headline: z.string().describe('The full headline to be summarized into a subject line.'),
@@ -22,29 +22,16 @@ const GenerateSubjectLineOutputSchema = z.object({
 export type GenerateSubjectLineOutput = z.infer<typeof GenerateSubjectLineOutputSchema>;
 
 export async function generateSubjectLine(input: GenerateSubjectLineInput): Promise<GenerateSubjectLineOutput> {
-  return generateSubjectLineFlow(input);
+  const prompt = `You are an expert copywriter specializing in writing compelling, short email subject lines.
+
+Based on the following headline, generate a subject line that is no more than 20 characters long.
+
+Headline: ${input.headline}`;
+
+  return openaiGenerateJson(GenerateSubjectLineOutputSchema, {
+    prompt,
+    temperature: 0.7,
+    maxOutputTokens: 40,
+  });
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateSubjectLinePrompt',
-  input: {schema: GenerateSubjectLineInputSchema},
-  output: {schema: GenerateSubjectLineOutputSchema},
-  prompt: `You are an expert copywriter specializing in writing compelling, short email subject lines.
-  
-  Based on the following headline, generate a subject line that is no more than 20 characters long.
-
-  Headline: {{headline}}
-  `,
-});
-
-const generateSubjectLineFlow = ai.defineFlow(
-  {
-    name: 'generateSubjectLineFlow',
-    inputSchema: GenerateSubjectLineInputSchema,
-    outputSchema: GenerateSubjectLineOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);

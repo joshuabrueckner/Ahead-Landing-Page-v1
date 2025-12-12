@@ -1,7 +1,7 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { openaiGenerateJson } from '@/ai/openai';
 
 const SupportingArticleSchema = z.object({
   title: z.string(),
@@ -25,45 +25,35 @@ const RegeneratePitchTitleOutputSchema = z.object({
 export type RegeneratePitchTitleOutput = z.infer<typeof RegeneratePitchTitleOutputSchema>;
 
 export async function regeneratePitchTitle(input: RegeneratePitchTitleInput): Promise<RegeneratePitchTitleOutput> {
-  return regeneratePitchTitleFlow(input);
-}
+  const articlesText = input.supportingArticles
+    .map(a => {
+      const content = a.text ? `  Article Content: ${a.text.slice(0, 2000)}` : '';
+      return `- ${a.title} (${a.source}, ${a.date})${content ? `\n${content}` : ''}`;
+    })
+    .join('\n');
 
-const prompt = ai.definePrompt({
-  name: 'regeneratePitchTitlePrompt',
-  input: { schema: RegeneratePitchTitleInputSchema },
-  output: { schema: RegeneratePitchTitleOutputSchema },
-  prompt: `You are an expert LinkedIn content strategist. Given a pitch idea with supporting articles, generate a NEW and DIFFERENT title and summary.
+  const prompt = `You are an expert LinkedIn content strategist. Given a pitch idea with supporting articles, generate a NEW and DIFFERENT title and summary.
 
 Current pitch:
-Title: {{currentTitle}}
-Summary: {{currentSummary}}
+Title: ${input.currentTitle}
+Summary: ${input.currentSummary}
 
 Supporting articles:
-{{#each supportingArticles}}
-- {{this.title}} ({{this.source}}, {{this.date}})
-{{#if this.text}}  Article Content: {{this.text}}{{/if}}
-{{/each}}
+${articlesText}
 
-Generate a NEW title and summary that:
-1. The title MUST start with "Discusses" followed by the topic (NOT "Discusses:" with a colon)
-2. Examples: "Discusses overreliance of AI in writing", "Discusses OpenAI's shifting enterprise strategy"
-3. Use lowercase after "Discusses" (not Title Case) - e.g. "Discusses why enterprises struggle" NOT "Discusses Why Enterprises Struggle"
-4. Keep the title SHORT (under 8 words), HUMAN, and SPECIFIC
-5. Avoid generic phrases, be specific about the topic
-6. The summary should be 1-2 sentences explaining the narrative angle
-7. Make sure it's DIFFERENT from the current title and summary while still being relevant to the supporting articles
+Rules:
+1. Title MUST start with "Discusses" (no colon)
+2. Use lowercase after "Discusses" (not Title Case)
+3. Title under 8 words, specific, human
+4. Summary is 1-2 sentences
+5. Must be different from current title/summary
 
-Generate a fresh perspective on the same articles.`,
-});
+Return JSON only: {"title": string, "summary": string}`;
 
-const regeneratePitchTitleFlow = ai.defineFlow(
-  {
-    name: 'regeneratePitchTitleFlow',
-    inputSchema: RegeneratePitchTitleInputSchema,
-    outputSchema: RegeneratePitchTitleOutputSchema,
-  },
-  async input => {
-    const { output } = await prompt(input);
-    return output!;
-  }
-);
+  return openaiGenerateJson(RegeneratePitchTitleOutputSchema, {
+    prompt,
+    temperature: 0.8,
+    maxOutputTokens: 220,
+  });
+}
+

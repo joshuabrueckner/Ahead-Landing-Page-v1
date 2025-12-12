@@ -1,7 +1,7 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { openaiGenerateText } from '@/ai/openai';
 
 const SupportingArticleSchema = z.object({
   title: z.string(),
@@ -26,14 +26,18 @@ const GenerateLinkedInPostOutputSchema = z.object({
 export type GenerateLinkedInPostOutput = z.infer<typeof GenerateLinkedInPostOutputSchema>;
 
 export async function generateLinkedInPost(input: GenerateLinkedInPostInput): Promise<GenerateLinkedInPostOutput> {
-  return generateLinkedInPostFlow(input);
-}
+  const bullets = input.bullets?.length ? input.bullets.map(b => `- ${b}`).join('\n') : '';
+  const articles = input.supportingArticles
+    .map(a => {
+      const urlLine = a.url ? `URL: ${a.url}` : '';
+      const text = a.text ? `Article content:\n${a.text.slice(0, 5000)}` : '';
+      return `- "${a.title}" (${a.source}, ${a.date})\n${urlLine}${text ? `\n${text}` : ''}`.trim();
+    })
+    .join('\n\n');
 
-const prompt = ai.definePrompt({
-  name: 'generateLinkedInPostPrompt',
-  input: { schema: GenerateLinkedInPostInputSchema },
-  output: { schema: GenerateLinkedInPostOutputSchema },
-  prompt: `SYSTEM ROLE
+  const feedback = input.feedback ? `\n\nAdditional feedback:\n${input.feedback}` : '';
+
+  const prompt = `SYSTEM ROLE
 You are a Strategic Insight Synthesizer.
 You write high engagement LinkedIn posts that turn AI news into grounded human insight.
 No hype.
@@ -47,30 +51,13 @@ The goal is to spark comments, not passive likes.
 
 INPUT CONTEXT
 
-Title: {{title}}
-Summary: {{summary}}
+Title: ${input.title}
+Summary: ${input.summary}
 
-{{#if bullets.length}}
-Key points to incorporate:
-{{#each bullets}}
-- {{this}}
-{{/each}}
-{{/if}}
-
+${bullets ? `Key points to incorporate:\n${bullets}\n` : ''}
 Supporting articles you must cite with source name and a link:
-{{#each supportingArticles}}
-- "{{this.title}}" ({{this.source}}, {{this.date}})
-{{#if this.url}}{{this.url}}{{/if}}
-{{#if this.text}}
-Article content:
-{{this.text}}
-{{/if}}
-{{/each}}
-
-{{#if feedback}}
-Additional feedback:
-{{feedback}}
-{{/if}}
+${articles}
+${feedback}
 
 NON NEGOTIABLE OUTPUT RULES
 
@@ -137,10 +124,6 @@ No generic morals.
 6. The question
 End with one sharp question that invites disagreement or a story.
 Avoid soft questions like “what do you think.”
-Aim for questions like:
-Where is this showing up in your work this week?
-What standard are you using to decide what is real?
-What is your team doing that is quietly making this worse?
 
 REQUIRED SIGNATURE
 Always append this exact block:
@@ -148,7 +131,7 @@ Always append this exact block:
 ーーー
 👋 𝗜'𝗺 Joshua.
 
-𝗜'𝗺 𝘄𝗼𝗿𝗸𝗶𝗻𝗴 𝗼𝗻 𝗔𝗵𝗲𝗮𝗱 𝘁𝗼 𝗵𝗲𝗹𝗽 𝗺𝗮𝗸𝗲 𝗔𝗜 𝘫𝘂𝘴𝘵 𝘢 𝘭𝘪𝘵𝘵𝘭𝘦 𝘦𝘢𝘴𝘪𝘦𝘳 𝘵𝘰 𝘶𝘯𝘥𝘦𝘳𝘴𝘵𝘢𝘯𝘥.
+𝗜'𝗺 𝘄𝗼𝗿𝗸𝗶𝗻𝗴 𝗼𝗻 𝗔𝗵𝗲𝗮𝗱 𝘁𝗼 𝗵𝗲𝗹𝗽 𝗺𝗮𝗸𝗲 𝗔𝗜 𝗷𝘂𝘀𝘁 𝗮 𝗹𝗶𝘁𝘁𝗹𝗲 𝗲𝗮𝘀𝗶𝗲𝗿 𝘁𝗼 𝘂𝗻𝗱𝗲𝗿𝘀𝘁𝗮𝗻𝗱.
 
 𝗜 𝘀𝗲𝗻𝗱 𝗼𝘂𝘁 𝗾𝘂𝗶𝗰𝗸, 𝗱𝗶𝗴𝗲𝘀𝘁𝗶𝗯𝗹𝗲 𝗱𝗮𝗶𝗹𝘆 𝗔𝗜 𝗻𝗲𝘄𝘀, 𝘄𝗿𝗶𝘁𝘁𝗲𝗻 𝗳𝗼𝗿 𝗵𝘂𝗺𝗮𝗻𝘀.
 
@@ -160,19 +143,15 @@ Before you output, run a self check:
 If the post could have been written about any technology, rewrite it to be more specific.
 If any line sounds like a generic TED talk, rewrite it to be more concrete.
 If you used any hedging word, remove it.
-Then output only the final post.
 
-Write the post now:`,
-});
+Write the post now:`;
 
-const generateLinkedInPostFlow = ai.defineFlow(
-  {
-    name: 'generateLinkedInPostFlow',
-    inputSchema: GenerateLinkedInPostInputSchema,
-    outputSchema: GenerateLinkedInPostOutputSchema,
-  },
-  async input => {
-    const { output } = await prompt(input);
-    return output!;
-  }
-);
+  const post = await openaiGenerateText({
+    prompt,
+    temperature: 0.7,
+    maxOutputTokens: 1200,
+  });
+
+  return { post: post.trim() };
+}
+

@@ -10,8 +10,8 @@
  * - GenerateNewsletterEmailContentOutput - The return type for the generateNewsletterEmailContent function.
  */
 
-import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { openaiGenerateJson } from '@/ai/openai';
 
 const GenerateNewsletterEmailContentInputSchema = z.object({
   newsArticles: z.array(
@@ -55,86 +55,63 @@ const GenerateNewsletterEmailContentOutputSchema = z.object({
 export type GenerateNewsletterEmailContentOutput = z.infer<typeof GenerateNewsletterEmailContentOutputSchema>;
 
 export async function generateNewsletterEmailContent(input: GenerateNewsletterEmailContentInput): Promise<GenerateNewsletterEmailContentOutput> {
-  return generateNewsletterEmailContentFlow(input);
-}
+  const newsLines = input.newsArticles
+    .map((a, idx) => {
+      const image = a.imageUrl ? `  Image URL: ${a.imageUrl}` : '';
+      return `#${idx + 1}\nTitle: ${a.title}\nSummary: ${a.summary}\nURL: ${a.url}${image ? `\n${image}` : ''}`;
+    })
+    .join('\n\n');
 
-const prompt = ai.definePrompt({
-  name: 'generateNewsletterEmailContentPrompt',
-  input: {schema: GenerateNewsletterEmailContentInputSchema},
-  output: {schema: GenerateNewsletterEmailContentOutputSchema},
-  prompt: `You are an expert newsletter creator. Use the provided information to create engaging content.
+  const productLines = input.productLaunches
+    .map((p, idx) => `#${idx + 1}\nName: ${p.name}\nDescription: ${p.description}\nURL: ${p.url}`)
+    .join('\n\n');
+
+  const prompt = `You are an expert newsletter creator. Use the provided information to create engaging content.
 You must generate 1 featured headline, 4 additional headlines, 3 product launches, and 1 AI tip.
 
-The first news article in the list is the featured article. Use its title as the headline, its URL as the link, and its imageUrl as the imageUrl if available. For this featured story you must produce two sections with the following requirements:
+The first news article in the list is the featured article. Use its title as the headline, its URL as the link, and its imageUrl as the imageUrl if available. For this featured story you must produce two sections:
 
-1. "What's Happening" (aka The News/Insight) – 3 concise sentences that:
-  - Explain the core development, trend, or story clearly and simply (think deep, speak simply).
+1. "What's Happening" – 3 concise sentences that:
+  - Explain the core development clearly and simply.
   - Stay neutral and avoid hype or fear-based language.
   - Use jargon-free, plain language for non-technical mid-career knowledge workers.
-  - Feel conversational and web-friendly, suitable for a daily email newsletter.
 
-2. "Why You Should Care" (aka The Practical Takeaway) – 3 concise sentences that:
-  - Speak directly to mid-career knowledge workers who feel pressured to adopt AI, fear layoffs, or need to be more efficient.
-  - Are empowering, practical, and gently encouraging, highlighting the real-world implication of the news.
+2. "Why You Should Care" – 3 concise sentences that:
+  - Speak directly to knowledge workers pressured to adopt AI.
+  - Are empowering and practical.
   - Sound smart, witty, and slightly philosophical without lecturing.
-  - Provide actionable guidance the reader can use to feel confident or gain an edge.
+  - Provide actionable guidance.
 
-For the other 4 news articles (Quick Hits), use their SUMMARY as the headline (not the title) and their URLs as the links. The summary contains the key insight - use it directly as the headline text.
+For the other 4 news articles (Quick Hits), use their SUMMARY as the headline (not the title) and their URLs as the links.
 
-For the product launches, use their names and URLs. For the sentence, create a concise, single-sentence summary of the product's description.
+For product launches, write a concise single sentence for each based on the description.
 
-The AI tip should be the exact tip provided.
+The AI tip must be the exact tip provided.
 
-News Articles:
-{{#each newsArticles}}
-- Title: {{this.title}}
-  Summary: {{this.summary}}
-  URL: {{this.url}}
-  {{#if this.imageUrl}}
-  Image URL: {{this.imageUrl}}
-  {{/if}}
-{{/each}}
+News Articles:\n${newsLines}
 
-Product Launches:
-{{#each productLaunches}}
-- Name: {{this.name}}
-  Description: {{this.description}}
-  URL: {{this.url}}
-{{/each}}
+Product Launches:\n${productLines}
 
-AI Tip:
-{{aiTip}}
-`,
-  config: {
-    safetySettings: [
-      {
-        category: 'HARM_CATEGORY_HATE_SPEECH',
-        threshold: 'BLOCK_ONLY_HIGH',
-      },
-      {
-        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_HARASSMENT',
-        threshold: 'BLOCK_MEDIUM_AND_ABOVE',
-      },
-      {
-        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-        threshold: 'BLOCK_LOW_AND_ABOVE',
-      },
-    ],
+AI Tip:\n${input.aiTip}
+
+Return JSON with this exact shape:
+{
+  "featuredHeadline": {
+    "headline": string,
+    "link": string,
+    "imageUrl"?: string,
+    "whatsHappening": string,
+    "whyYouShouldCare": string
   },
-});
+  "headlines": [{"headline": string, "link": string}, ...4 items],
+  "launches": [{"name": string, "link": string, "sentence": string}, ...3 items],
+  "aheadTip": string
+}`;
 
-const generateNewsletterEmailContentFlow = ai.defineFlow(
-  {
-    name: 'generateNewsletterEmailContentFlow',
-    inputSchema: GenerateNewsletterEmailContentInputSchema,
-    outputSchema: GenerateNewsletterEmailContentOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);
+  return openaiGenerateJson(GenerateNewsletterEmailContentOutputSchema, {
+    prompt,
+    temperature: 0.6,
+    maxOutputTokens: 1400,
+  });
+}
+

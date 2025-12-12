@@ -1,7 +1,7 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { openaiGenerateJson } from '@/ai/openai';
 
 const ArticleSchema = z.object({
   id: z.string(),
@@ -28,58 +28,65 @@ const FindRelevantArticlesOutputSchema = z.object({
 export type FindRelevantArticlesOutput = z.infer<typeof FindRelevantArticlesOutputSchema>;
 
 export async function findRelevantArticles(input: FindRelevantArticlesInput): Promise<FindRelevantArticlesOutput> {
-  return findRelevantArticlesFlow(input);
+  const existing = new Set((input.existingArticleUrls || []).filter(Boolean));
+  const candidates = input.availableArticles.filter(a => !existing.has(a.url));
+
+  const tokens = input.userIdea
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .filter(t => t.length >= 4);
+
+  const tokenSet = new Set(tokens);
+  const scored = candidates
+    .map(a => {
+      const haystack = `${a.title} ${a.summary ?? ''}`.toLowerCase();
+      let score = 0;
+      for (const t of tokenSet) {
+        if (haystack.includes(t)) score += 2;
+      }
+      // Slight preference for recency if date is present
+      if (a.date) score += 0.1;
+      return { a, score };
+    })
+    .sort((x, y) => y.score - x.score)
+    .slice(0, 180)
+    .map(x => x.a);
+
+  const availableText = scored
+    .map(a => {
+      const summary = a.summary ? `  Summary: ${a.summary}` : '';
+      return `- ID: ${a.id}\n  Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${summary ? `\n${summary}` : ''}`;
+    })
+    .join('\n\n');
+
+  const prompt = `You are an expert LinkedIn content strategist.
+A user has an idea for a LinkedIn post and wants to find stored articles that support, add perspective to, or offer unique angles.
+
+User idea: ${input.userIdea}
+
+${input.existingArticleUrls?.length ? `User already has these URLs:\n${input.existingArticleUrls.map(u => `- ${u}`).join('\n')}\n\n` : ''}
+Available articles to search from (use only these IDs):\n${availableText}
+
+Pick 2-5 articles that best fit.
+Do NOT include any URLs the user already has.
+
+Return JSON only:
+{
+  "matchedArticleIds": string[],
+  "title": string,
+  "summary": string,
+  "reasoning": string
 }
 
-const prompt = ai.definePrompt({
-  name: 'findRelevantArticlesPrompt',
-  input: { schema: FindRelevantArticlesInputSchema },
-  output: { schema: FindRelevantArticlesOutputSchema },
-  prompt: `You are an expert LinkedIn content strategist. A user has an idea for a LinkedIn post and wants to find articles that support, add perspective to, or offer unique angles on their idea.
+Title rules:
+- Must start with "Discusses" (no colon)
+- Lowercase after "Discusses"
+`;
 
-User's idea: {{userIdea}}
+  return openaiGenerateJson(FindRelevantArticlesOutputSchema, {
+    prompt,
+    temperature: 0.4,
+    maxOutputTokens: 500,
+  });
+}
 
-{{#if existingArticleUrls}}
-The user already has these articles (by URL):
-{{#each existingArticleUrls}}
-- {{this}}
-{{/each}}
-{{/if}}
-
-Available articles to search from:
-{{#each availableArticles}}
-- ID: {{this.id}}
-  Title: {{this.title}}
-  Source: {{this.source}}
-  Date: {{this.date}}
-  URL: {{this.url}}
-  {{#if this.summary}}Summary: {{this.summary}}{{/if}}
-
-{{/each}}
-
-Find 2-5 articles that would work well with the user's idea. Look for articles that:
-1. Directly support or relate to the user's topic
-2. Offer a contrasting or complementary perspective
-3. Provide data, examples, or case studies relevant to the idea
-4. Add depth or unique angles to the discussion
-
-Do NOT include articles the user already has (check the existingArticleUrls).
-
-Return:
-- matchedArticleIds: The IDs of the relevant articles (use the exact ID values from the list above)
-- title: A title for this pitch that starts with "Discusses" followed by the topic in lowercase (not Title Case). Example: "Discusses why AI adoption fails in enterprises"
-- summary: A 1-2 sentence summary of how the user's idea connects with the selected articles
-- reasoning: Brief explanation of why each article was selected`,
-});
-
-const findRelevantArticlesFlow = ai.defineFlow(
-  {
-    name: 'findRelevantArticlesFlow',
-    inputSchema: FindRelevantArticlesInputSchema,
-    outputSchema: FindRelevantArticlesOutputSchema,
-  },
-  async input => {
-    const { output } = await prompt(input);
-    return output!;
-  }
-);

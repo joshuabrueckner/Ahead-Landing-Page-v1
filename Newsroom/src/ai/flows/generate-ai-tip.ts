@@ -8,8 +8,8 @@
  * @exports GenerateAITipOutput - The output type for the generateAITip function.
  */
 
-import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { openaiGenerateJson } from '@/ai/openai';
 
 const GenerateAITipInputSchema = z.object({
   topic: z.string().optional().describe('Optional topic to guide the AI tip generation.'),
@@ -22,31 +22,16 @@ const GenerateAITipOutputSchema = z.object({
 export type GenerateAITipOutput = z.infer<typeof GenerateAITipOutputSchema>;
 
 export async function generateAITip(input: GenerateAITipInput): Promise<GenerateAITipOutput> {
-  return generateAITipFlow(input);
+  const prompt = `You are an AI assistant designed to provide helpful and practical tips related to artificial intelligence.
+
+Generate a single, actionable AI tip or best practice that can be easily understood and implemented by readers of a daily newsletter.
+
+${input.topic ? `The tip should be related to: ${input.topic}` : ''}`;
+
+  return openaiGenerateJson(GenerateAITipOutputSchema, {
+    prompt,
+    temperature: 0.7,
+    maxOutputTokens: 180,
+  });
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateAITipPrompt',
-  input: {schema: GenerateAITipInputSchema},
-  output: {schema: GenerateAITipOutputSchema},
-  prompt: `You are an AI assistant designed to provide helpful and practical tips related to artificial intelligence.
-
-  Generate a single, actionable AI tip or best practice that can be easily understood and implemented by readers of a daily newsletter.
-
-  {{#if topic}}
-  The tip should be related to the following topic: {{topic}}
-  {{/if}}
-  `,
-});
-
-const generateAITipFlow = ai.defineFlow(
-  {
-    name: 'generateAITipFlow',
-    inputSchema: GenerateAITipInputSchema,
-    outputSchema: GenerateAITipOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);

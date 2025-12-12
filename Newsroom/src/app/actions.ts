@@ -42,7 +42,7 @@ import {
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { getFirestoreDb } from "@/firebase/index";
 import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
-import { ai } from "@/ai/genkit";
+import { openaiGenerateText } from "@/ai/openai";
 import { load } from "cheerio";
 
 const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}]/gu;
@@ -366,8 +366,7 @@ export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<
 
 export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
   try {
-    const result = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
+    const text = await openaiGenerateText({
       prompt: `Summarize this AI news article in ONE short sentence for non-technical professionals.
 
 RULES:
@@ -381,13 +380,11 @@ ARTICLE:
 ${articleText.slice(0, 5000)}
 
 Write ONLY the summary sentence:`,
-      config: {
-        temperature: 0.3,
-        maxOutputTokens: 50,
-      },
+      temperature: 0.3,
+      maxOutputTokens: 60,
     });
     
-    let summary = result.text?.trim() || '';
+    let summary = text.trim() || '';
     if (!summary) {
       return { error: "Failed to generate summary" };
     }
@@ -516,14 +513,13 @@ ${trimmed.slice(0, 4000)}
 Respond with only the transformed tip (no preamble, no quotes).`;
 
   try {
-    const result = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
+    const tip = (await openaiGenerateText({
       prompt: instructions,
-    });
-
-    const tip = result.text?.trim();
+      temperature: 0.6,
+      maxOutputTokens: 220,
+    }))?.trim();
     if (!tip) {
-      return { error: "Gemini returned an empty tip." };
+      return { error: "Model returned an empty tip." };
     }
 
     if (tip.length > 320) {
