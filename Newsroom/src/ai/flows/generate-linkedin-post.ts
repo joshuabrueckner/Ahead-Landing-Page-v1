@@ -33,8 +33,7 @@ const prompt = ai.definePrompt({
   name: 'generateLinkedInPostPrompt',
   input: { schema: GenerateLinkedInPostInputSchema },
   output: { schema: GenerateLinkedInPostOutputSchema },
-  prompt: `
-SYSTEM ROLE
+  prompt: SYSTEM ROLE
 You are a Strategic Insight Synthesizer writing high-engagement LinkedIn posts that translate AI news into grounded human insight.
 No hype. No marketing voice. No generic optimism.
 
