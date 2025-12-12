@@ -28,6 +28,39 @@ export function getOpenAIModel(): string {
   return process.env.OPENAI_MODEL || 'gpt-4o-mini';
 }
 
+function getCompletionText(completion: any): string {
+  const message = completion?.choices?.[0]?.message;
+  const content = message?.content;
+
+  if (typeof content === 'string') return content;
+
+  // Some SDK/model variants may represent content as parts.
+  if (Array.isArray(content)) {
+    const joined = content
+      .map((part: any) => {
+        if (typeof part === 'string') return part;
+        if (typeof part?.text === 'string') return part.text;
+        if (typeof part?.content === 'string') return part.content;
+        return '';
+      })
+      .join('');
+    if (joined) return joined;
+  }
+
+  if (typeof completion?.output_text === 'string') return completion.output_text;
+
+  return '';
+}
+
+function getCompletionMeta(completion: any) {
+  const choice = completion?.choices?.[0];
+  const message = choice?.message;
+  return {
+    finish_reason: choice?.finish_reason,
+    refusal: message?.refusal,
+  };
+}
+
 async function createChatCompletion(options: {
   model: string;
   messages: ChatMessage[];
@@ -96,7 +129,7 @@ export async function openaiGenerateText(options: {
     timeoutMs: options.timeoutMs,
   });
 
-  return completion.choices?.[0]?.message?.content?.trim() ?? '';
+  return getCompletionText(completion).trim();
 }
 
 function tryParseJson(text: string): unknown {
@@ -160,7 +193,13 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
       timeoutMs: options.timeoutMs,
       responseFormat: { type: 'json_object' },
     });
-    raw = completion.choices?.[0]?.message?.content?.trim() ?? '';
+    raw = getCompletionText(completion).trim();
+    if (!raw) {
+      // Some model/SDK combos return empty content with JSON mode.
+      const meta = getCompletionMeta(completion);
+      console.warn('[openaiGenerateJson] Empty JSON-mode completion; falling back', { model, ...meta });
+      throw new Error('Empty completion content');
+    }
   } catch {
     // Fallback: plain text + local parsing.
     raw = await openaiGenerateText({
@@ -183,28 +222,45 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
       const validationMessage =
         typeof error?.message === 'string' && error.message.trim() ? error.message : 'Schema validation failed.';
 
-      const repairCompletion = await createChatCompletion({
-        model,
-        messages: [
-          { role: 'system', content: system },
-          {
-            role: 'user',
-            content:
-              `The JSON below does NOT pass validation. Fix it to match the required shape implied by the original prompt.\n` +
-              `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
-              `Return ONLY valid JSON.\n\n` +
-              `VALIDATION ERROR:\n${validationMessage}\n\n` +
-              `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
-              `JSON TO FIX:\n${JSON.stringify(parsed)}`,
-          },
-        ],
-        temperature: 0,
-        maxOutputTokens: options.maxOutputTokens,
-        timeoutMs: options.timeoutMs,
-        responseFormat: { type: 'json_object' },
-      });
-
-      const repaired = repairCompletion.choices?.[0]?.message?.content?.trim() ?? '';
+      let repaired = '';
+      try {
+        const repairCompletion = await createChatCompletion({
+          model,
+          messages: [
+            { role: 'system', content: system },
+            {
+              role: 'user',
+              content:
+                `The JSON below does NOT pass validation. Fix it to match the required shape implied by the original prompt.\n` +
+                `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
+                `Return ONLY valid JSON.\n\n` +
+                `VALIDATION ERROR:\n${validationMessage}\n\n` +
+                `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
+                `JSON TO FIX:\n${JSON.stringify(parsed)}`,
+            },
+          ],
+          temperature: 0,
+          maxOutputTokens: options.maxOutputTokens,
+          timeoutMs: options.timeoutMs,
+          responseFormat: { type: 'json_object' },
+        });
+        repaired = getCompletionText(repairCompletion).trim();
+      } catch {
+        repaired = await openaiGenerateText({
+          model,
+          system,
+          prompt:
+            `The JSON below does NOT pass validation. Fix it to match the required shape implied by the original prompt.\n` +
+            `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
+            `Return ONLY valid JSON.\n\n` +
+            `VALIDATION ERROR:\n${validationMessage}\n\n` +
+            `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
+            `JSON TO FIX:\n${JSON.stringify(parsed)}`,
+          temperature: 0,
+          maxOutputTokens: options.maxOutputTokens,
+          timeoutMs: options.timeoutMs,
+        });
+      }
 
       const repairedParsed = tryParseJson(repaired);
       if (repairedParsed === null) {
@@ -221,27 +277,43 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
     rawLength: raw.length,
     rawSnippet: raw.slice(0, 300),
   });
-  const repairCompletion = await createChatCompletion({
-    model,
-    messages: [
-      { role: 'system', content: system },
-      {
-        role: 'user',
-        content:
-          `Fix the following into valid JSON that matches the required shape implied by the original prompt.\n` +
-          `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
-          `Return ONLY valid JSON.\n\n` +
-          `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
-          `BROKEN OUTPUT:\n${raw}`,
-      },
-    ],
-    temperature: 0,
-    maxOutputTokens: options.maxOutputTokens,
-    timeoutMs: options.timeoutMs,
-    responseFormat: { type: 'json_object' },
-  });
-
-  const repaired = repairCompletion.choices?.[0]?.message?.content?.trim() ?? '';
+  let repaired = '';
+  try {
+    const repairCompletion = await createChatCompletion({
+      model,
+      messages: [
+        { role: 'system', content: system },
+        {
+          role: 'user',
+          content:
+            `Fix the following into valid JSON that matches the required shape implied by the original prompt.\n` +
+            `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
+            `Return ONLY valid JSON.\n\n` +
+            `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
+            `BROKEN OUTPUT:\n${raw}`,
+        },
+      ],
+      temperature: 0,
+      maxOutputTokens: options.maxOutputTokens,
+      timeoutMs: options.timeoutMs,
+      responseFormat: { type: 'json_object' },
+    });
+    repaired = getCompletionText(repairCompletion).trim();
+  } catch {
+    repaired = await openaiGenerateText({
+      model,
+      system,
+      prompt:
+        `Fix the following into valid JSON that matches the required shape implied by the original prompt.\n` +
+        `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
+        `Return ONLY valid JSON.\n\n` +
+        `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
+        `BROKEN OUTPUT:\n${raw}`,
+      temperature: 0,
+      maxOutputTokens: options.maxOutputTokens,
+      timeoutMs: options.timeoutMs,
+    });
+  }
 
   const repairedParsed = tryParseJson(repaired);
   if (repairedParsed === null) {
