@@ -33,15 +33,35 @@ export async function openaiGenerateText(options: {
   const client = getClient();
   const model = options.model || getOpenAIModel();
 
-  const completion = await client.chat.completions.create({
+  const baseRequest = {
     model,
     messages: [
       ...(options.system ? [{ role: 'system' as const, content: options.system }] : []),
       { role: 'user' as const, content: options.prompt },
     ],
     temperature: options.temperature,
-    max_tokens: options.maxOutputTokens,
-  });
+  };
+
+  // OpenAI model families differ on token limit parameter naming.
+  // Some newer models (e.g. `gpt-5.2`) reject `max_tokens` and require `max_completion_tokens`.
+  // We'll try `max_completion_tokens` first, then fall back to `max_tokens`.
+  let completion: Awaited<ReturnType<typeof client.chat.completions.create>>;
+  try {
+    completion = await client.chat.completions.create({
+      ...(baseRequest as any),
+      ...(options.maxOutputTokens ? { max_completion_tokens: options.maxOutputTokens } : {}),
+    } as any);
+  } catch (error: any) {
+    const msg = String(error?.message || '');
+    if (msg.includes('max_completion_tokens') || msg.includes('Unsupported parameter')) {
+      completion = await client.chat.completions.create({
+        ...(baseRequest as any),
+        ...(options.maxOutputTokens ? { max_tokens: options.maxOutputTokens } : {}),
+      } as any);
+    } else {
+      throw error;
+    }
+  }
 
   return completion.choices?.[0]?.message?.content?.trim() ?? '';
 }
