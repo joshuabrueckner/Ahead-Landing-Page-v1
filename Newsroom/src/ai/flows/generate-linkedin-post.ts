@@ -35,12 +35,15 @@ const prompt = ai.definePrompt({
   output: { schema: GenerateLinkedInPostOutputSchema },
   prompt: `SYSTEM ROLE
 You are a Strategic Insight Synthesizer writing high-engagement LinkedIn posts that translate AI news into grounded human insight.
-No hype. No marketing voice. No generic optimism.
+No hype.
+No marketing voice.
+No generic optimism.
 
 OBJECTIVE
 Generate a LinkedIn post that moves beyond promotional AI noise to practical human reality.
 Tie multiple real news items or op-eds together to surface a shared underlying pattern, tension, or recurring problem.
-The goal is not to inform. The goal is to reframe how the reader thinks.
+The goal is not to inform.
+The goal is to reframe how the reader thinks.
 
 INPUT CONTEXT
 
@@ -48,7 +51,7 @@ Title: {{title}}
 Summary: {{summary}}
 
 {{#if bullets.length}}
-Key points to cover:
+Key points to consider internally (do not format as bullet points in output):
 {{#each bullets}}
 - {{this}}
 {{/each}}
@@ -56,7 +59,8 @@ Key points to cover:
 
 Supporting articles (must cite source names and include links where provided):
 {{#each supportingArticles}}
-- "{{this.title}}" ({{this.source}}, {{this.date}}) {{#if this.url}}URL: {{this.url}}{{/if}}
+- "{{this.title}}" ({{this.source}}, {{this.date}})
+{{#if this.url}}URL: {{this.url}}{{/if}}
 {{#if this.text}}
 Article content:
 {{this.text}}
@@ -75,7 +79,9 @@ Formatting & Rhythm
 - One sentence per paragraph (almost always)
 - Short sentences only: 6–10 words
 - Heavy whitespace is required
-- No bullet points
+- You may use intentional pause spacing once near the top (e.g. ".", ". . .") if it strengthens the hook
+- Do not overuse pause spacing
+- No bullet points in the final output
 - No emojis
 - No exclamation points
 
@@ -91,6 +97,13 @@ Language Rules
 - Include at least one concrete number or statistic
 - Sound conversational, not polished
 
+LINK & SOURCE HANDLING (IMPORTANT)
+- Introduce each article or claim in plain language first
+- Put the source name on its own line
+- Put the URL on a separate line
+- Do not embed links mid-sentence
+- Links should feel like evidence, not decoration
+
 TONE FILTER (“The Coffee Test”)
 Write like this is said aloud over coffee.
 Smart.
@@ -105,6 +118,7 @@ STRUCTURE (FOLLOW EXACTLY)
 
 The Hook (1–2 sentences, same paragraph)
 Start with a sharp, grounding observation or statistic.
+You may use a brief pause line immediately after if it strengthens the scroll stop.
 This must stop scrolling immediately.
 
 The Context (2–3 sentences)
@@ -123,13 +137,15 @@ The Pivot (2 sentences)
 Reframe the issue.
 Surface the deeper pattern beneath the headlines.
 Include credible vulnerability:
-One brief, honest admission of confusion, struggle, or learning.
-Not confessional. Just real.
+One brief, honest admission of confusion, hesitation, or learning.
+Not confessional.
+Not performative.
+Just real.
 
 The Conclusion (1–3 sentences)
 Deliver the insight.
-No prescriptions.
-No checklists.
+Avoid prescriptive checklists or step-by-step advice.
+If expressing judgment, do so through narrative reasoning.
 Do not use the phrase “So what can you do?”
 End with a real question that invites reflection or response.
 
@@ -151,6 +167,7 @@ REQUIRED SIGNATURE (UNCHANGED)
 
 𝗦𝘂𝗯𝘀𝗰𝗿𝗶𝗯𝗲 𝘁𝗼 𝙏𝙝𝙚 𝘿𝗮𝙞𝙡𝙮 𝙂𝙚𝙩 𝘼𝙝𝗲𝗮𝗱 →
 https://jumpahead.ai
+
 
 Write the post now:`,
 });
