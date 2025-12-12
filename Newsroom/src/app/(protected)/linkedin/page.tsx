@@ -309,6 +309,12 @@ function QuickIdeaCard({
 }
 
 export default function LinkedInPage() {
+  const normalizeGeneratedPost = (text: string) =>
+    text
+      .replace(/\r\n/g, "\n")
+      .replace(/\\r\\n/g, "\n")
+      .replace(/\\n/g, "\n");
+
   const { toast } = useToast();
   const [basePath, setBasePath] = useState<string>(() => getBasePath());
   
@@ -602,7 +608,7 @@ export default function LinkedInPage() {
           description: result.error,
         });
       } else {
-        setGeneratedPost(result.post);
+        setGeneratedPost(normalizeGeneratedPost(result.post));
         // Reset form
         setCustomIdeaText("");
         setCustomIdeaSelectedArticles([]);
@@ -683,7 +689,7 @@ export default function LinkedInPage() {
         description: result.error,
       });
     } else {
-      setGeneratedPost(result.post);
+      setGeneratedPost(normalizeGeneratedPost(result.post));
     }
     setIsGeneratingPost(false);
   };
@@ -709,7 +715,7 @@ export default function LinkedInPage() {
         description: result.error,
       });
     } else {
-      setGeneratedPost(result.post);
+      setGeneratedPost(normalizeGeneratedPost(result.post));
     }
     setIsGeneratingPost(false);
   };
@@ -735,7 +741,7 @@ export default function LinkedInPage() {
         description: result.error,
       });
     } else {
-      setGeneratedPost(result.post);
+      setGeneratedPost(normalizeGeneratedPost(result.post));
       setFeedback("");
       toast({
         title: "Post refined",
@@ -746,7 +752,7 @@ export default function LinkedInPage() {
   };
 
   const handleCopyPost = async () => {
-    await navigator.clipboard.writeText(generatedPost);
+    await navigator.clipboard.writeText(normalizeGeneratedPost(generatedPost));
     setCopied(true);
     toast({
       title: "Copied!",
