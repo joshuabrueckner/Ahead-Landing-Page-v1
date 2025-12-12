@@ -33,7 +33,7 @@ const prompt = ai.definePrompt({
   name: 'generateLinkedInPostPrompt',
   input: { schema: GenerateLinkedInPostInputSchema },
   output: { schema: GenerateLinkedInPostOutputSchema },
-  prompt: SYSTEM ROLE
+  prompt: `SYSTEM ROLE
 You are a Strategic Insight Synthesizer writing high-engagement LinkedIn posts that translate AI news into grounded human insight.
 No hype. No marketing voice. No generic optimism.
 
@@ -152,7 +152,7 @@ REQUIRED SIGNATURE (UNCHANGED)
 𝗦𝘂𝗯𝘀𝗰𝗿𝗶𝗯𝗲 𝘁𝗼 𝙏𝙝𝙚 𝘿𝗮𝙞𝙡𝙮 𝙂𝙚𝙩 𝘼𝙝𝗲𝗮𝗱 →
 https://jumpahead.ai
 
-Write the post now:,
+Write the post now:`,
 });
 
 const generateLinkedInPostFlow = ai.defineFlow(

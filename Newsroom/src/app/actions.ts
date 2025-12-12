@@ -40,7 +40,7 @@ import {
   FindRelevantArticlesOutput,
 } from "@/ai/flows/find-relevant-articles";
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
-import { db } from "@/firebase/index";
+import { getFirestoreDb } from "@/firebase/index";
 import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
 import { ai } from "@/ai/genkit";
 import { load } from "cheerio";
@@ -895,6 +895,7 @@ export async function sendTestEmailAction(
 
 export async function addSubscriberAction({ email, name }: { email: string, name: string }): Promise<{ success: boolean; error?: string }> {
   try {
+    const db = getFirestoreDb();
     const subscribersCollection = collection(db, 'newsletterSubscribers');
     await addDoc(subscribersCollection, {
       email,
@@ -911,6 +912,7 @@ export async function addSubscriberAction({ email, name }: { email: string, name
 
 export async function getSubscribersAction(): Promise<{ email: string; name: string; isSubscribed: boolean; subscribedAt: string | null }[] | { error: string }> {
   try {
+    const db = getFirestoreDb();
     const subscribersCollection = collection(db, 'newsletterSubscribers');
     const snapshot = await getDocs(subscribersCollection);
     const subscribers = snapshot.docs.map(doc => {
@@ -1070,6 +1072,7 @@ export async function storeArticleAction(article: {
 }): Promise<{ success: boolean; docId?: string; error?: string }> {
   console.log("storeArticleAction called with:", { title: article.title, url: article.url, source: article.source, date: article.date });
   try {
+    const db = getFirestoreDb();
     const articlesCollection = collection(db, 'newsArticles');
     console.log("Got articles collection reference");
     
@@ -1111,6 +1114,7 @@ export async function storeArticleAction(article: {
 
 export async function searchArticlesAction(searchQuery: string): Promise<{ id: string; title: string; url: string; source: string; date: string; summary?: string; imageUrl?: string }[] | { error: string }> {
   try {
+    const db = getFirestoreDb();
     const articlesCollection = collection(db, 'newsArticles');
     const snapshot = await getDocs(articlesCollection);
     
@@ -1132,6 +1136,7 @@ export async function searchArticlesAction(searchQuery: string): Promise<{ id: s
 
 export async function updateArticleByUrlAction(url: string, updates: { text?: string; summary?: string }): Promise<{ success: boolean; error?: string }> {
   try {
+    const db = getFirestoreDb();
     const articlesCollection = collection(db, 'newsArticles');
     const snapshot = await getDocs(articlesCollection);
     
@@ -1188,6 +1193,7 @@ export async function getStoredArticlesAction(limit?: number): Promise<{
   text?: string;
 }[] | { error: string }> {
   try {
+    const db = getFirestoreDb();
     const articlesCollection = collection(db, 'newsArticles');
     const snapshot = await getDocs(articlesCollection);
     

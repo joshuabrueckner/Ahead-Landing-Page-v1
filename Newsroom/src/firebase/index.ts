@@ -16,30 +16,46 @@ import {
 } from '@/firebase/provider';
 import { FirebaseClientProvider } from './client-provider';
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
 
 function initializeFirebase() {
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-  } else {
-    app = getApp();
+  if (!app) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   }
-  auth = getAuth(app);
-  db = getFirestore(app);
 
-  return {app, auth, firestore: db};
+  // Avoid initializing Auth eagerly in server/build contexts.
+  // Auth initialization can throw if client env vars aren't present at build time.
+  if (!auth && typeof window !== 'undefined') {
+    auth = getAuth(app);
+  }
+
+  if (!db) {
+    db = getFirestore(app);
+  }
+
+  return { app, auth, firestore: db };
 }
 
-// Initialize immediately and export db
-const { firestore } = initializeFirebase();
-db = firestore;
+function getFirestoreDb(): Firestore {
+  return initializeFirebase().firestore;
+}
+
+function getFirebaseAuth(): Auth {
+  const { app } = initializeFirebase();
+  // If called server-side, initialize Auth on-demand.
+  if (!auth) {
+    auth = getAuth(app);
+  }
+  return auth;
+}
 
 
 export {
   initializeFirebase,
-  db,
+  getFirestoreDb,
+  getFirebaseAuth,
   FirebaseProvider,
   FirebaseClientProvider,
   useCollection,
