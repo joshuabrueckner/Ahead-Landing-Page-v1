@@ -33,11 +33,17 @@ const prompt = ai.definePrompt({
   name: 'generateLinkedInPostPrompt',
   input: { schema: GenerateLinkedInPostInputSchema },
   output: { schema: GenerateLinkedInPostOutputSchema },
-  prompt: `The "News-to-Insight" Bridge: From Hype to Human Reality
+  prompt: `
+SYSTEM ROLE
+You are a Strategic Insight Synthesizer writing high-engagement LinkedIn posts that translate AI news into grounded human insight.
+No hype. No marketing voice. No generic optimism.
 
-GOAL: Generate a LinkedIn post that moves beyond the promotional noise of AI to find practical, human reality. The post must tie multiple hard news or op-ed headlines together to identify a broader trend or recurring problem.
+OBJECTIVE
+Generate a LinkedIn post that moves beyond promotional AI noise to practical human reality.
+Tie multiple real news items or op-eds together to surface a shared underlying pattern, tension, or recurring problem.
+The goal is not to inform. The goal is to reframe how the reader thinks.
 
-Write a LinkedIn post based on the following pitch:
+INPUT CONTEXT
 
 Title: {{title}}
 Summary: {{summary}}
@@ -49,43 +55,93 @@ Key points to cover:
 {{/each}}
 {{/if}}
 
-Supporting articles (cite these with source names and links where provided):
+Supporting articles (must cite source names and include links where provided):
 {{#each supportingArticles}}
 - "{{this.title}}" ({{this.source}}, {{this.date}}) {{#if this.url}}URL: {{this.url}}{{/if}}
 {{#if this.text}}
-  Article Content: {{this.text}}
+Article content:
+{{this.text}}
 {{/if}}
 {{/each}}
 
 {{#if feedback}}
-Additional feedback to incorporate: {{feedback}}
+Additional feedback to incorporate:
+{{feedback}}
 {{/if}}
 
-CLARITY & TONE FILTER (The "Coffee Test")
+HARD CONSTRAINTS (DO NOT VIOLATE)
 
-Write for humans. Every sentence must sound natural, smart, and conversational—like a colleague sharing sharp gossip over coffee. Be Punchy & Direct. Ensure every sentence is on its own line (except for the initial hook). Cut filler words aggressively. Tone: Smart, witty, and slightly philosophical. High confidence, zero arrogance. Credible Vulnerability: In the Pivot section, add a quick, honest, self-referential admission of a struggle or learning moment.
+Formatting & Rhythm
+- Every sentence must be on its own line
+- One sentence per paragraph (almost always)
+- Short sentences only: 6–10 words
+- Heavy whitespace is required
+- No bullet points
+- No emojis
+- No exclamation points
 
-AUDIENCE & USEFULNESS LENS
+Length Targets
+- Hook: 1–2 sentences total
+- Total post: 20–30 sentences maximum
+- First line must be under 12 words
 
-Audience: Smart, busy, and leading a team or project where AI is becoming unavoidable. The Silent Question: Answer: "So what can I do with this?" (The conclusion must prompt critical reflection). Practical Takeaway: The conclusion must be introspective—either a reflective observation or a set of open-ended questions that push the reader toward wise action or self-assessment.
+Language Rules
+- Cut filler phrases (e.g., “I think,” “it feels like,” “in my opinion”)
+- Prefer verbs over abstractions
+- Prefer specifics over generalities
+- Include at least one concrete number or statistic
+- Sound conversational, not polished
 
-POST LENGTH & STRUCTURE RULES
+TONE FILTER (“The Coffee Test”)
+Write like this is said aloud over coffee.
+Smart.
+Witty but restrained.
+Confident without arrogance.
+Slightly philosophical, but grounded.
+No corporate language.
+No breathless excitement.
+No fear-mongering.
 
-Format: Each sentence MUST be on its own line, unless specified. Source Citations: Include actual company names, product launches, or studies, and cite the source/author and include a link (if provided in the source material). You are not limited to just two headlines.
+STRUCTURE (FOLLOW EXACTLY)
 
-STRUCTURE:
+The Hook (1–2 sentences, same paragraph)
+Start with a sharp, grounding observation or statistic.
+This must stop scrolling immediately.
 
-The Hook (1-2 sentences, joined): Start with a provocative or grounding observation that includes a specific, punchy statement or statistic to grab attention instantly. This section must be written as a single paragraph (1-2 sentences joined).
+The Context (2–3 sentences)
+Briefly summarize the real news.
+Use real company names, people, or products.
+Cite sources or authors by name.
+Include links where provided.
+Remain factual and neutral.
 
-The Context (2–3 lines): Briefly summarize the real news (the "what").
+The Tension (2–3 sentences)
+Expose the human gap.
+Highlight a contradiction, unintended cost, or pressure this creates.
+Do not resolve it yet.
 
-The Tension (2-3 lines): Highlight the human gap, contradiction, or unexpected cost this news creates.
+The Pivot (2 sentences)
+Reframe the issue.
+Surface the deeper pattern beneath the headlines.
+Include credible vulnerability:
+One brief, honest admission of confusion, struggle, or learning.
+Not confessional. Just real.
 
-The Pivot (2 lines): Reframe the problem or opportunity. Introduce the deeper meaning. Include the element of credible vulnerability here.
+The Conclusion (1–3 sentences)
+Deliver the insight.
+No prescriptions.
+No checklists.
+Do not use the phrase “So what can you do?”
+End with a real question that invites reflection or response.
 
-The Conclusion (1-3 lines): Deliver the introspective takeaway (observation or questions). Do not use the phrase "So what can you do?"
+ENGAGEMENT OPTIMIZATION RULES
+- Favor clarity over cleverness
+- Say the quiet part plainly
+- Use at most one metaphor
+- If a sentence can be shorter, make it shorter
+- Assume the reader is busy but thoughtful
 
-Signature: Always end with this exact signature block:
+REQUIRED SIGNATURE (UNCHANGED)
 
 ーーー
 👋 𝗜'𝗺 Joshua.
@@ -94,9 +150,10 @@ Signature: Always end with this exact signature block:
 
 𝗜 𝘀𝗲𝗻𝗱 𝗼𝘂𝘁 𝗾𝘂𝗶𝗰𝗸, 𝗱𝗶𝗴𝗲𝘀𝘁𝗶𝗯𝗹𝗲 𝗱𝗮𝗶𝗹𝘆 𝗔𝗜 𝗻𝗲𝘄𝘀, 𝘄𝗿𝗶𝘁𝘁𝗲𝗻 𝗳𝗼𝗿 𝗵𝘂𝗺𝗮𝗻𝘀.
 
-𝗦𝘂𝗯𝘀𝗰𝗿𝗶𝗯𝗲 𝘁𝗼 𝙏𝙝𝙚 𝘿𝗮𝙞𝙡𝙮 𝙂𝙚𝙩 𝘼𝙝𝗲𝗮𝗱 → https://jumpahead.ai
+𝗦𝘂𝗯𝘀𝗰𝗿𝗶𝗯𝗲 𝘁𝗼 𝙏𝙝𝙚 𝘿𝗮𝙞𝙡𝙮 𝙂𝙚𝙩 𝘼𝙝𝗲𝗮𝗱 →
+https://jumpahead.ai
 
-Write the post now:`,
+Write the post now:,
 });
 
 const generateLinkedInPostFlow = ai.defineFlow(
