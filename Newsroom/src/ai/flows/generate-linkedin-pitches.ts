@@ -89,10 +89,33 @@ Title rules:
 - Under 8 words
 `;
 
-  return openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
+  const first = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
     prompt,
     temperature: 0.7,
     maxOutputTokens: 1800,
   });
+
+  if (first.pitches.length > 0) return first;
+
+  // If the model returned an empty array (often from over-conservative JSON-mode outputs),
+  // retry once with a stronger instruction to produce pitches.
+  const retryPrompt = `${prompt}
+
+You MUST return between 8 and 10 pitches when given 5+ articles. Do not return an empty pitches array.`;
+
+  const second = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
+    prompt: retryPrompt,
+    temperature: 0.9,
+    maxOutputTokens: 1800,
+  });
+
+  if (second.pitches.length === 0) {
+    console.warn('[generateLinkedInPitches] Model returned 0 pitches after retry', {
+      articleCount: input.articles.length,
+      sampleUrls: input.articles.slice(0, 3).map(a => a.url),
+    });
+  }
+
+  return second;
 }
 

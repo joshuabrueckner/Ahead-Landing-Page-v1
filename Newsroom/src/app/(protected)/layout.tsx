@@ -58,9 +58,9 @@ function deriveBasePath(requestedPath: string, host: string) {
   return "";
 }
 
-export default function ProtectedLayout({ children }: { children: ReactNode }) {
-  const headerList = headers();
-  const cookieStore = cookies();
+export default async function ProtectedLayout({ children }: { children: ReactNode }) {
+  const headerList = await headers();
+  const cookieStore = await cookies();
   const authCookie = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
   if (authCookie === "granted") {

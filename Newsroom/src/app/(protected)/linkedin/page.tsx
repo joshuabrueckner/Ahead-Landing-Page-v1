@@ -400,7 +400,20 @@ export default function LinkedInPage() {
         return;
       }
 
-      setQuickIdeas(result.pitches.slice(0, 10));
+      const pitches = result.pitches ?? [];
+      if (pitches.length === 0) {
+        const message = "No ideas returned. Check your OPENAI env vars and try Refresh.";
+        setQuickIdeas([]);
+        setQuickIdeasError(message);
+        toast({
+          variant: "destructive",
+          title: "No ideas returned",
+          description: message,
+        });
+        return;
+      }
+
+      setQuickIdeas(pitches.slice(0, 10));
     } catch (error: any) {
       const message = error?.message || "Failed to generate ideas.";
       setQuickIdeas([]);
