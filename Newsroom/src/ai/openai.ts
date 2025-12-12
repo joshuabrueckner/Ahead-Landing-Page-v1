@@ -155,17 +155,64 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
 
   const parsed = tryParseJson(raw);
   if (parsed !== null) {
-    return schema.parse(parsed);
+    try {
+      return schema.parse(parsed);
+    } catch (error: any) {
+      const validationMessage =
+        typeof error?.message === 'string' && error.message.trim() ? error.message : 'Schema validation failed.';
+
+      const repairCompletion = await createChatCompletion({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          {
+            role: 'user',
+            content:
+              `The JSON below does NOT pass validation. Fix it to match the required shape implied by the original prompt.\n` +
+              `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
+              `Return ONLY valid JSON.\n\n` +
+              `VALIDATION ERROR:\n${validationMessage}\n\n` +
+              `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
+              `JSON TO FIX:\n${JSON.stringify(parsed)}`,
+          },
+        ],
+        temperature: 0,
+        maxOutputTokens: options.maxOutputTokens,
+        responseFormat: { type: 'json_object' },
+      });
+
+      const repaired = repairCompletion.choices?.[0]?.message?.content?.trim() ?? '';
+
+      const repairedParsed = tryParseJson(repaired);
+      if (repairedParsed === null) {
+        throw new Error('Model did not return valid JSON.');
+      }
+
+      return schema.parse(repairedParsed);
+    }
   }
 
   // One-shot repair attempt: ask the model to fix its own output into valid JSON.
-  const repaired = await openaiGenerateText({
+  const repairCompletion = await createChatCompletion({
     model,
-    system,
-    prompt: `Fix the following into valid JSON that matches the required shape.\nReturn ONLY valid JSON.\n\nBROKEN OUTPUT:\n${raw}`,
+    messages: [
+      { role: 'system', content: system },
+      {
+        role: 'user',
+        content:
+          `Fix the following into valid JSON that matches the required shape implied by the original prompt.\n` +
+          `Do not omit required top-level keys; if a key is required, include it even if empty.\n` +
+          `Return ONLY valid JSON.\n\n` +
+          `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
+          `BROKEN OUTPUT:\n${raw}`,
+      },
+    ],
     temperature: 0,
     maxOutputTokens: options.maxOutputTokens,
+    responseFormat: { type: 'json_object' },
   });
+
+  const repaired = repairCompletion.choices?.[0]?.message?.content?.trim() ?? '';
 
   const repairedParsed = tryParseJson(repaired);
   if (repairedParsed === null) {

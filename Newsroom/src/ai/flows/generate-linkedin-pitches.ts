@@ -75,6 +75,12 @@ Return JSON only with shape:
   ]
 }
 
+The top-level key "pitches" is REQUIRED. If you cannot produce pitches, return:
+{ "pitches": [] }
+
+Minimal valid example:
+{ "pitches": [] }
+
 If an input article includes an "ID", you MUST copy it exactly into the corresponding supportingArticles[].id.
 
 Title rules:
