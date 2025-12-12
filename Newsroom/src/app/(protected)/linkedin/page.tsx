@@ -131,8 +131,12 @@ function QuickIdeaCard({
     // Apply search filter
     if (sourceSearchQuery) {
       const query = sourceSearchQuery.toLowerCase();
-      return a.title.toLowerCase().includes(query) || 
-             a.source.toLowerCase().includes(query);
+      return (
+        a.title.toLowerCase().includes(query) ||
+        a.source.toLowerCase().includes(query) ||
+        (a.summary ? a.summary.toLowerCase().includes(query) : false) ||
+        (a.text ? a.text.toLowerCase().includes(query) : false)
+      );
     }
     return true;
   });
@@ -848,8 +852,12 @@ export default function LinkedInPage() {
                           // Apply search filter
                           if (articleSelectorSearch) {
                             const query = articleSelectorSearch.toLowerCase();
-                            return a.title.toLowerCase().includes(query) || 
-                                   a.source.toLowerCase().includes(query);
+                            return (
+                              a.title.toLowerCase().includes(query) ||
+                              a.source.toLowerCase().includes(query) ||
+                              (a.summary ? a.summary.toLowerCase().includes(query) : false) ||
+                              (a.text ? a.text.toLowerCase().includes(query) : false)
+                            );
                           }
                           return true;
                         }).length === 0 ? (
@@ -861,8 +869,12 @@ export default function LinkedInPage() {
                             if (customIdeaSelectedArticles.some(s => s.url === a.url)) return false;
                             if (articleSelectorSearch) {
                               const query = articleSelectorSearch.toLowerCase();
-                              return a.title.toLowerCase().includes(query) || 
-                                     a.source.toLowerCase().includes(query);
+                              return (
+                                a.title.toLowerCase().includes(query) ||
+                                a.source.toLowerCase().includes(query) ||
+                                (a.summary ? a.summary.toLowerCase().includes(query) : false) ||
+                                (a.text ? a.text.toLowerCase().includes(query) : false)
+                              );
                             }
                             return true;
                           }).map((article) => (
