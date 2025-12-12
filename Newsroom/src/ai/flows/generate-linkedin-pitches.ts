@@ -44,14 +44,14 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     .map(a => {
       const id = a.id ? `  ID: ${a.id}` : '';
       const summary = a.summary ? `  Summary: ${a.summary}` : '';
-      const text = a.text ? `  Full Article Text: ${a.text.slice(0, 3000)}` : '';
+      const text = a.text ? `  Excerpt: ${a.text.slice(0, 800)}` : '';
       return `- Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${id ? `\n${id}` : ''}${summary ? `\n${summary}` : ''}${text ? `\n${text}` : ''}`;
     })
     .join('\n\n');
 
   const prompt = `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
 
-Given the following AI news articles, identify 8-10 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
+Given the following AI news articles, identify 8 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
 
 Each pitch should:
 1. Connect 2-4 articles that share a common theme
@@ -87,12 +87,16 @@ Title rules:
 - MUST start with "Discusses" (no colon)
 - Use lowercase after "Discusses"
 - Under 8 words
+
+Bullets rules:
+- Exactly 3 bullets
 `;
 
   const first = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
     prompt,
-    temperature: 0.7,
-    maxOutputTokens: 1800,
+    temperature: 0.6,
+    maxOutputTokens: 1200,
+    timeoutMs: 18000,
   });
 
   if (first.pitches.length > 0) return first;
@@ -105,8 +109,9 @@ You MUST return between 8 and 10 pitches when given 5+ articles. Do not return a
 
   const second = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
     prompt: retryPrompt,
-    temperature: 0.9,
-    maxOutputTokens: 1800,
+    temperature: 0.7,
+    maxOutputTokens: 1200,
+    timeoutMs: 18000,
   });
 
   if (second.pitches.length === 0) {

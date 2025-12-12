@@ -374,7 +374,7 @@ export default function LinkedInPage() {
         
         // Auto-generate quick ideas from most recent articles
         if (result.length >= 5) {
-          generateQuickIdeas(result.slice(0, 20));
+          generateQuickIdeas(result.slice(0, 12));
         }
       }
       setIsLoadingArticles(false);
@@ -430,7 +430,7 @@ export default function LinkedInPage() {
 
   const handleRefreshQuickIdeas = () => {
     if (articles.length >= 5) {
-      generateQuickIdeas(articles.slice(0, 20));
+      generateQuickIdeas(articles.slice(0, 12));
     }
   };
 

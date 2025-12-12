@@ -34,13 +34,19 @@ async function createChatCompletion(options: {
   temperature?: number;
   maxOutputTokens?: number;
   responseFormat?: any;
+  timeoutMs?: number;
 }): Promise<any> {
   const client = getClient();
+  const timeoutMs = options.timeoutMs ?? 20000;
+  const signal = typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+    ? (AbortSignal as any).timeout(timeoutMs)
+    : undefined;
   const baseRequest: any = {
     model: options.model,
     messages: options.messages,
     temperature: options.temperature,
     ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
+    ...(signal ? { signal } : {}),
   };
 
   // OpenAI model families differ on token limit parameter naming.
@@ -69,6 +75,7 @@ export async function openaiGenerateText(options: {
   model?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  timeoutMs?: number;
 }): Promise<string> {
   const model = options.model || getOpenAIModel();
   const completion = await createChatCompletion({
@@ -79,6 +86,7 @@ export async function openaiGenerateText(options: {
     ],
     temperature: options.temperature,
     maxOutputTokens: options.maxOutputTokens,
+    timeoutMs: options.timeoutMs,
   });
 
   return completion.choices?.[0]?.message?.content?.trim() ?? '';
@@ -124,6 +132,7 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
   model?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  timeoutMs?: number;
 }): Promise<T> {
   const model = options.model || getOpenAIModel();
   const system =
@@ -141,6 +150,7 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
       ],
       temperature: options.temperature,
       maxOutputTokens: options.maxOutputTokens,
+      timeoutMs: options.timeoutMs,
       responseFormat: { type: 'json_object' },
     });
     raw = completion.choices?.[0]?.message?.content?.trim() ?? '';
@@ -158,6 +168,11 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
     try {
       return schema.parse(parsed);
     } catch (error: any) {
+      console.warn('[openaiGenerateJson] Schema validation failed; attempting repair', {
+        model,
+        rawLength: raw.length,
+        rawSnippet: raw.slice(0, 300),
+      });
       const validationMessage =
         typeof error?.message === 'string' && error.message.trim() ? error.message : 'Schema validation failed.';
 
@@ -178,6 +193,7 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
         ],
         temperature: 0,
         maxOutputTokens: options.maxOutputTokens,
+        timeoutMs: options.timeoutMs,
         responseFormat: { type: 'json_object' },
       });
 
@@ -193,6 +209,11 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
   }
 
   // One-shot repair attempt: ask the model to fix its own output into valid JSON.
+  console.warn('[openaiGenerateJson] JSON parse failed; attempting repair', {
+    model,
+    rawLength: raw.length,
+    rawSnippet: raw.slice(0, 300),
+  });
   const repairCompletion = await createChatCompletion({
     model,
     messages: [
@@ -209,6 +230,7 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
     ],
     temperature: 0,
     maxOutputTokens: options.maxOutputTokens,
+    timeoutMs: options.timeoutMs,
     responseFormat: { type: 'json_object' },
   });
 
