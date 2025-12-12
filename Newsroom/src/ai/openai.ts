@@ -71,6 +71,17 @@ async function createChatCompletion(options: {
 }): Promise<any> {
   const client = getClient();
   const timeoutMs = options.timeoutMs ?? 20000;
+
+  // RequestOptions (2nd arg) is where `timeout`/`signal` belong in the OpenAI SDK.
+  // Do NOT put `signal` into the JSON body (the API will reject it).
+  const requestOptions: any = { timeout: timeoutMs };
+  const abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let abortTimer: any = null;
+  if (abortController) {
+    requestOptions.signal = abortController.signal;
+    abortTimer = setTimeout(() => abortController.abort(), timeoutMs);
+  }
+
   const baseRequest: any = {
     model: options.model,
     messages: options.messages,
@@ -86,12 +97,8 @@ async function createChatCompletion(options: {
       ...baseRequest,
       ...(options.maxOutputTokens ? { max_completion_tokens: options.maxOutputTokens } : {}),
     };
-    try {
-      // Some OpenAI SDK versions support request options like `{ timeout }` as the second arg.
-      return await (client.chat.completions.create as any)(request, { timeout: timeoutMs });
-    } catch {
-      return await client.chat.completions.create(request);
-    }
+    const result = await (client.chat.completions.create as any)(request, requestOptions);
+    return result;
   } catch (error: any) {
     const msg = String(error?.message || '');
     if (msg.includes('max_completion_tokens') || msg.includes('Unsupported parameter')) {
@@ -99,13 +106,12 @@ async function createChatCompletion(options: {
         ...baseRequest,
         ...(options.maxOutputTokens ? { max_tokens: options.maxOutputTokens } : {}),
       };
-      try {
-        return await (client.chat.completions.create as any)(request, { timeout: timeoutMs });
-      } catch {
-        return await client.chat.completions.create(request);
-      }
+      const result = await (client.chat.completions.create as any)(request, requestOptions);
+      return result;
     }
     throw error;
+  } finally {
+    if (abortTimer) clearTimeout(abortTimer);
   }
 }
 
@@ -174,39 +180,50 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
   maxOutputTokens?: number;
   timeoutMs?: number;
 }): Promise<T> {
-  const model = options.model || getOpenAIModel();
+  const requestedModel = options.model || getOpenAIModel();
+  const fallbackModel = process.env.OPENAI_JSON_FALLBACK_MODEL || 'gpt-4o-mini';
+  let model = requestedModel;
   const system =
     (options.system ? `${options.system}\n\n` : '') +
     'Return ONLY valid JSON. No markdown. No commentary.';
 
-  // First try: ask the API for JSON output (when supported).
-  let raw = '';
-  try {
-    const completion = await createChatCompletion({
-      model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: options.prompt },
-      ],
-      temperature: options.temperature,
-      maxOutputTokens: options.maxOutputTokens,
-      timeoutMs: options.timeoutMs,
-      responseFormat: { type: 'json_object' },
-    });
-    raw = getCompletionText(completion).trim();
-    if (!raw) {
-      // Some model/SDK combos return empty content with JSON mode.
-      const meta = getCompletionMeta(completion);
-      console.warn('[openaiGenerateJson] Empty JSON-mode completion; falling back', { model, ...meta });
-      throw new Error('Empty completion content');
+  const attemptOnce = async (attemptModel: string) => {
+    // First try: ask the API for JSON output (when supported).
+    let raw = '';
+    try {
+      const completion = await createChatCompletion({
+        model: attemptModel,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: options.prompt },
+        ],
+        temperature: options.temperature,
+        maxOutputTokens: options.maxOutputTokens,
+        timeoutMs: options.timeoutMs,
+        responseFormat: { type: 'json_object' },
+      });
+      raw = getCompletionText(completion).trim();
+      if (!raw) {
+        const meta = getCompletionMeta(completion);
+        console.warn('[openaiGenerateJson] Empty JSON-mode completion; falling back', { model: attemptModel, ...meta });
+        throw new Error('Empty completion content');
+      }
+    } catch {
+      // Fallback: plain text + local parsing.
+      raw = await openaiGenerateText({
+        ...options,
+        system,
+        model: attemptModel,
+      });
     }
-  } catch {
-    // Fallback: plain text + local parsing.
-    raw = await openaiGenerateText({
-      ...options,
-      system,
-      model,
-    });
+    return raw;
+  };
+
+  let raw = await attemptOnce(model);
+  if (!raw && model !== fallbackModel) {
+    console.warn('[openaiGenerateJson] Empty output; switching to fallback model', { from: model, to: fallbackModel });
+    model = fallbackModel;
+    raw = await attemptOnce(model);
   }
 
   const parsed = tryParseJson(raw);

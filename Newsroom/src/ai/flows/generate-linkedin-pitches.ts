@@ -44,17 +44,16 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     .map(a => {
       const id = a.id ? `  ID: ${a.id}` : '';
       const summary = a.summary ? `  Summary: ${a.summary}` : '';
-      const text = a.text ? `  Excerpt: ${a.text.slice(0, 800)}` : '';
-      return `- Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${id ? `\n${id}` : ''}${summary ? `\n${summary}` : ''}${text ? `\n${text}` : ''}`;
+      return `- Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${id ? `\n${id}` : ''}${summary ? `\n${summary}` : ''}`;
     })
     .join('\n\n');
 
   const prompt = `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
 
-Given the following AI news articles, identify 8 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
+Given the following AI news articles, identify 6 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
 
 Each pitch should:
-1. Connect 2-4 articles that share a common theme
+1. Connect 2-3 articles that share a common theme
 2. Offer a unique insight beyond summarizing
 3. Be relevant to business professionals and AI practitioners
 4. Encourage engagement and discussion
@@ -89,13 +88,13 @@ Title rules:
 - Under 8 words
 
 Bullets rules:
-- Exactly 3 bullets
+- Exactly 2 bullets
 `;
 
   const first = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
     prompt,
     temperature: 0.6,
-    maxOutputTokens: 1200,
+    maxOutputTokens: 700,
     timeoutMs: 18000,
   });
 
@@ -105,12 +104,12 @@ Bullets rules:
   // retry once with a stronger instruction to produce pitches.
   const retryPrompt = `${prompt}
 
-You MUST return between 8 and 10 pitches when given 5+ articles. Do not return an empty pitches array.`;
+You MUST return exactly 6 pitches when given 5+ articles. Do not return an empty pitches array.`;
 
   const second = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
     prompt: retryPrompt,
     temperature: 0.7,
-    maxOutputTokens: 1200,
+    maxOutputTokens: 700,
     timeoutMs: 18000,
   });
 
