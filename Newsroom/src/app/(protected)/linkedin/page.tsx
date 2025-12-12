@@ -327,6 +327,8 @@ export default function LinkedInPage() {
   const [quickIdeas, setQuickIdeas] = useState<LinkedInPitch[]>([]);
   const [userSparkedIdeaIds, setUserSparkedIdeaIds] = useState<Set<string>>(new Set());
   const [isGeneratingQuickIdeas, setIsGeneratingQuickIdeas] = useState(false);
+  const [quickIdeasAttempted, setQuickIdeasAttempted] = useState(false);
+  const [quickIdeasError, setQuickIdeasError] = useState<string | null>(null);
   
   // Custom idea state
   const [customIdeaText, setCustomIdeaText] = useState("");
@@ -382,11 +384,35 @@ export default function LinkedInPage() {
 
   const generateQuickIdeas = async (articlesToUse: StoredArticle[]) => {
     setIsGeneratingQuickIdeas(true);
-    const result = await generateLinkedInPitchesAction(articlesToUse);
-    if (!('error' in result)) {
+    setQuickIdeasAttempted(true);
+    setQuickIdeasError(null);
+
+    try {
+      const result = await generateLinkedInPitchesAction(articlesToUse);
+      if ('error' in result) {
+        setQuickIdeas([]);
+        setQuickIdeasError(result.error);
+        toast({
+          variant: "destructive",
+          title: "Error generating ideas",
+          description: result.error,
+        });
+        return;
+      }
+
       setQuickIdeas(result.pitches.slice(0, 10));
+    } catch (error: any) {
+      const message = error?.message || "Failed to generate ideas.";
+      setQuickIdeas([]);
+      setQuickIdeasError(message);
+      toast({
+        variant: "destructive",
+        title: "Error generating ideas",
+        description: message,
+      });
+    } finally {
+      setIsGeneratingQuickIdeas(false);
     }
-    setIsGeneratingQuickIdeas(false);
   };
 
   const handleRefreshQuickIdeas = () => {
@@ -1036,7 +1062,17 @@ export default function LinkedInPage() {
                   </div>
                 ) : quickIdeas.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>Loading ideas from your recent articles...</p>
+                    {quickIdeasError ? (
+                      <>
+                        <p className="text-destructive">Couldn’t generate ideas.</p>
+                        <p className="mt-2 text-xs text-muted-foreground">{quickIdeasError}</p>
+                        <p className="mt-3">Click Refresh to try again.</p>
+                      </>
+                    ) : quickIdeasAttempted ? (
+                      <p>No ideas generated yet. Click Refresh.</p>
+                    ) : (
+                      <p>Loading ideas from your recent articles...</p>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
