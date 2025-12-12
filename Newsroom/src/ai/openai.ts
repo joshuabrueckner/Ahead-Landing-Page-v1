@@ -38,32 +38,39 @@ async function createChatCompletion(options: {
 }): Promise<any> {
   const client = getClient();
   const timeoutMs = options.timeoutMs ?? 20000;
-  const signal = typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
-    ? (AbortSignal as any).timeout(timeoutMs)
-    : undefined;
   const baseRequest: any = {
     model: options.model,
     messages: options.messages,
     temperature: options.temperature,
     ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
-    ...(signal ? { signal } : {}),
   };
 
   // OpenAI model families differ on token limit parameter naming.
   // Some newer models (e.g. `gpt-5.2`) reject `max_tokens` and require `max_completion_tokens`.
   // We'll try `max_completion_tokens` first, then fall back to `max_tokens`.
   try {
-    return await client.chat.completions.create({
+    const request: any = {
       ...baseRequest,
       ...(options.maxOutputTokens ? { max_completion_tokens: options.maxOutputTokens } : {}),
-    });
+    };
+    try {
+      // Some OpenAI SDK versions support request options like `{ timeout }` as the second arg.
+      return await (client.chat.completions.create as any)(request, { timeout: timeoutMs });
+    } catch {
+      return await client.chat.completions.create(request);
+    }
   } catch (error: any) {
     const msg = String(error?.message || '');
     if (msg.includes('max_completion_tokens') || msg.includes('Unsupported parameter')) {
-      return await client.chat.completions.create({
+      const request: any = {
         ...baseRequest,
         ...(options.maxOutputTokens ? { max_tokens: options.maxOutputTokens } : {}),
-      });
+      };
+      try {
+        return await (client.chat.completions.create as any)(request, { timeout: timeoutMs });
+      } catch {
+        return await client.chat.completions.create(request);
+      }
     }
     throw error;
   }
