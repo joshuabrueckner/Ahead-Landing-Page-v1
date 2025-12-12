@@ -643,29 +643,37 @@ export default function LinkedInPage() {
     setQuickIdeas(prev => prev.filter((_, i) => i !== index));
   };
 
+  const hydratePitchWithStoredArticleText = (pitch: LinkedInPitch): LinkedInPitch => {
+    const byUrl = new Map(articles.map(a => [a.url, a] as const));
+    return {
+      ...pitch,
+      supportingArticles: pitch.supportingArticles.map(sa => {
+        const stored = byUrl.get(sa.url);
+        return {
+          ...sa,
+          text: sa.text ?? stored?.text,
+        };
+      }),
+    };
+  };
+
   const handleSelectQuickIdea = (pitch: LinkedInPitch) => {
-    // Select the articles from this pitch
-    const pitchArticleUrls = new Set(pitch.supportingArticles.map(a => a.url));
-    const matchingArticleIds = articles
-      .filter(a => pitchArticleUrls.has(a.url))
-      .map(a => a.id);
-    
-    // Set these as selected and go straight to generating the post
-    setSelectedArticleIds(new Set(matchingArticleIds));
-    setSelectedPitch(pitch);
-    handleSelectPitchDirect(pitch);
+    const hydrated = hydratePitchWithStoredArticleText(pitch);
+    setSelectedPitch(hydrated);
+    handleSelectPitchDirect(hydrated);
   };
 
   const handleSelectPitchDirect = async (pitch: LinkedInPitch) => {
+    const hydrated = hydratePitchWithStoredArticleText(pitch);
     setIsGeneratingPost(true);
     setView('post');
     setFeedback("");
     
     const result = await generateLinkedInPostAction({
-      title: pitch.title,
-      summary: pitch.summary,
-      bullets: pitch.bullets,
-      supportingArticles: pitch.supportingArticles,
+      title: hydrated.title,
+      summary: hydrated.summary,
+      bullets: hydrated.bullets,
+      supportingArticles: hydrated.supportingArticles,
     });
     
     if ('error' in result) {
@@ -681,16 +689,17 @@ export default function LinkedInPage() {
   };
 
   const handleSelectPitch = async (pitch: LinkedInPitch) => {
-    setSelectedPitch(pitch);
+    const hydrated = hydratePitchWithStoredArticleText(pitch);
+    setSelectedPitch(hydrated);
     setIsGeneratingPost(true);
     setView('post');
     setFeedback("");
     
     const result = await generateLinkedInPostAction({
-      title: pitch.title,
-      summary: pitch.summary,
-      bullets: pitch.bullets,
-      supportingArticles: pitch.supportingArticles,
+      title: hydrated.title,
+      summary: hydrated.summary,
+      bullets: hydrated.bullets,
+      supportingArticles: hydrated.supportingArticles,
     });
     
     if ('error' in result) {
@@ -707,13 +716,15 @@ export default function LinkedInPage() {
 
   const handleRefinePost = async () => {
     if (!selectedPitch || !feedback.trim()) return;
+
+    const hydrated = hydratePitchWithStoredArticleText(selectedPitch);
     
     setIsGeneratingPost(true);
     const result = await generateLinkedInPostAction({
-      title: selectedPitch.title,
-      summary: selectedPitch.summary,
-      bullets: selectedPitch.bullets,
-      supportingArticles: selectedPitch.supportingArticles,
+      title: hydrated.title,
+      summary: hydrated.summary,
+      bullets: hydrated.bullets,
+      supportingArticles: hydrated.supportingArticles,
       feedback: feedback.trim(),
     });
     
