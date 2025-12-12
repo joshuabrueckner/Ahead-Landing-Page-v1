@@ -4,6 +4,7 @@ import { z } from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
 
 const ArticleSchema = z.object({
+  id: z.string().optional(),
   title: z.string(),
   url: z.string(),
   source: z.string(),
@@ -23,6 +24,7 @@ const PitchSchema = z.object({
   summary: z.string().describe('Brief 1-2 sentence summary of the narrative angle'),
   bullets: z.array(z.string()).describe('3-5 supporting points that build the narrative'),
   supportingArticles: z.array(z.object({
+    id: z.string().optional(),
     title: z.string(),
     source: z.string(),
     date: z.string(),
@@ -40,9 +42,10 @@ export type LinkedInPitch = z.infer<typeof PitchSchema>;
 export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInput): Promise<GenerateLinkedInPitchesOutput> {
   const articlesText = input.articles
     .map(a => {
+      const id = a.id ? `  ID: ${a.id}` : '';
       const summary = a.summary ? `  Summary: ${a.summary}` : '';
       const text = a.text ? `  Full Article Text: ${a.text.slice(0, 3000)}` : '';
-      return `- Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${summary ? `\n${summary}` : ''}${text ? `\n${text}` : ''}`;
+      return `- Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${id ? `\n${id}` : ''}${summary ? `\n${summary}` : ''}${text ? `\n${text}` : ''}`;
     })
     .join('\n\n');
 
@@ -67,10 +70,12 @@ Return JSON only with shape:
       "title": string,
       "summary": string,
       "bullets": string[],
-      "supportingArticles": [{"title": string, "source": string, "date": string, "url": string, "text"?: string}]
+      "supportingArticles": [{"id"?: string, "title": string, "source": string, "date": string, "url": string, "text"?: string}]
     }
   ]
 }
+
+If an input article includes an "ID", you MUST copy it exactly into the corresponding supportingArticles[].id.
 
 Title rules:
 - MUST start with "Discusses" (no colon)

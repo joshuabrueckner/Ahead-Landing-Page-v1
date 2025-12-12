@@ -1222,7 +1222,7 @@ export async function getStoredArticlesAction(limit?: number): Promise<{
 }
 
 export async function generateLinkedInPitchesAction(
-  articles: { title: string; url: string; source: string; date: string; summary?: string; text?: string }[]
+  articles: { id?: string; title: string; url: string; source: string; date: string; summary?: string; text?: string }[]
 ): Promise<GenerateLinkedInPitchesOutput | { error: string }> {
   try {
     const result = await generateLinkedInPitches({ articles });

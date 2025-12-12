@@ -676,11 +676,25 @@ export default function LinkedInPage() {
   };
 
   const hydratePitchWithStoredArticleText = (pitch: LinkedInPitch): LinkedInPitch => {
-    const byUrl = new Map(articles.map(a => [a.url, a] as const));
+    const normalizeUrlKey = (url: string) => {
+      try {
+        const u = new URL(url);
+        const host = u.hostname.replace(/^www\./, '').toLowerCase();
+        const path = u.pathname.replace(/\/+$/, '');
+        return `${host}${path}`;
+      } catch {
+        return url.trim().toLowerCase();
+      }
+    };
+
+    const byId = new Map(articles.filter(a => (a as any).id).map(a => [(a as any).id as string, a] as const));
+    const byUrl = new Map(articles.map(a => [normalizeUrlKey(a.url), a] as const));
+
     return {
       ...pitch,
       supportingArticles: pitch.supportingArticles.map(sa => {
-        const stored = byUrl.get(sa.url);
+        const storedById = (sa as any).id ? byId.get((sa as any).id as string) : undefined;
+        const stored = storedById ?? byUrl.get(normalizeUrlKey(sa.url));
         return {
           ...sa,
           text: sa.text ?? stored?.text,
