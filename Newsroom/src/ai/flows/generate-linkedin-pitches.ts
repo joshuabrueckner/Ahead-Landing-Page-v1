@@ -55,39 +55,86 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     return t[0].toUpperCase() + t.slice(1);
   };
 
-  const classifyTheme = (articles: Array<{ title: string; summary?: string; source?: string }>) => {
-    const blob = articles
-      .map(a => `${a.title} ${a.summary || ''} ${a.source || ''}`)
-      .join(' ')
-      .toLowerCase();
+  const compactWhitespace = (text: string) => String(text || '').replace(/\s+/g, ' ').trim();
 
-    if (/(executive order|regulation|law|policy|compliance|ban|antitrust|court|senate|congress)/.test(blob)) {
-      return 'AI regulation and policy';
+  const excerptFromText = (text?: string) => {
+    const t = compactWhitespace(text || '');
+    if (!t) return '';
+    return truncateAtWordBoundary(t, 520);
+  };
+
+  const pickGist = (article: { title: string; summary?: string; text?: string }) => {
+    const summary = compactWhitespace(article.summary || '');
+    if (summary) return truncateAtWordBoundary(summary, 140);
+    const ex = excerptFromText(article.text);
+    if (ex) return truncateAtWordBoundary(ex, 140);
+    return truncateAtWordBoundary(compactWhitespace(article.title), 140);
+  };
+
+  const deriveFromSources = (sources: Array<{ title: string; summary?: string; text?: string; source?: string }>) => {
+    const a1 = sources[0];
+    const a2 = sources[1];
+    const blob = compactWhitespace(
+      sources
+        .map(a => `${a.title} ${a.summary || ''} ${excerptFromText(a.text)} ${a.source || ''}`)
+        .join(' ')
+    ).toLowerCase();
+
+    // Hand-tuned patterns for common clusters we’ve seen.
+    if (/(trump).*\bexecutive order\b/.test(blob) && /\bstate\b.*\blaw\b/.test(blob)) {
+      return {
+        title: 'Discusses Trump’s AI order vs state laws',
+        summary: 'A federal AI order collides with state rules, raising compliance questions for builders.',
+      };
     }
-    if (/(data center|datacenter|power|grid|compute|infrastructure|capex)/.test(blob)) {
-      return 'AI infrastructure buildout';
+    if (/\bsoftbank\b/.test(blob) && /(data center|datacenter)/.test(blob)) {
+      return {
+        title: 'Discusses SoftBank’s data-center bet for AI',
+        summary: 'Compute demand is driving huge infrastructure bets—and reshaping who controls AI capacity.',
+      };
     }
-    if (/(investment|funding|valuation|ipo|acquisition|merger|softbank|venture|raises)/.test(blob)) {
-      return 'AI money and market moves';
+    if (/\bopenai\b/.test(blob) && /\bgoogle\b/.test(blob) && /(gap|closes|moat|lead|catch up)/.test(blob)) {
+      return {
+        title: 'Discusses OpenAI’s response to Google’s AI push',
+        summary: 'As the platform race tightens, labs are repositioning on product, safety, and distribution.',
+      };
     }
-    if (/(openai|google|anthropic|meta|microsoft|model|gap|frontier)/.test(blob)) {
-      return 'Model competition and platforms';
+    if (/\bdisney\b/.test(blob) && /\bopenai\b/.test(blob)) {
+      return {
+        title: 'Discusses Disney–OpenAI partnerships and IP',
+        summary: 'Brand partnerships are coming to generative AI—along with new IP, licensing, and trust risks.',
+      };
     }
-    if (/(partner|partnership|licensing|ip|copyright|studio|disney|characters)/.test(blob)) {
-      return 'AI partnerships and IP';
+    if (/\btime\b/.test(blob) && /(person of the year|award)/.test(blob)) {
+      return {
+        title: 'Discusses AI’s cultural hype vs real progress',
+        summary: 'AI is getting cultural validation, but teams still need measurable gains and safer rollouts.',
+      };
     }
-    if (/(person of the year|award|backlash|public|trust|ethics|safety)/.test(blob)) {
-      return 'AI narrative, trust, and safety';
+    if (/(\$\s?\d+\s?billion|over\s?\$\s?\d+\s?billion)/.test(blob) || /\bunder 24 hours\b/.test(blob)) {
+      return {
+        title: 'Discusses the new AI investment sprint',
+        summary: 'A surge of capital is chasing compute and models—speeding rollouts while raising execution risk.',
+      };
     }
 
-    return 'Where AI is heading next';
+    // Generic but still grounded fallback: use gists from two sources.
+    const gist1 = a1 ? pickGist({ title: a1.title, summary: a1.summary, text: a1.text }) : '';
+    const gist2 = a2 ? pickGist({ title: a2.title, summary: a2.summary, text: a2.text }) : '';
+    const titleSeed = a1?.title || a2?.title || 'AI developments';
+    const title = `Discusses ${toSentenceCase(titleSeed.replace(/[:\-—].*$/, '').trim())}`;
+    const summary = gist2
+      ? truncateAtWordBoundary(`${gist1} ${gist2}`, 140)
+      : truncateAtWordBoundary(gist1 || 'A specific, text-driven angle that ties multiple stories together.', 140);
+    return { title, summary };
   };
 
   const sanitizeTitle = (title: string) => {
     const trimmed = String(title || '').trim();
     const withoutPrefix = trimmed.replace(/^discusses\s*/i, '').trim();
-    const rest = toSentenceCase(withoutPrefix || 'ai news');
-    return truncateAtWordBoundary(`Discusses ${rest}`, 58);
+    const rest = withoutPrefix || 'AI news';
+    // Do NOT force lowercase/title-case; just ensure readability and avoid mid-word cutoff.
+    return truncateAtWordBoundary(`Discusses ${toSentenceCase(rest)}`, 58);
   };
 
   const ensureSources = (supporting: any[]) => {
@@ -138,25 +185,24 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
 
     const supportingArticles = ensureSources(p?.supportingArticles || []);
     const rawSummary = String(p?.summary || '').trim();
-    const looksGeneric =
+    const looksGenericSummary =
       /^angle\s+connecting\b/i.test(rawSummary) ||
       /^connect(?:s|ing)\b/i.test(rawSummary) ||
       /\b(connects?|linking|ties together)\b/i.test(rawSummary) ||
+      /\bwhy\b.*\bmatters\b/i.test(rawSummary) ||
       rawSummary.length < 60;
 
-    const derivedSummary = () => {
-      const theme = classifyTheme(supportingArticles);
-      const t1 = supportingArticles[0]?.title;
-      if (t1) {
-        return truncateAtWordBoundary(`Why ${theme} matters: ${t1}`, 120);
-      }
-      return truncateAtWordBoundary(`Why ${theme} matters this week.`, 120);
-    };
+    const looksGenericTitle =
+      /^discusses\s+(ai\s+regulation|model\s+competition|ai\s+infrastructure|where\s+ai)/i.test(
+        String(p?.title || '').trim()
+      );
+
+    const derived = deriveFromSources(supportingArticles);
 
     return {
       id: String(p?.id || `${index + 1}`),
-      title: sanitizeTitle(p?.title),
-      summary: truncateAtWordBoundary(looksGeneric ? derivedSummary() : rawSummary, 120),
+      title: truncateAtWordBoundary(sanitizeTitle(looksGenericTitle ? derived.title : p?.title), 58),
+      summary: truncateAtWordBoundary(looksGenericSummary ? derived.summary : rawSummary, 140),
       bullets: normalizedBullets.map((b: unknown) => String(b).slice(0, 90)),
       supportingArticles,
     };
@@ -166,13 +212,16 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     .map(a => {
       const id = a.id ? `  ID: ${a.id}` : '';
       const summary = a.summary ? `  Summary: ${a.summary}` : '';
-      return `- Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${id ? `\n${id}` : ''}${summary ? `\n${summary}` : ''}`;
+      const excerpt = a.text ? `  Excerpt: ${excerptFromText(a.text)}` : '';
+      return `- Title: ${a.title}\n  Source: ${a.source}\n  Date: ${a.date}\n  URL: ${a.url}${id ? `\n${id}` : ''}${summary ? `\n${summary}` : ''}${excerpt ? `\n${excerpt}` : ''}`;
     })
     .join('\n\n');
 
   const prompt = `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
 
 Given the following AI news articles, identify exactly 6 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
+
+You MUST base your ideas on the article EXCERPTS (and summaries) provided — do not hallucinate facts.
 
 Each pitch should:
 1. Connect 2-3 articles that share a common theme
@@ -206,17 +255,17 @@ If an input article includes an "ID", you MUST copy it exactly into the correspo
 
 Title rules:
 - MUST start with "Discusses" (no colon)
-- Use sentence case after "Discusses" (first letter uppercase)
-- Keep it short and readable (no mid-word cutoffs)
+- Sentence case (do NOT put every word in Title Case; keep proper nouns as written)
+- Be specific about the actual idea (avoid generic themes like "AI regulation and policy")
 
 Length limits (keep output short):
 - title: max 58 characters
-- summary: max 120 characters
+- summary: max 140 characters
 - each bullet: max 90 characters
 
 Summary rules:
-- Must explain the shared theme and why it matters
-- Do NOT start with "Connects" or "Angle connecting" and avoid generic filler
+- Must be a newly written summary of the idea grounded in the excerpts
+- Do NOT start with "Connects", "Angle connecting", or "Why X matters"
 
 Supporting articles:
 - Include ONLY: id (if available), title, source, date, url
