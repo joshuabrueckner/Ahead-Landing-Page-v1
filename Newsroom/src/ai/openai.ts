@@ -269,6 +269,16 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
   const requestedModel = options.model || getOpenAIModel();
   const fallbackModel = process.env.OPENAI_JSON_FALLBACK_MODEL || 'gpt-4o-mini';
   let model = requestedModel;
+
+  // In production we've observed gpt-5* returning empty output for JSON-structured tasks.
+  // If OPENAI_MODEL is gpt-5*, prefer the fallback JSON model immediately to avoid a wasted retry.
+  if (!options.model && /^gpt-5/i.test(requestedModel) && fallbackModel && fallbackModel !== requestedModel) {
+    console.warn('[openaiGenerateJson] Using fallback JSON model for gpt-5* primary', {
+      from: requestedModel,
+      to: fallbackModel,
+    });
+    model = fallbackModel;
+  }
   const system =
     (options.system ? `${options.system}\n\n` : '') +
     'Return ONLY valid JSON. No markdown. No commentary.';
