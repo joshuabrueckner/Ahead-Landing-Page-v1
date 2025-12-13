@@ -269,6 +269,7 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
   const requestedModel = options.model || getOpenAIModel();
   const fallbackModel = process.env.OPENAI_JSON_FALLBACK_MODEL || 'gpt-4o-mini';
   let model = requestedModel;
+  const allowFallback = process.env.OPENAI_JSON_ALLOW_FALLBACK !== 'false';
 
   // In production we've observed gpt-5* sometimes returning empty output for JSON-structured tasks.
   // Default behavior: still try the requested model first, and only fall back if the output is empty.
@@ -294,8 +295,14 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
 
   const repairMaxOutputTokens = Math.max(options.maxOutputTokens ?? 0, 1400);
 
-  const attemptOnce = async (attemptModel: string) => {
+  const attemptOnce = async (
+    attemptModel: string,
+    overrides?: { prompt?: string; temperature?: number; maxOutputTokens?: number }
+  ) => {
     const useJsonMode = shouldUseJsonModeForModel(attemptModel);
+    const prompt = overrides?.prompt ?? options.prompt;
+    const temperature = overrides?.temperature ?? options.temperature;
+    const maxOutputTokens = overrides?.maxOutputTokens ?? options.maxOutputTokens;
 
     if (useJsonMode) {
       let raw = '';
@@ -304,10 +311,10 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
           model: attemptModel,
           messages: [
             { role: 'system', content: system },
-            { role: 'user', content: options.prompt },
+            { role: 'user', content: prompt },
           ],
-          temperature: options.temperature,
-          maxOutputTokens: options.maxOutputTokens,
+          temperature,
+          maxOutputTokens,
           timeoutMs: options.timeoutMs,
           responseFormat: { type: 'json_object' },
         });
@@ -324,6 +331,9 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
           ...options,
           system,
           model: attemptModel,
+          prompt,
+          temperature,
+          maxOutputTokens,
         });
       }
     }
@@ -333,11 +343,26 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
       ...options,
       system,
       model: attemptModel,
+      prompt,
+      temperature,
+      maxOutputTokens,
     });
   };
 
   let raw = await attemptOnce(model);
-  if (!raw && model !== fallbackModel) {
+  if (!raw) {
+    // Retry once on the same model with stricter instructions.
+    const retryPrompt =
+      `${options.prompt}\n\n` +
+      `IMPORTANT: Return a single JSON object only. Start with '{' and end with '}'. No extra text.`;
+    raw = await attemptOnce(model, {
+      prompt: retryPrompt,
+      temperature: 0,
+      maxOutputTokens: Math.max(options.maxOutputTokens ?? 0, 900),
+    });
+  }
+
+  if (!raw && allowFallback && model !== fallbackModel) {
     console.warn('[openaiGenerateJson] Empty output; switching to fallback model', { from: model, to: fallbackModel });
     model = fallbackModel;
     raw = await attemptOnce(model);
