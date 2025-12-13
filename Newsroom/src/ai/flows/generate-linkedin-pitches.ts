@@ -63,6 +63,106 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     return truncateAtWordBoundary(t, 520);
   };
 
+  const keyFor = (a: { id?: string; url: string }) => a.id ?? a.url;
+  const poolByKey = new Map<string, z.infer<typeof ArticleSchema>>(
+    input.articles.map(a => [keyFor(a), a])
+  );
+
+  const enrich = <T extends { id?: string; url: string; title: string; source: string; date: string }>(
+    sources: T[]
+  ) => {
+    return sources.map(s => {
+      const full = poolByKey.get(keyFor({ id: s.id, url: s.url } as any));
+      return {
+        ...s,
+        summary: full?.summary,
+        text: full?.text,
+      };
+    });
+  };
+
+  const stopwords = new Set([
+    'the','a','an','and','or','but','to','of','in','on','for','with','at','by','from','as','is','are','was','were','be','been',
+    'this','that','these','those','it','its','their','they','them','we','you','your','our','us','will','can','could','should','would',
+    'after','before','over','under','into','about','across','more','most','new','latest','today','yesterday','week','year','says','said',
+    'ai','artificial','intelligence'
+  ]);
+
+  const tokens = (text: string) => {
+    const raw = compactWhitespace(text)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ');
+    const parts = raw.split(/\s+/g).filter(Boolean);
+    const out = new Set<string>();
+    for (const p of parts) {
+      if (p.length < 3) continue;
+      if (stopwords.has(p)) continue;
+      out.add(p);
+    }
+    return out;
+  };
+
+  const tokenSetForArticle = (a: { title: string; summary?: string; text?: string }) => {
+    const ex = excerptFromText(a.text);
+    return tokens(`${a.title} ${a.summary || ''} ${ex}`);
+  };
+
+  const jaccard = (a: Set<string>, b: Set<string>) => {
+    if (a.size === 0 || b.size === 0) return 0;
+    let inter = 0;
+    for (const t of a) if (b.has(t)) inter++;
+    const union = a.size + b.size - inter;
+    return union === 0 ? 0 : inter / union;
+  };
+
+  const pickRelated = (
+    seeds: Array<{ id?: string; url: string; title: string; source: string; date: string }>,
+    desiredCount: number
+  ) => {
+    const selectedKeys = new Set<string>(seeds.map(s => keyFor({ id: s.id, url: s.url })));
+    const selectedFull = enrich(seeds);
+    const centroid = new Set<string>();
+    for (const s of selectedFull) {
+      for (const t of tokenSetForArticle(s)) centroid.add(t);
+    }
+
+    const candidates = input.articles
+      .filter(a => !selectedKeys.has(keyFor(a)))
+      .map(a => ({
+        article: a,
+        score: jaccard(tokenSetForArticle(a), centroid),
+      }))
+      .sort((x, y) => y.score - x.score);
+
+    const result = [...seeds];
+    for (const c of candidates) {
+      if (result.length >= desiredCount) break;
+      // Require some meaningful overlap; otherwise avoid adding random articles.
+      if (c.score < 0.08) break;
+      result.push({
+        id: c.article.id,
+        title: c.article.title,
+        source: c.article.source,
+        date: c.article.date,
+        url: c.article.url,
+      });
+      selectedKeys.add(keyFor(c.article));
+    }
+
+    // If still under minimum (e.g., low-overlap pool), fall back to earliest remaining articles.
+    if (result.length < 2) {
+      for (const a of input.articles) {
+        if (result.length >= 2) break;
+        const k = keyFor(a);
+        if (selectedKeys.has(k)) continue;
+        result.push({ id: a.id, title: a.title, source: a.source, date: a.date, url: a.url });
+        selectedKeys.add(k);
+      }
+    }
+
+    return result;
+  };
+
   const pickGist = (article: { title: string; summary?: string; text?: string }) => {
     const summary = compactWhitespace(article.summary || '');
     if (summary) return truncateAtWordBoundary(summary, 140);
@@ -158,24 +258,15 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
       })
       .filter(a => a.title && a.url);
 
-    // Fill up to at least 2 sources from the input article pool.
-    const already = new Set(result.map(a => (a.id ?? a.url)));
-    for (const a of input.articles) {
-      if (result.length >= 2) break;
-      const key = a.id ?? a.url;
-      if (already.has(key)) continue;
-      const entry: { id?: string; title: string; source: string; date: string; url: string } = {
-        title: a.title,
-        source: a.source,
-        date: a.date,
-        url: a.url,
-      };
-      if (typeof a.id === 'string' && a.id.trim()) entry.id = a.id;
-      result.push(entry);
-      already.add(key);
-    }
+    const max = 5;
+    const target = Math.min(
+      max,
+      Math.max(2, input.articles.length >= 4 ? 4 : input.articles.length >= 3 ? 3 : 2)
+    );
 
-    return result.slice(0, 5);
+    // Ensure 2–5 sources, preferring 3–4 when we have a related pool.
+    const picked = pickRelated(result, target);
+    return picked.slice(0, max);
   };
 
   const normalizePitch = (p: any, index: number) => {
@@ -184,6 +275,7 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     while (normalizedBullets.length < 2) normalizedBullets.push('');
 
     const supportingArticles = ensureSources(p?.supportingArticles || []);
+    const supportingEnriched = enrich(supportingArticles);
     const rawSummary = String(p?.summary || '').trim();
     const looksGenericSummary =
       /^angle\s+connecting\b/i.test(rawSummary) ||
@@ -197,14 +289,14 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
         String(p?.title || '').trim()
       );
 
-    const derived = deriveFromSources(supportingArticles);
+    const derived = deriveFromSources(supportingEnriched);
 
     return {
       id: String(p?.id || `${index + 1}`),
       title: truncateAtWordBoundary(sanitizeTitle(looksGenericTitle ? derived.title : p?.title), 58),
       summary: truncateAtWordBoundary(looksGenericSummary ? derived.summary : rawSummary, 140),
       bullets: normalizedBullets.map((b: unknown) => String(b).slice(0, 90)),
-      supportingArticles,
+      supportingArticles: supportingArticles.slice(0, 5),
     };
   };
 
@@ -271,6 +363,8 @@ Supporting articles:
 - Include ONLY: id (if available), title, source, date, url
 - Do NOT include the optional "text" field
 - Each pitch MUST include between 2 and 5 supportingArticles
+- Prefer 3–5 supportingArticles when you can find clearly related sources
+- Sources must be naturally related (shared theme grounded in excerpts)
 
 Bullets rules:
 - Exactly 2 bullets
