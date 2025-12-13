@@ -40,15 +40,26 @@ export type GenerateLinkedInPitchesOutput = z.infer<typeof GenerateLinkedInPitch
 export type LinkedInPitch = z.infer<typeof PitchSchema>;
 
 export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInput): Promise<GenerateLinkedInPitchesOutput> {
+  const truncateAtWordBoundary = (text: string, maxLen: number) => {
+    const t = String(text || '').trim();
+    if (t.length <= maxLen) return t;
+    const cut = t.slice(0, maxLen);
+    const lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace >= Math.floor(maxLen * 0.6)) return cut.slice(0, lastSpace).trim();
+    return cut.trim();
+  };
+
+  const toSentenceCase = (text: string) => {
+    const t = String(text || '').trim();
+    if (!t) return '';
+    return t[0].toUpperCase() + t.slice(1);
+  };
+
   const sanitizeTitle = (title: string) => {
     const trimmed = String(title || '').trim();
-    if (!trimmed) return 'Discusses ai news';
-    if (!trimmed.toLowerCase().startsWith('discusses')) {
-      return `Discusses ${trimmed.toLowerCase().replace(/^discusses\s*/i, '')}`.slice(0, 50);
-    }
-    const rest = trimmed.slice('Discusses'.length).trimStart();
-    const normalized = `Discusses ${rest.toLowerCase()}`;
-    return normalized.slice(0, 50);
+    const withoutPrefix = trimmed.replace(/^discusses\s*/i, '').trim();
+    const rest = toSentenceCase(withoutPrefix || 'ai news');
+    return truncateAtWordBoundary(`Discusses ${rest}`, 70);
   };
 
   const ensureSources = (supporting: any[]) => {
@@ -97,12 +108,28 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     const normalizedBullets = bullets.slice(0, 2);
     while (normalizedBullets.length < 2) normalizedBullets.push('');
 
+    const supportingArticles = ensureSources(p?.supportingArticles || []);
+    const rawSummary = String(p?.summary || '').trim();
+    const looksGeneric =
+      /^angle\s+connecting\b/i.test(rawSummary) ||
+      /^connect(?:s|ing)\b/i.test(rawSummary) ||
+      rawSummary.length < 40;
+
+    const derivedSummary = () => {
+      const t1 = supportingArticles[0]?.title;
+      const t2 = supportingArticles[1]?.title;
+      if (t1 && t2) {
+        return truncateAtWordBoundary(`Connects ${t1} and ${t2} to explain the bigger trend.`, 180);
+      }
+      return truncateAtWordBoundary('A practical angle connecting multiple stories into one clear takeaway.', 180);
+    };
+
     return {
       id: String(p?.id || `${index + 1}`),
       title: sanitizeTitle(p?.title),
-      summary: String(p?.summary || '').slice(0, 180),
+      summary: truncateAtWordBoundary(looksGeneric ? derivedSummary() : rawSummary, 180),
       bullets: normalizedBullets.map((b: unknown) => String(b).slice(0, 90)),
-      supportingArticles: ensureSources(p?.supportingArticles || []),
+      supportingArticles,
     };
   };
 
@@ -150,11 +177,11 @@ If an input article includes an "ID", you MUST copy it exactly into the correspo
 
 Title rules:
 - MUST start with "Discusses" (no colon)
-- Use lowercase after "Discusses"
-- Under 8 words
+- Use sentence case after "Discusses" (first letter uppercase)
+- Keep it short and readable (no mid-word cutoffs)
 
 Length limits (keep output short):
-- title: max 50 characters
+- title: max 70 characters
 - summary: max 180 characters
 - each bullet: max 90 characters
 
@@ -167,12 +194,19 @@ Bullets rules:
 - Exactly 2 bullets
 `;
 
-  const first = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
-    prompt,
-    temperature: 0.6,
-    maxOutputTokens: 700,
-    timeoutMs: 18000,
-  });
+  let first: GenerateLinkedInPitchesOutput = { pitches: [] };
+  try {
+    first = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
+      prompt,
+      temperature: 0.6,
+      maxOutputTokens: 900,
+      timeoutMs: 18000,
+    });
+  } catch (error: any) {
+    console.warn('[generateLinkedInPitches] Model call failed; using local fallback pitches', {
+      message: error?.message || String(error),
+    });
+  }
 
   const normalizedFirst = {
     pitches: (first.pitches || []).map((p, i) => normalizePitch(p, i)).slice(0, 6),
@@ -186,7 +220,7 @@ Bullets rules:
   // If we didn't get 6, fill deterministically from the input articles.
   const merged: any[] = [...normalizedFirst.pitches];
 
-  // Final fallback: synthesize minimal pitches from articles so the UI always has 6.
+  // Final fallback: synthesize pitches from articles so the UI always has 6.
   let syntheticIndex = 0;
   while (merged.length < 6 && input.articles.length >= 2) {
     const a1 = input.articles[(syntheticIndex * 2) % input.articles.length];
@@ -194,7 +228,10 @@ Bullets rules:
     const fallbackPitch = {
       id: `fallback-${syntheticIndex + 1}`,
       title: sanitizeTitle(`Discusses ${a1.title}`),
-      summary: `Angle connecting ${a1.source} and ${a2.source}.`.slice(0, 180),
+      summary: truncateAtWordBoundary(
+        `Connects ${a1.title} and ${a2.title} into one clear takeaway for teams.`,
+        180
+      ),
       bullets: ['Key takeaway for teams.', 'What to watch next.'],
       supportingArticles: ensureSources([
         { id: a1.id, title: a1.title, source: a1.source, date: a1.date, url: a1.url },

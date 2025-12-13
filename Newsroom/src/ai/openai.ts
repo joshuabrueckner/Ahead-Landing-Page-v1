@@ -362,10 +362,18 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
     });
   }
 
+  if (!raw && !allowFallback) {
+    throw new Error(`Empty output from model '${model}' (OPENAI_JSON_ALLOW_FALLBACK=false).`);
+  }
+
   if (!raw && allowFallback && model !== fallbackModel) {
     console.warn('[openaiGenerateJson] Empty output; switching to fallback model', { from: model, to: fallbackModel });
     model = fallbackModel;
     raw = await attemptOnce(model);
+  }
+
+  if (!raw) {
+    throw new Error('Model returned empty output.');
   }
 
   const parsed = tryParseJson(raw);
