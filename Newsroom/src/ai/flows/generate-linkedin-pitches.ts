@@ -182,32 +182,9 @@ Bullets rules:
     return { pitches: normalizedFirst.pitches.slice(0, 6) };
   }
 
-  // If the model returned an empty array (often from over-conservative JSON-mode outputs),
-  // retry once with a stronger instruction to produce pitches.
-
-  const remaining = 6 - normalizedFirst.pitches.length;
-  const existingTitles = normalizedFirst.pitches.map(p => p.title).join('\n');
-  const topUpPrompt = `${prompt}
-
-Already have these pitch titles (do NOT repeat them):
-${existingTitles}
-
-Generate exactly ${remaining} additional pitches. Use new ids.`;
-
-  const second = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
-    prompt: topUpPrompt,
-    temperature: 0.7,
-    maxOutputTokens: 700,
-    timeoutMs: 18000,
-  });
-
+  // Avoid a second model call (serverless latency + occasional transport issues).
+  // If we didn't get 6, fill deterministically from the input articles.
   const merged: any[] = [...normalizedFirst.pitches];
-  for (const p of (second.pitches || [])) {
-    if (merged.length >= 6) break;
-    const normalized = normalizePitch(p, merged.length);
-    if (merged.some(m => m.title === normalized.title)) continue;
-    merged.push(normalized);
-  }
 
   // Final fallback: synthesize minimal pitches from articles so the UI always has 6.
   let syntheticIndex = 0;
