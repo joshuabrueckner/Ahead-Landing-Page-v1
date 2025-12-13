@@ -195,6 +195,8 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
     (options.system ? `${options.system}\n\n` : '') +
     'Return ONLY valid JSON. No markdown. No commentary.';
 
+  const repairMaxOutputTokens = Math.max(options.maxOutputTokens ?? 0, 1400);
+
   const attemptOnce = async (attemptModel: string) => {
     const useJsonMode = shouldUseJsonModeForModel(attemptModel);
 
@@ -275,7 +277,7 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
             },
           ],
           temperature: 0,
-          maxOutputTokens: options.maxOutputTokens,
+          maxOutputTokens: repairMaxOutputTokens,
           timeoutMs: options.timeoutMs,
           responseFormat: { type: 'json_object' },
         });
@@ -292,13 +294,18 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
             `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
             `JSON TO FIX:\n${JSON.stringify(parsed)}`,
           temperature: 0,
-          maxOutputTokens: options.maxOutputTokens,
+          maxOutputTokens: repairMaxOutputTokens,
           timeoutMs: options.timeoutMs,
         });
       }
 
       const repairedParsed = tryParseJson(repaired);
       if (repairedParsed === null) {
+        console.warn('[openaiGenerateJson] Repair after schema failure still not valid JSON', {
+          model,
+          repairedLength: repaired.length,
+          repairedSnippet: repaired.slice(0, 300),
+        });
         throw new Error('Model did not return valid JSON.');
       }
 
@@ -329,7 +336,7 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
         },
       ],
       temperature: 0,
-      maxOutputTokens: options.maxOutputTokens,
+      maxOutputTokens: repairMaxOutputTokens,
       timeoutMs: options.timeoutMs,
       responseFormat: { type: 'json_object' },
     });
@@ -345,13 +352,18 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
         `ORIGINAL PROMPT (for shape/rules):\n${options.prompt}\n\n` +
         `BROKEN OUTPUT:\n${raw}`,
       temperature: 0,
-      maxOutputTokens: options.maxOutputTokens,
+      maxOutputTokens: repairMaxOutputTokens,
       timeoutMs: options.timeoutMs,
     });
   }
 
   const repairedParsed = tryParseJson(repaired);
   if (repairedParsed === null) {
+    console.warn('[openaiGenerateJson] Repair after parse failure still not valid JSON', {
+      model,
+      repairedLength: repaired.length,
+      repairedSnippet: repaired.slice(0, 300),
+    });
     throw new Error('Model did not return valid JSON.');
   }
 

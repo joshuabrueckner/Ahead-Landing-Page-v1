@@ -87,6 +87,15 @@ Title rules:
 - Use lowercase after "Discusses"
 - Under 8 words
 
+Length limits (keep output short):
+- title: max 50 characters
+- summary: max 180 characters
+- each bullet: max 90 characters
+
+Supporting articles:
+- Include ONLY: id (if available), title, source, date, url
+- Do NOT include the optional "text" field
+
 Bullets rules:
 - Exactly 2 bullets
 `;
