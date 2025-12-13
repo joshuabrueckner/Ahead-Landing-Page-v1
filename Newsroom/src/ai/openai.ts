@@ -83,12 +83,6 @@ async function createChatCompletion(options: {
   // RequestOptions (2nd arg) is where `timeout`/`signal` belong in the OpenAI SDK.
   // Do NOT put `signal` into the JSON body (the API will reject it).
   const requestOptions: any = { timeout: timeoutMs };
-  const abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  let abortTimer: any = null;
-  if (abortController) {
-    requestOptions.signal = abortController.signal;
-    abortTimer = setTimeout(() => abortController.abort(), timeoutMs);
-  }
 
   const baseRequest: any = {
     model: options.model,
@@ -118,9 +112,93 @@ async function createChatCompletion(options: {
       return result;
     }
     throw error;
-  } finally {
-    if (abortTimer) clearTimeout(abortTimer);
   }
+}
+
+function extractJsonObjectSubstrings(text: string, max = 200): string[] {
+  const out: string[] = [];
+  const stack: Array<{ ch: '{' | '['; idx: number }> = [];
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (c === '\\') {
+        escape = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (c === '{' || c === '[') {
+      stack.push({ ch: c as any, idx: i });
+      continue;
+    }
+
+    if (c === '}' || c === ']') {
+      const last = stack[stack.length - 1];
+      if (!last) continue;
+      if ((c === '}' && last.ch !== '{') || (c === ']' && last.ch !== '[')) continue;
+      stack.pop();
+      if (c === '}') {
+        out.push(text.slice(last.idx, i + 1));
+        if (out.length >= max) break;
+      }
+    }
+  }
+
+  return out;
+}
+
+function maybeSalvagePitchesFromTruncatedJson(raw: string): unknown | null {
+  if (!raw.includes('"pitches"')) return null;
+
+  const candidates = extractJsonObjectSubstrings(raw);
+  const pitchObjects: any[] = [];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        typeof parsed.id === 'string' &&
+        typeof parsed.title === 'string' &&
+        typeof parsed.summary === 'string' &&
+        Array.isArray(parsed.bullets) &&
+        Array.isArray(parsed.supportingArticles)
+      ) {
+        pitchObjects.push(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (pitchObjects.length === 0) return null;
+
+  // Best-effort: keep first 10 unique by id.
+  const byId = new Map<string, any>();
+  for (const p of pitchObjects) {
+    if (!byId.has(p.id)) byId.set(p.id, p);
+    if (byId.size >= 10) break;
+  }
+
+  return { pitches: Array.from(byId.values()) };
 }
 
 export async function openaiGenerateText(options: {
@@ -310,6 +388,16 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
       }
 
       return schema.parse(repairedParsed);
+    }
+  }
+
+  // If parsing failed, try a local salvage before invoking a second model call.
+  const salvaged = maybeSalvagePitchesFromTruncatedJson(raw);
+  if (salvaged !== null) {
+    try {
+      return schema.parse(salvaged);
+    } catch {
+      // continue to model-based repair
     }
   }
 
