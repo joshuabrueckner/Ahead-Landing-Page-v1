@@ -61,6 +61,14 @@ function getCompletionMeta(completion: any) {
   };
 }
 
+function shouldUseJsonModeForModel(model: string): boolean {
+  // In production we've observed `gpt-5.2` + `response_format: json_object` returning empty content
+  // with `finish_reason: 'length'`, causing downstream JSON parsing failures.
+  // For now, avoid JSON-mode for gpt-5* and rely on strict prompting + parse/repair.
+  if (/^gpt-5/i.test(model)) return false;
+  return true;
+}
+
 async function createChatCompletion(options: {
   model: string;
   messages: ChatMessage[];
@@ -188,35 +196,45 @@ export async function openaiGenerateJson<T>(schema: JsonSchemaLike<T>, options: 
     'Return ONLY valid JSON. No markdown. No commentary.';
 
   const attemptOnce = async (attemptModel: string) => {
-    // First try: ask the API for JSON output (when supported).
-    let raw = '';
-    try {
-      const completion = await createChatCompletion({
-        model: attemptModel,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: options.prompt },
-        ],
-        temperature: options.temperature,
-        maxOutputTokens: options.maxOutputTokens,
-        timeoutMs: options.timeoutMs,
-        responseFormat: { type: 'json_object' },
-      });
-      raw = getCompletionText(completion).trim();
-      if (!raw) {
-        const meta = getCompletionMeta(completion);
-        console.warn('[openaiGenerateJson] Empty JSON-mode completion; falling back', { model: attemptModel, ...meta });
-        throw new Error('Empty completion content');
+    const useJsonMode = shouldUseJsonModeForModel(attemptModel);
+
+    if (useJsonMode) {
+      let raw = '';
+      try {
+        const completion = await createChatCompletion({
+          model: attemptModel,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: options.prompt },
+          ],
+          temperature: options.temperature,
+          maxOutputTokens: options.maxOutputTokens,
+          timeoutMs: options.timeoutMs,
+          responseFormat: { type: 'json_object' },
+        });
+        raw = getCompletionText(completion).trim();
+        if (!raw) {
+          const meta = getCompletionMeta(completion);
+          console.warn('[openaiGenerateJson] Empty JSON-mode completion; falling back', { model: attemptModel, ...meta });
+          throw new Error('Empty completion content');
+        }
+        return raw;
+      } catch {
+        // Fallback: plain text + local parsing.
+        return await openaiGenerateText({
+          ...options,
+          system,
+          model: attemptModel,
+        });
       }
-    } catch {
-      // Fallback: plain text + local parsing.
-      raw = await openaiGenerateText({
-        ...options,
-        system,
-        model: attemptModel,
-      });
     }
-    return raw;
+
+    // gpt-5* path: skip JSON-mode entirely.
+    return await openaiGenerateText({
+      ...options,
+      system,
+      model: attemptModel,
+    });
   };
 
   let raw = await attemptOnce(model);
