@@ -1226,7 +1226,8 @@ export async function generateLinkedInPitchesAction(
 ): Promise<GenerateLinkedInPitchesOutput | { error: string }> {
   try {
     const result = await generateLinkedInPitches({ articles });
-    return result;
+    // Ensure the return value is React Server Action / Flight serializable.
+    return JSON.parse(JSON.stringify(result)) as GenerateLinkedInPitchesOutput;
   } catch (error: any) {
     console.error("Error generating LinkedIn pitches:", error);
     return { error: error.message || "Failed to generate pitches." };

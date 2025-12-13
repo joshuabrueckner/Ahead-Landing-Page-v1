@@ -60,13 +60,16 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     }
 
     const result = Array.from(unique.values())
-      .map(a => ({
-        id: a?.id,
-        title: String(a?.title || ''),
-        source: String(a?.source || ''),
-        date: String(a?.date || ''),
-        url: String(a?.url || ''),
-      }))
+      .map(a => {
+        const entry: { id?: string; title: string; source: string; date: string; url: string } = {
+          title: String(a?.title || ''),
+          source: String(a?.source || ''),
+          date: String(a?.date || ''),
+          url: String(a?.url || ''),
+        };
+        if (typeof a?.id === 'string' && a.id.trim()) entry.id = a.id;
+        return entry;
+      })
       .filter(a => a.title && a.url);
 
     // Fill up to at least 2 sources from the input article pool.
@@ -75,13 +78,14 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
       if (result.length >= 2) break;
       const key = a.id ?? a.url;
       if (already.has(key)) continue;
-      result.push({
-        id: a.id,
+      const entry: { id?: string; title: string; source: string; date: string; url: string } = {
         title: a.title,
         source: a.source,
         date: a.date,
         url: a.url,
-      });
+      };
+      if (typeof a.id === 'string' && a.id.trim()) entry.id = a.id;
+      result.push(entry);
       already.add(key);
     }
 
