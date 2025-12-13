@@ -55,11 +55,39 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     return t[0].toUpperCase() + t.slice(1);
   };
 
+  const classifyTheme = (articles: Array<{ title: string; summary?: string; source?: string }>) => {
+    const blob = articles
+      .map(a => `${a.title} ${a.summary || ''} ${a.source || ''}`)
+      .join(' ')
+      .toLowerCase();
+
+    if (/(executive order|regulation|law|policy|compliance|ban|antitrust|court|senate|congress)/.test(blob)) {
+      return 'AI regulation and policy';
+    }
+    if (/(data center|datacenter|power|grid|compute|infrastructure|capex)/.test(blob)) {
+      return 'AI infrastructure buildout';
+    }
+    if (/(investment|funding|valuation|ipo|acquisition|merger|softbank|venture|raises)/.test(blob)) {
+      return 'AI money and market moves';
+    }
+    if (/(openai|google|anthropic|meta|microsoft|model|gap|frontier)/.test(blob)) {
+      return 'Model competition and platforms';
+    }
+    if (/(partner|partnership|licensing|ip|copyright|studio|disney|characters)/.test(blob)) {
+      return 'AI partnerships and IP';
+    }
+    if (/(person of the year|award|backlash|public|trust|ethics|safety)/.test(blob)) {
+      return 'AI narrative, trust, and safety';
+    }
+
+    return 'Where AI is heading next';
+  };
+
   const sanitizeTitle = (title: string) => {
     const trimmed = String(title || '').trim();
     const withoutPrefix = trimmed.replace(/^discusses\s*/i, '').trim();
     const rest = toSentenceCase(withoutPrefix || 'ai news');
-    return truncateAtWordBoundary(`Discusses ${rest}`, 70);
+    return truncateAtWordBoundary(`Discusses ${rest}`, 58);
   };
 
   const ensureSources = (supporting: any[]) => {
@@ -113,21 +141,22 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     const looksGeneric =
       /^angle\s+connecting\b/i.test(rawSummary) ||
       /^connect(?:s|ing)\b/i.test(rawSummary) ||
-      rawSummary.length < 40;
+      /\b(connects?|linking|ties together)\b/i.test(rawSummary) ||
+      rawSummary.length < 60;
 
     const derivedSummary = () => {
+      const theme = classifyTheme(supportingArticles);
       const t1 = supportingArticles[0]?.title;
-      const t2 = supportingArticles[1]?.title;
-      if (t1 && t2) {
-        return truncateAtWordBoundary(`Connects ${t1} and ${t2} to explain the bigger trend.`, 180);
+      if (t1) {
+        return truncateAtWordBoundary(`Why ${theme} matters: ${t1}`, 120);
       }
-      return truncateAtWordBoundary('A practical angle connecting multiple stories into one clear takeaway.', 180);
+      return truncateAtWordBoundary(`Why ${theme} matters this week.`, 120);
     };
 
     return {
       id: String(p?.id || `${index + 1}`),
       title: sanitizeTitle(p?.title),
-      summary: truncateAtWordBoundary(looksGeneric ? derivedSummary() : rawSummary, 180),
+      summary: truncateAtWordBoundary(looksGeneric ? derivedSummary() : rawSummary, 120),
       bullets: normalizedBullets.map((b: unknown) => String(b).slice(0, 90)),
       supportingArticles,
     };
@@ -181,9 +210,13 @@ Title rules:
 - Keep it short and readable (no mid-word cutoffs)
 
 Length limits (keep output short):
-- title: max 70 characters
-- summary: max 180 characters
+- title: max 58 characters
+- summary: max 120 characters
 - each bullet: max 90 characters
+
+Summary rules:
+- Must explain the shared theme and why it matters
+- Do NOT start with "Connects" or "Angle connecting" and avoid generic filler
 
 Supporting articles:
 - Include ONLY: id (if available), title, source, date, url
@@ -225,12 +258,16 @@ Bullets rules:
   while (merged.length < 6 && input.articles.length >= 2) {
     const a1 = input.articles[(syntheticIndex * 2) % input.articles.length];
     const a2 = input.articles[(syntheticIndex * 2 + 1) % input.articles.length];
+    const theme = classifyTheme([
+      { title: a1.title, summary: a1.summary, source: a1.source },
+      { title: a2.title, summary: a2.summary, source: a2.source },
+    ]);
     const fallbackPitch = {
       id: `fallback-${syntheticIndex + 1}`,
-      title: sanitizeTitle(`Discusses ${a1.title}`),
+      title: sanitizeTitle(`Discusses ${theme}`),
       summary: truncateAtWordBoundary(
-        `Connects ${a1.title} and ${a2.title} into one clear takeaway for teams.`,
-        180
+        `Why ${theme} matters: ${a1.title}`,
+        120
       ),
       bullets: ['Key takeaway for teams.', 'What to watch next.'],
       supportingArticles: ensureSources([
