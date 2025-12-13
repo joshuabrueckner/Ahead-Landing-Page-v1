@@ -307,17 +307,14 @@ Bullets rules:
   while (merged.length < 6 && input.articles.length >= 2) {
     const a1 = input.articles[(syntheticIndex * 2) % input.articles.length];
     const a2 = input.articles[(syntheticIndex * 2 + 1) % input.articles.length];
-    const theme = classifyTheme([
-      { title: a1.title, summary: a1.summary, source: a1.source },
-      { title: a2.title, summary: a2.summary, source: a2.source },
+    const derived = deriveFromSources([
+      { title: a1.title, summary: a1.summary, text: a1.text, source: a1.source },
+      { title: a2.title, summary: a2.summary, text: a2.text, source: a2.source },
     ]);
     const fallbackPitch = {
       id: `fallback-${syntheticIndex + 1}`,
-      title: sanitizeTitle(`Discusses ${theme}`),
-      summary: truncateAtWordBoundary(
-        `Why ${theme} matters: ${a1.title}`,
-        120
-      ),
+      title: truncateAtWordBoundary(sanitizeTitle(derived.title), 58),
+      summary: truncateAtWordBoundary(derived.summary, 140),
       bullets: ['Key takeaway for teams.', 'What to watch next.'],
       supportingArticles: ensureSources([
         { id: a1.id, title: a1.title, source: a1.source, date: a1.date, url: a1.url },
