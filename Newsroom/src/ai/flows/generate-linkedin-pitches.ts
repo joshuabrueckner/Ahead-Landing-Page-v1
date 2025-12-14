@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'genkit';
-import { openaiGenerateJson } from '@/ai/openai';
+import { generateJson } from '@/ai/generate';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
@@ -313,12 +313,13 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
 
   const defaults = DEFAULT_PROMPTS.generateLinkedInPitches;
 
-  const { template, system } = await getPromptContent('generateLinkedInPitches', defaults);
+  const { template, system, provider } = await getPromptContent('generateLinkedInPitches', defaults);
   const prompt = renderPrompt(template, { articlesText });
 
   let first: GenerateLinkedInPitchesOutput = { pitches: [] };
   try {
-    first = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
+    first = await generateJson(GenerateLinkedInPitchesOutputSchema, {
+      provider,
       prompt,
       system,
       temperature: 0.6,

@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'genkit';
-import { openaiGenerateText } from '@/ai/openai';
+import { generateText } from '@/ai/generate';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 
@@ -46,7 +46,7 @@ export async function generateLinkedInPost(input: GenerateLinkedInPostInput): Pr
 
   const defaults = DEFAULT_PROMPTS.generateLinkedInPost;
 
-  const { template, system } = await getPromptContent('generateLinkedInPost', defaults);
+  const { template, system, provider } = await getPromptContent('generateLinkedInPost', defaults);
   const prompt = renderPrompt(template, {
     title: input.title,
     summary: input.summary,
@@ -55,7 +55,8 @@ export async function generateLinkedInPost(input: GenerateLinkedInPostInput): Pr
     feedbackBlock,
   });
 
-  const post = await openaiGenerateText({
+  const post = await generateText({
+    provider,
     prompt,
     system,
     temperature: 0.7,

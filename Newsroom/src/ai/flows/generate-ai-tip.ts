@@ -9,7 +9,7 @@
  */
 
 import {z} from 'genkit';
-import { openaiGenerateJson } from '@/ai/openai';
+import { generateJson } from '@/ai/generate';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
@@ -28,10 +28,11 @@ export async function generateAITip(input: GenerateAITipInput): Promise<Generate
 
   const defaults = DEFAULT_PROMPTS.generateAITip;
 
-  const { template, system } = await getPromptContent('generateAITip', defaults);
+  const { template, system, provider } = await getPromptContent('generateAITip', defaults);
   const prompt = renderPrompt(template, { topicLine });
 
-  return openaiGenerateJson(GenerateAITipOutputSchema, {
+  return generateJson(GenerateAITipOutputSchema, {
+    provider,
     prompt,
     system,
     temperature: 0.7,

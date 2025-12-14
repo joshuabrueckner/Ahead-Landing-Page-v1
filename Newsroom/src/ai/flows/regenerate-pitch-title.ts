@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'genkit';
-import { openaiGenerateJson } from '@/ai/openai';
+import { generateJson } from '@/ai/generate';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
@@ -36,14 +36,15 @@ export async function regeneratePitchTitle(input: RegeneratePitchTitleInput): Pr
 
   const defaults = DEFAULT_PROMPTS.regeneratePitchTitle;
 
-  const { template, system } = await getPromptContent('regeneratePitchTitle', defaults);
+  const { template, system, provider } = await getPromptContent('regeneratePitchTitle', defaults);
   const prompt = renderPrompt(template, {
     currentTitle: input.currentTitle,
     currentSummary: input.currentSummary,
     articlesText,
   });
 
-  return openaiGenerateJson(RegeneratePitchTitleOutputSchema, {
+  return generateJson(RegeneratePitchTitleOutputSchema, {
+    provider,
     prompt,
     system,
     temperature: 0.8,

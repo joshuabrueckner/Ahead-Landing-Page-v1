@@ -9,7 +9,7 @@
  */
 
 import {z} from 'genkit';
-import { openaiGenerateText } from '@/ai/openai';
+import { generateText } from '@/ai/generate';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
@@ -33,10 +33,11 @@ export async function generateArticleSummary(input: GenerateArticleSummaryInput)
   try {
     const defaults = DEFAULT_PROMPTS.generateArticleSummary;
 
-    const { template, system } = await getPromptContent('generateArticleSummary', defaults);
+    const { template, system, provider } = await getPromptContent('generateArticleSummary', defaults);
     const prompt = renderPrompt(template, { articleText });
 
-    const text = await openaiGenerateText({
+    const text = await generateText({
+      provider,
       prompt,
       system,
       temperature: 0.3,

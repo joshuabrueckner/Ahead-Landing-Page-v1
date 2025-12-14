@@ -22,7 +22,7 @@ function assertKnownPromptId(promptId: string) {
   }
 }
 
-export async function savePromptAction(input: { id: string; template: string; system?: string }) {
+export async function savePromptAction(input: { id: string; template: string; system?: string; provider?: 'gpt' | 'gemini' }) {
   await assertAuthed();
 
   const id = String(input?.id || "").trim();
@@ -32,6 +32,9 @@ export async function savePromptAction(input: { id: string; template: string; sy
   const system = typeof input?.system === "string" ? input.system : undefined;
   const systemTrimmed = system?.trim() ? system : undefined;
 
+  const provider = input?.provider === "gemini" ? "gemini" : "gpt";
+  const providerField = provider === "gemini" ? "gemini" : admin.firestore.FieldValue.delete();
+
   const db = getAdminFirestore();
   await db
     .collection("Prompts")
@@ -40,6 +43,7 @@ export async function savePromptAction(input: { id: string; template: string; sy
       {
         template,
         system: systemTrimmed ?? admin.firestore.FieldValue.delete(),
+        provider: providerField,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { resetPromptAction, savePromptAction } from "./actions";
@@ -11,8 +12,10 @@ type PromptEntry = {
   id: string;
   template: string;
   system?: string;
+  provider: "gpt" | "gemini";
   defaultTemplate: string;
   defaultSystem?: string;
+  defaultProvider: "gpt" | "gemini";
 };
 
 export default function PromptsClient({ prompts }: { prompts: PromptEntry[] }) {
@@ -25,10 +28,10 @@ export default function PromptsClient({ prompts }: { prompts: PromptEntry[] }) {
     return map;
   }, [prompts]);
 
-  const [drafts, setDrafts] = useState<Record<string, { template: string; system: string }>>(() => {
-    const out: Record<string, { template: string; system: string }> = {};
+  const [drafts, setDrafts] = useState<Record<string, { template: string; system: string; provider: "gpt" | "gemini" }>>(() => {
+    const out: Record<string, { template: string; system: string; provider: "gpt" | "gemini" }> = {};
     for (const p of prompts) {
-      out[p.id] = { template: p.template ?? "", system: p.system ?? "" };
+      out[p.id] = { template: p.template ?? "", system: p.system ?? "", provider: p.provider ?? "gpt" };
     }
     return out;
   });
@@ -57,6 +60,7 @@ export default function PromptsClient({ prompts }: { prompts: PromptEntry[] }) {
             id,
             template: draft.template,
             system: draft.system || undefined,
+            provider: draft.provider,
           });
           toast({ title: "Saved", description: id });
         } catch (error: any) {
@@ -82,6 +86,7 @@ export default function PromptsClient({ prompts }: { prompts: PromptEntry[] }) {
             [id]: {
               template: initial?.defaultTemplate ?? "",
               system: initial?.defaultSystem ?? "",
+              provider: initial?.defaultProvider ?? "gpt",
             },
           }));
           toast({ title: "Reset to default", description: id });
@@ -108,7 +113,7 @@ export default function PromptsClient({ prompts }: { prompts: PromptEntry[] }) {
 
       <div className="space-y-4">
         {prompts.map((p) => {
-          const d = drafts[p.id] ?? { template: p.template ?? "", system: p.system ?? "" };
+          const d = drafts[p.id] ?? { template: p.template ?? "", system: p.system ?? "", provider: p.provider ?? "gpt" };
           return (
             <Card key={p.id}>
               <CardHeader className="pb-3">
@@ -126,6 +131,29 @@ export default function PromptsClient({ prompts }: { prompts: PromptEntry[] }) {
               </CardHeader>
 
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">provider</div>
+                  <div className="max-w-[220px]">
+                    <Select
+                      value={d.provider}
+                      onValueChange={(value) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [p.id]: { ...d, provider: value === "gemini" ? "gemini" : "gpt" },
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt">gpt</SelectItem>
+                        <SelectItem value="gemini">gemini</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-medium">system</div>

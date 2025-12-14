@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'genkit';
-import { openaiGenerateJson } from '@/ai/openai';
+import { generateJson } from '@/ai/generate';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
@@ -67,14 +67,15 @@ export async function findRelevantArticles(input: FindRelevantArticlesInput): Pr
 
   const defaults = DEFAULT_PROMPTS.findRelevantArticles;
 
-  const { template, system } = await getPromptContent('findRelevantArticles', defaults);
+  const { template, system, provider } = await getPromptContent('findRelevantArticles', defaults);
   const prompt = renderPrompt(template, {
     userIdea: input.userIdea,
     existingUrlsText,
     availableText,
   });
 
-  return openaiGenerateJson(FindRelevantArticlesOutputSchema, {
+  return generateJson(FindRelevantArticlesOutputSchema, {
+    provider,
     prompt,
     system,
     temperature: 0.4,

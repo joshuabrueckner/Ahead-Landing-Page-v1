@@ -10,7 +10,7 @@
  */
 
 import {z} from 'genkit';
-import { openaiGenerateText } from '@/ai/openai';
+import { generateText } from '@/ai/generate';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
@@ -33,13 +33,14 @@ export async function generateProductSummary(input: GenerateProductSummaryInput)
   try {
     const defaults = DEFAULT_PROMPTS.generateProductSummary;
 
-    const { template, system } = await getPromptContent('generateProductSummary', defaults);
+    const { template, system, provider } = await getPromptContent('generateProductSummary', defaults);
     const prompt = renderPrompt(template, {
       name: input.name,
       description: input.description,
     });
 
-    const text = await openaiGenerateText({
+    const text = await generateText({
+      provider,
       prompt,
       system,
       temperature: 0.5,

@@ -9,7 +9,7 @@
  */
 
 import {z} from 'genkit';
-import { openaiGenerateJson } from '@/ai/openai';
+import { generateJson } from '@/ai/generate';
 import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
@@ -26,10 +26,11 @@ export type GenerateSubjectLineOutput = z.infer<typeof GenerateSubjectLineOutput
 export async function generateSubjectLine(input: GenerateSubjectLineInput): Promise<GenerateSubjectLineOutput> {
   const defaults = DEFAULT_PROMPTS.generateSubjectLine;
 
-  const { template, system } = await getPromptContent('generateSubjectLine', defaults);
+  const { template, system, provider } = await getPromptContent('generateSubjectLine', defaults);
   const prompt = renderPrompt(template, { headline: input.headline });
 
-  return openaiGenerateJson(GenerateSubjectLineOutputSchema, {
+  return generateJson(GenerateSubjectLineOutputSchema, {
+    provider,
     prompt,
     system,
     temperature: 0.7,

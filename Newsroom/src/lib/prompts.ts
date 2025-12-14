@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 export type PromptContent = {
   template: string;
   system?: string;
+  provider?: 'gpt' | 'gemini';
 };
 
 type CacheEntry = {
@@ -19,7 +20,7 @@ const DEFAULT_TTL_MS = 60_000;
 const cache = new Map<string, CacheEntry>();
 
 function normalizePromptContent(input: PromptContent): PromptContent {
-  let { template, system } = input;
+  let { template, system, provider } = input;
 
   if (typeof template === 'string' && template.startsWith('SYSTEM ROLE')) {
     const splitIndex = template.indexOf('\n\n');
@@ -32,7 +33,11 @@ function normalizePromptContent(input: PromptContent): PromptContent {
     }
   }
 
-  return { template, ...(system && system.trim() ? { system } : {}) };
+  return {
+    template,
+    ...(system && system.trim() ? { system } : {}),
+    ...(provider ? { provider } : {}),
+  };
 }
 
 export async function getPromptContent(
@@ -58,8 +63,14 @@ export async function getPromptContent(
     const data = snap.data() as any;
     const template = typeof data?.template === 'string' && data.template.trim() ? data.template : defaults.template;
     const system = typeof data?.system === 'string' && data.system.trim() ? data.system : defaults.system;
+    const providerRaw = data?.provider;
+    const provider = providerRaw === 'gemini' || providerRaw === 'gpt' ? providerRaw : (defaults.provider ?? 'gpt');
 
-    const value = normalizePromptContent({ template, ...(system ? { system } : {}) });
+    const value = normalizePromptContent({
+      template,
+      ...(system ? { system } : {}),
+      ...(provider ? { provider } : {}),
+    });
     cache.set(promptId, { value, expiresAt: now + ttlMs });
     return value;
   } catch (error) {

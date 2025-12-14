@@ -14,8 +14,10 @@ export default async function PromptsPage() {
         id,
         template: content.template,
         system: content.system,
+        provider: content.provider ?? 'gpt',
         defaultTemplate: defaults.template,
         defaultSystem: defaults.system,
+        defaultProvider: defaults.provider ?? 'gpt',
       };
     })
   );

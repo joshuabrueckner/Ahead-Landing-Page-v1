@@ -1,6 +1,7 @@
 export type PromptDoc = {
   template: string;
   system?: string;
+  provider?: 'gpt' | 'gemini';
 };
 
 export const DEFAULT_PROMPTS: Record<string, PromptDoc> = {

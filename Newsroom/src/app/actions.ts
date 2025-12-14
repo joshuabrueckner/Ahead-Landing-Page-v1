@@ -42,7 +42,7 @@ import {
 import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { getFirestoreDb } from "@/firebase/index";
 import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
-import { openaiGenerateText } from "@/ai/openai";
+import { generateText } from "@/ai/generate";
 import { DEFAULT_PROMPTS } from "@/lib/prompt-defaults";
 import { getPromptContent, renderPrompt } from "@/lib/prompts";
 import { load } from "cheerio";
@@ -371,10 +371,11 @@ export async function generateArticleOneSentenceSummary(articleText: string): Pr
     const clippedArticleText = articleText.slice(0, 5000);
     const defaults = DEFAULT_PROMPTS.generateArticleOneSentenceSummary;
 
-    const { template, system } = await getPromptContent('generateArticleOneSentenceSummary', defaults);
+    const { template, system, provider } = await getPromptContent('generateArticleOneSentenceSummary', defaults);
     const prompt = renderPrompt(template, { articleText: clippedArticleText });
 
-    const text = await openaiGenerateText({
+    const text = await generateText({
+      provider,
       prompt,
       system,
       temperature: 0.3,
@@ -497,7 +498,7 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
 
   const defaults = DEFAULT_PROMPTS.transformAiTip;
 
-  const { template, system } = await getPromptContent('transformAiTip', defaults);
+  const { template, system, provider } = await getPromptContent('transformAiTip', defaults);
   const instructions = renderPrompt(template, { sourceText });
 
   try {
@@ -505,7 +506,8 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
     const MAX_CHARS = 400;
     const debug = process.env.NEWSROOM_DEBUG_TIP_LENGTH === '1';
 
-    const tipDraft = (await openaiGenerateText({
+    const tipDraft = (await generateText({
+      provider,
       prompt: instructions,
       system,
       temperature: 0.6,
@@ -540,7 +542,8 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
           `Current tip:\n${tip}\n\n` +
           `Return only the rewritten tip.`;
 
-        const rewritten = (await openaiGenerateText({
+        const rewritten = (await generateText({
+          provider,
           prompt: rewritePrompt,
           system: rewriteSystem,
           temperature: 0.4,
