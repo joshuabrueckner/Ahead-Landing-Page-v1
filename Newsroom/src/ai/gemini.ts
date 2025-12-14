@@ -1,19 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 type JsonSchemaLike<T> = {
   parse: (value: unknown) => T;
 };
-
-let cachedClient: GoogleGenerativeAI | null = null;
-
-function getClient(): GoogleGenerativeAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not set.');
-  }
-  if (!cachedClient) cachedClient = new GoogleGenerativeAI(apiKey);
-  return cachedClient;
-}
 
 export function getGeminiModel(): string {
   const raw = (process.env.GEMINI_MODEL || '').trim();
@@ -25,6 +12,83 @@ export function getGeminiModel(): string {
   if (model.startsWith('googleai/')) model = model.slice('googleai/'.length);
 
   return model || 'gemini-2.0-flash';
+}
+
+function getGeminiApiKey(): string {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not set.');
+  return apiKey;
+}
+
+function toModelPath(modelName: string): string {
+  const trimmed = modelName.trim();
+  if (!trimmed) return 'models/gemini-2.0-flash';
+  if (trimmed.startsWith('models/')) return trimmed;
+  return `models/${trimmed}`;
+}
+
+async function geminiGenerateContentViaRest(options: {
+  model: string;
+  prompt: string;
+  system?: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+}): Promise<any> {
+  const apiKey = getGeminiApiKey();
+  const modelPath = toModelPath(options.model);
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const body: any = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: options.prompt }],
+      },
+    ],
+    generationConfig: {
+      ...(typeof options.temperature === 'number' ? { temperature: options.temperature } : {}),
+      ...(typeof options.maxOutputTokens === 'number' ? { maxOutputTokens: options.maxOutputTokens } : {}),
+    },
+  };
+
+  if (options.system?.trim()) {
+    body.systemInstruction = {
+      role: 'system',
+      parts: [{ text: options.system }],
+    };
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    const messageFromApi =
+      typeof json?.error?.message === 'string'
+        ? json.error.message
+        : typeof json?.message === 'string'
+          ? json.message
+          : text?.slice(0, 800) || '';
+
+    throw new Error(
+      `Gemini REST error (${res.status} ${res.statusText}) for model='${options.model}': ${messageFromApi}`
+    );
+  }
+
+  return json;
 }
 
 function tryParseJson(text: string): unknown {
@@ -67,108 +131,47 @@ export async function geminiGenerateText(options: {
   temperature?: number;
   maxOutputTokens?: number;
 }): Promise<string> {
-  const client = getClient();
   const modelName = options.model || getGeminiModel();
-
   const debug = process.env.NEWSROOM_DEBUG_GEMINI === '1';
 
-  const extractText = (result: any): string => {
-    const response = result?.response;
-    const direct = response?.text?.();
-    if (typeof direct === 'string' && direct.trim()) return direct.trim();
-
-    const candidates = response?.candidates;
-    if (Array.isArray(candidates) && candidates.length) {
-      const first = candidates[0];
-      const parts = first?.content?.parts;
-      if (Array.isArray(parts) && parts.length) {
-        const joined = parts
-          .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
-          .join('')
-          .trim();
-        if (joined) return joined;
-      }
-    }
-
-    return '';
-  };
-
-  const generationConfig: any = {
-    ...(typeof options.temperature === 'number' ? { temperature: options.temperature } : {}),
-    ...(typeof options.maxOutputTokens === 'number' ? { maxOutputTokens: options.maxOutputTokens } : {}),
-  };
-
-  // Attempt 1: systemInstruction (best practice)
-  const modelWithSystem = client.getGenerativeModel({
+  const response = await geminiGenerateContentViaRest({
     model: modelName,
-    ...(options.system ? { systemInstruction: options.system } : {}),
-  } as any);
+    prompt: options.prompt,
+    system: options.system,
+    temperature: options.temperature,
+    maxOutputTokens: options.maxOutputTokens,
+  });
 
-  const result1 = await modelWithSystem.generateContent(
-    {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: options.prompt }],
-        },
-      ],
-      generationConfig,
-    } as any
+  const candidates = response?.candidates;
+  const first = Array.isArray(candidates) && candidates.length ? candidates[0] : null;
+  const parts = first?.content?.parts;
+  const joined = Array.isArray(parts)
+    ? parts.map((p: any) => (typeof p?.text === 'string' ? p.text : '')).join('').trim()
+    : '';
+
+  if (joined) return joined;
+
+  const finishReason = first?.finishReason;
+  const promptFeedback = response?.promptFeedback;
+  const safetyRatings = first?.safetyRatings;
+
+  if (debug) {
+    console.warn('[geminiGenerateText] Empty output (REST)', {
+      model: modelName,
+      finishReason,
+      promptFeedback,
+      safetyRatings,
+      candidates: Array.isArray(candidates) ? candidates.length : 0,
+    });
+  }
+
+  throw new Error(
+    `Gemini returned empty output (model='${modelName}'). ` +
+      `finishReason=${finishReason ?? 'unknown'}. ` +
+      `promptFeedback=${promptFeedback ? JSON.stringify(promptFeedback) : 'null'}. ` +
+      `This usually means the model name is unavailable for your key/project, ` +
+      `or the response was blocked by safety.`
   );
-
-  let text = extractText(result1);
-
-  // Attempt 2 (fallback): some model variants / SDK versions behave oddly with systemInstruction.
-  // If we got empty output, retry by inlining system + prompt in a single user message.
-  if (!text && options.system?.trim()) {
-    const modelNoSystem = client.getGenerativeModel({ model: modelName } as any);
-    const combined = `${options.system.trim()}\n\n${options.prompt}`;
-    const result2 = await modelNoSystem.generateContent(
-      {
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: combined }],
-          },
-        ],
-        generationConfig,
-      } as any
-    );
-    text = extractText(result2);
-
-    if (!text && debug) {
-      const r = (result2 as any)?.response;
-      console.warn('[geminiGenerateText] Empty output after fallback', {
-        model: modelName,
-        hasCandidates: Array.isArray(r?.candidates) ? r.candidates.length : 0,
-        promptFeedback: r?.promptFeedback,
-        firstCandidateFinishReason: r?.candidates?.[0]?.finishReason,
-      });
-    }
-  }
-
-  if (!text) {
-    const r = (result1 as any)?.response;
-    const finishReason = r?.candidates?.[0]?.finishReason;
-    const promptFeedback = r?.promptFeedback;
-    const hint =
-      `Gemini returned empty output (model='${modelName}'). ` +
-      `This is often caused by an invalid/unavailable model name, missing access to that model, ` +
-      `a blocked response (safety), or an API-key/project restriction.`;
-
-    if (debug) {
-      console.warn('[geminiGenerateText] Empty output', {
-        model: modelName,
-        finishReason,
-        promptFeedback,
-        hasCandidates: Array.isArray(r?.candidates) ? r.candidates.length : 0,
-      });
-    }
-
-    throw new Error(hint);
-  }
-
-  return text;
 }
 
 export async function geminiGenerateJson<T>(schema: JsonSchemaLike<T>, options: {
