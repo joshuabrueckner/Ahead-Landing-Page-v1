@@ -501,6 +501,10 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
   const instructions = renderPrompt(template, { sourceText });
 
   try {
+    const MIN_CHARS = 360;
+    const MAX_CHARS = 400;
+    const debug = process.env.NEWSROOM_DEBUG_TIP_LENGTH === '1';
+
     const tipDraft = (await openaiGenerateText({
       prompt: instructions,
       system,
@@ -512,33 +516,44 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
     }
 
     let tip = tipDraft;
+    if (debug) console.log(`[transformAiTip] initial length=${tip.length}`);
 
-    // If the model tends to under-shoot the ~400 character target, run a second pass
-    // that explicitly expands to a tighter length range.
-    if (tip.length < 340) {
-      const rewritePrompt =
-        `Rewrite the tip below to be between 360 and 400 characters (inclusive).\n` +
-        `Do NOT exceed 400 characters.\n` +
-        `Keep it jargon-free, plain language, and highly actionable.\n` +
-        `Do not use exclamation points.\n` +
-        `Do not add any preamble or labels (no \"Daily AI Tip:\").\n` +
-        `Stay grounded in the source material.\n\n` +
-        `Source material:\n${sourceText}\n\n` +
-        `Current tip:\n${tip}\n\n` +
-        `Return only the rewritten tip.`;
+    const needsRewrite = (text: string) => text.length < MIN_CHARS || text.length > MAX_CHARS;
 
-      const rewritten = (await openaiGenerateText({
-        prompt: rewritePrompt,
-        system,
-        temperature: 0.6,
-        maxOutputTokens: 500,
-      }))?.trim();
+    if (needsRewrite(tip)) {
+      const rewriteSystem =
+        `You are an expert editor. Output MUST be between ${MIN_CHARS} and ${MAX_CHARS} characters inclusive. ` +
+        `Never exceed ${MAX_CHARS}. Return only the tip text (no labels, no quotes). ` +
+        `No exclamation points. Plain language. Highly actionable. Extra explanatory and informative.`;
 
-      if (rewritten) tip = rewritten;
+      for (let attempt = 0; attempt < 3 && needsRewrite(tip); attempt++) {
+        if (debug) console.log(`[transformAiTip] rewrite attempt=${attempt + 1} start length=${tip.length}`);
+        const rewritePrompt =
+          `Rewrite the tip to satisfy ALL constraints.\n` +
+          `- Length: ${MIN_CHARS}–${MAX_CHARS} characters inclusive (do not exceed ${MAX_CHARS}).\n` +
+          `- Current tip length: ${tip.length} characters.\n` +
+          `- If too short, add one more concrete, helpful sentence grounded in the source.\n` +
+          `- If too long, shorten while keeping specificity.\n` +
+          `- Do not use exclamation points.\n` +
+          `- Do not add any preamble or labels (no \"Daily AI Tip:\").\n\n` +
+          `Source material:\n${sourceText}\n\n` +
+          `Current tip:\n${tip}\n\n` +
+          `Return only the rewritten tip.`;
+
+        const rewritten = (await openaiGenerateText({
+          prompt: rewritePrompt,
+          system: rewriteSystem,
+          temperature: 0.4,
+          maxOutputTokens: 520,
+        }))?.trim();
+
+        if (rewritten) tip = rewritten;
+        if (debug) console.log(`[transformAiTip] rewrite attempt=${attempt + 1} end length=${tip.length}`);
+      }
     }
 
-    if (tip.length > 400) {
-      return { tip: tip.slice(0, 400).trim() };
+    if (tip.length > MAX_CHARS) {
+      return { tip: tip.slice(0, MAX_CHARS).trim() };
     }
 
     return { tip };
