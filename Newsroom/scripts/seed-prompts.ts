@@ -1,4 +1,5 @@
-import { getAdminFirestore } from '../src/firebase/admin';
+// This script prints the default prompt docs as JSON for manual seeding in the Firestore Console.
+// In this setup, `Prompts` are publicly readable and writes are blocked by rules.
 
 type PromptDoc = {
   template: string;
@@ -386,46 +387,14 @@ Respond with only the transformed tip (no preamble, no quotes).`,
 };
 
 function parseArgs(argv: string[]) {
-  const force = argv.includes('--force');
-  const dryRun = argv.includes('--dry-run');
-  return { force, dryRun };
+  const pretty = argv.includes('--pretty');
+  return { pretty };
 }
 
 async function main() {
-  const { force, dryRun } = parseArgs(process.argv.slice(2));
-  const db = getAdminFirestore();
-
-  const ids = Object.keys(DEFAULT_PROMPTS);
-  console.log(`[seed-prompts] ${ids.length} prompts (${force ? 'force' : 'no-overwrite'}${dryRun ? ', dry-run' : ''})`);
-
-  let created = 0;
-  let updated = 0;
-  let skipped = 0;
-
-  for (const id of ids) {
-    const docRef = db.collection('Prompts').doc(id);
-    const snap = await docRef.get();
-    const exists = snap.exists;
-
-    if (exists && !force) {
-      skipped++;
-      continue;
-    }
-
-    const payload = DEFAULT_PROMPTS[id];
-
-    if (dryRun) {
-      if (exists) updated++;
-      else created++;
-      continue;
-    }
-
-    await docRef.set(payload, { merge: true });
-    if (exists) updated++;
-    else created++;
-  }
-
-  console.log(`[seed-prompts] created=${created} updated=${updated} skipped=${skipped}`);
+  const { pretty } = parseArgs(process.argv.slice(2));
+  const payload = { Prompts: DEFAULT_PROMPTS };
+  process.stdout.write(JSON.stringify(payload, null, pretty ? 2 : 0));
 }
 
 main().catch((err) => {

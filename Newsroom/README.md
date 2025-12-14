@@ -17,17 +17,14 @@ To get started, take a look at src/app/page.tsx.
 
 All AI prompt templates are loaded from a Firestore collection named `Prompts` (server-only via Firebase Admin). This lets you edit prompts in the Firebase Console and see changes live.
 
-### Admin credentials
+### Access model
 
-Set one of:
+This project is configured to read `Prompts` using the Firebase client Firestore SDK.
 
-- `FIREBASE_SERVICE_ACCOUNT_JSON` — recommended. A single JSON string of a Firebase service account key.
-- OR the split vars:
-	- `FIREBASE_PROJECT_ID`
-	- `FIREBASE_CLIENT_EMAIL`
-	- `FIREBASE_PRIVATE_KEY` (use `\n` for newlines)
+- Firestore rules must allow `read` on `Prompts/{id}`.
+- Prompts are therefore publicly readable (by design in this setup).
 
-If these are not set (or invalid), the app falls back to the code-default prompts.
+If a prompt doc is missing/unreadable, the app falls back to the code-default prompt.
 
 ### Collection and document shape
 

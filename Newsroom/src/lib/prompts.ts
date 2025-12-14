@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { getAdminFirestore } from '@/firebase/admin';
+import { getFirestoreDb } from '@/firebase/index';
+import { doc, getDoc } from 'firebase/firestore';
 
 export type PromptContent = {
   template: string;
@@ -29,10 +30,10 @@ export async function getPromptContent(
   if (cached && cached.expiresAt > now) return cached.value;
 
   try {
-    const db = getAdminFirestore();
-    const snap = await db.collection(PROMPTS_COLLECTION).doc(promptId).get();
+    const db = getFirestoreDb();
+    const snap = await getDoc(doc(db as any, PROMPTS_COLLECTION, promptId));
 
-    if (!snap.exists) {
+    if (!snap.exists()) {
       cache.set(promptId, { value: defaults, expiresAt: now + ttlMs });
       return defaults;
     }

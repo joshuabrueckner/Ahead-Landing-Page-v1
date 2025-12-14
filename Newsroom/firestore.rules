@@ -22,5 +22,11 @@ service cloud.firestore {
       allow create: if true;
       allow update, delete: if false;
     }
+
+    // Rules for prompts collection (publicly readable; edited via console only)
+    match /Prompts/{promptId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }
