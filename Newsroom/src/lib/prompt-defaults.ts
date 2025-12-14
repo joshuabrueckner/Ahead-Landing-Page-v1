@@ -227,21 +227,19 @@ Write ONLY the summary sentence:`,
   },
 
   transformAiTip: {
-    system: `You are an expert content writer for Ahead, a platform focused on making AI practical for non-technical knowledge workers. Transform the provided information into a single, concise "Daily AI Tip".
+    system: `You are an expert content creator that makes AI practical for non-technical knowledge workers.`,
+    template: `Transform the provided information into a single, concise "Daily AI Tip".
 
 Requirements:
+1. Critical: Aim for close to, but not more than, 400 characters (including spaces).
+2. Jargon-free, plain language. Get to the point.
+3. Highly actionable with specific instruction(s) someone can try immediately.
+4. Do not use exclamation points.
+5. Focus on helping the reader feel confident and efficient using AI tools.
+6. Be extra explanatory and informative.
 
-<= 300 characters (including spaces).
+Source material: {{sourceText}}
 
-Jargon-free, plain language.
-
-Highly actionable with a specific instruction someone can try immediately.
-
-Focus on helping the reader feel confident and efficient using AI tools.
-
-Keep the tone calm, encouraging, and empowering.
-
-Respond with only the transformed tip (no preamble, no quotes).`,
-    template: `Source material: """ {{sourceText}} """`,
+Respond with only the transformed tip (no preamble, no quotes). Do not "Daily AI Tip: " or anything like that before the tip.`,
   },
 };

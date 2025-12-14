@@ -505,14 +505,14 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
       prompt: instructions,
       system,
       temperature: 0.6,
-      maxOutputTokens: 220,
+      maxOutputTokens: 320,
     }))?.trim();
     if (!tip) {
       return { error: "Model returned an empty tip." };
     }
 
-    if (tip.length > 320) {
-      return { tip: tip.slice(0, 320).trim() };
+    if (tip.length > 400) {
+      return { tip: tip.slice(0, 400).trim() };
     }
 
     return { tip };

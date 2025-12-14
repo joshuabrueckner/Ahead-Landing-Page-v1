@@ -63,7 +63,7 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
   };
 
   const charCount = tipDraft.length;
-  const exceedsTarget = charCount > 300;
+  const exceedsTarget = charCount > 400;
 
   return (
     <Card>
@@ -76,7 +76,7 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
             <div>
               <CardTitle className="text-xl font-headline">Daily AI Tip</CardTitle>
               <CardDescription>
-                Paste your raw notes, then use AI to polish them into a confident, sub-300 character tip.
+                Paste your raw notes, then use AI to polish them into a confident, ~400 character tip.
               </CardDescription>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Gemini will rewrite this tip within 300 characters.</TooltipContent>
+              <TooltipContent>AI will rewrite this tip to ~400 characters.</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -113,7 +113,7 @@ export default function AiTipSection({ selectedTip, setSelectedTip }: AiTipSecti
       </CardContent>
       <CardFooter className="bg-secondary/50 p-4 border-t text-sm text-muted-foreground flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <span className={exceedsTarget ? "text-destructive font-medium" : undefined}>
-          {`Characters: ${charCount}${exceedsTarget ? " (trim closer to 300)" : " / target 300"}`}
+          {`Characters: ${charCount}${exceedsTarget ? " (trim closer to 400)" : " / target 400"}`}
         </span>
         {error && <span className="text-destructive">{error}</span>}
       </CardFooter>
