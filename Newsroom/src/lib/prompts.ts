@@ -18,6 +18,23 @@ const DEFAULT_TTL_MS = 60_000;
 
 const cache = new Map<string, CacheEntry>();
 
+function normalizePromptContent(input: PromptContent): PromptContent {
+  let { template, system } = input;
+
+  if (typeof template === 'string' && template.startsWith('SYSTEM ROLE')) {
+    const splitIndex = template.indexOf('\n\n');
+    if (splitIndex !== -1) {
+      const extracted = template.slice(0, splitIndex).trimEnd();
+      const rest = template.slice(splitIndex + 2).replace(/^\n+/, '');
+
+      if (!system || !system.trim()) system = extracted;
+      template = rest;
+    }
+  }
+
+  return { template, ...(system && system.trim() ? { system } : {}) };
+}
+
 export async function getPromptContent(
   promptId: string,
   defaults: PromptContent,
@@ -42,7 +59,7 @@ export async function getPromptContent(
     const template = typeof data?.template === 'string' && data.template.trim() ? data.template : defaults.template;
     const system = typeof data?.system === 'string' && data.system.trim() ? data.system : defaults.system;
 
-    const value: PromptContent = { template, ...(system ? { system } : {}) };
+    const value = normalizePromptContent({ template, ...(system ? { system } : {}) });
     cache.set(promptId, { value, expiresAt: now + ttlMs });
     return value;
   } catch (error) {

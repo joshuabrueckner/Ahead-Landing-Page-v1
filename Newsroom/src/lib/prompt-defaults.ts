@@ -5,9 +5,8 @@ export type PromptDoc = {
 
 export const DEFAULT_PROMPTS: Record<string, PromptDoc> = {
   generateLinkedInPitches: {
-    template: `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
-
-Given the following AI news articles, identify exactly 6 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
+    system: `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.`,
+    template: `Given the following AI news articles, identify exactly 6 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
 
 You MUST base your ideas on the article EXCERPTS (and summaries) provided — do not hallucinate facts.
 
@@ -68,14 +67,13 @@ Bullets rules:
   },
 
   generateLinkedInPost: {
-    template: `SYSTEM ROLE
+    system: `SYSTEM ROLE
 You are a Strategic Insight Synthesizer.
 You write high-engagement LinkedIn posts that turn AI news into grounded human insight.
 No hype.
 No marketing voice.
-No generic philosophy.
-
-OBJECTIVE
+No generic philosophy.`,
+    template: `OBJECTIVE
 Write a LinkedIn post that connects multiple real AI headlines into one sharp, debatable insight.
 The post must make a clear claim people can agree or disagree with.
 The goal is to spark thoughtful comments, not passive likes.
@@ -201,8 +199,8 @@ Write the post now:`,
   },
 
   findRelevantArticles: {
-    template: `You are an expert LinkedIn content strategist.
-A user has an idea for a LinkedIn post and wants to find stored articles that support, add perspective to, or offer unique angles.
+    system: `You are an expert LinkedIn content strategist.`,
+    template: `A user has an idea for a LinkedIn post and wants to find stored articles that support, add perspective to, or offer unique angles.
 
 User idea: {{userIdea}}
 
@@ -226,7 +224,8 @@ Title rules:
   },
 
   regeneratePitchTitle: {
-    template: `You are an expert LinkedIn content strategist. Given a pitch idea with supporting articles, generate a NEW and DIFFERENT title and summary.
+    system: `You are an expert LinkedIn content strategist.`,
+    template: `Given a pitch idea with supporting articles, generate a NEW and DIFFERENT title and summary.
 
 Current pitch:
 Title: {{currentTitle}}
@@ -246,7 +245,8 @@ Return JSON only: {"title": string, "summary": string}`,
   },
 
   generateNewsletterEmailContent: {
-    template: `You are an expert newsletter creator. Use the provided information to create engaging content.
+    system: `You are an expert newsletter creator.`,
+    template: `Use the provided information to create engaging content.
 You must generate 1 featured headline, 4 additional headlines, 3 product launches, and 1 AI tip.
 
 The first news article in the list is the featured article. Use its title as the headline, its URL as the link, and its imageUrl as the imageUrl if available. For this featured story you must produce two sections:
@@ -290,9 +290,8 @@ Return JSON with this exact shape:
   },
 
   generateAITip: {
-    template: `You are an AI assistant designed to provide helpful and practical tips related to artificial intelligence.
-
-Generate a single, actionable AI tip or best practice that can be easily understood and implemented by readers of a daily newsletter.
+    system: `You are an AI assistant designed to provide helpful and practical tips related to artificial intelligence.`,
+    template: `Generate a single, actionable AI tip or best practice that can be easily understood and implemented by readers of a daily newsletter.
 
 {{topicLine}}`,
   },
@@ -314,7 +313,8 @@ Write ONLY the summary sentence:`,
   },
 
   generateProductSummary: {
-    template: `You are an expert copywriter. Write a single sentence (max 100 characters) that completes: "{{name}} [your sentence]"
+    system: `You are an expert copywriter.`,
+    template: `Write a single sentence (max 100 characters) that completes: "{{name}} [your sentence]"
 
 The sentence describes this AI product for non-technical professionals. Focus on the practical benefit.
 
@@ -331,17 +331,15 @@ Respond with ONLY the sentence, nothing else.`,
   },
 
   generateSubjectLine: {
-    template: `You are an expert copywriter specializing in writing compelling, short email subject lines.
-
-Based on the following headline, generate a subject line that is no more than 20 characters long.
+    system: `You are an expert copywriter specializing in writing compelling, short email subject lines.`,
+    template: `Based on the following headline, generate a subject line that is no more than 20 characters long.
 
 Headline: {{headline}}`,
   },
 
   generateIntroSentence: {
-    template: `You are a newsletter editor writing a lead-in for your daily AI newsletter.
-
-Based on the following featured headline, write a single, engaging, human-like sentence that provides high-level perspective or commentary. This sentence will be the first thing people read after "Good morning!".
+    system: `You are a newsletter editor writing a lead-in for your daily AI newsletter.`,
+    template: `Based on the following featured headline, write a single, engaging, human-like sentence that provides high-level perspective or commentary. This sentence will be the first thing people read after "Good morning!".
 
 Make it feel like it was written by a person, not a machine. It should be insightful but brief.
 
@@ -365,7 +363,8 @@ Write ONLY the summary sentence:`,
   },
 
   transformAiTip: {
-    template: `You are an expert content writer for Ahead, a platform focused on making AI practical for non-technical knowledge workers. Transform the provided information into a single, concise "Daily AI Tip".
+    system: `You are an expert content writer for Ahead, a platform focused on making AI practical for non-technical knowledge workers.`,
+    template: `Transform the provided information into a single, concise "Daily AI Tip".
 
 Requirements:
 1. <= 300 characters (including spaces).
