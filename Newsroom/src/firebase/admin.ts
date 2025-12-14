@@ -44,6 +44,7 @@ function getServiceAccountFromEnv(): ServiceAccount | null {
 }
 
 let cachedApp: admin.app.App | null = null;
+let cachedDb: admin.firestore.Firestore | null = null;
 
 function getAdminApp(): admin.app.App {
   if (cachedApp) return cachedApp;
@@ -68,8 +69,11 @@ function getAdminApp(): admin.app.App {
 }
 
 export function getAdminFirestore() {
+  if (cachedDb) return cachedDb;
+
   const app = getAdminApp();
   const db = app.firestore();
   db.settings({ ignoreUndefinedProperties: true });
+  cachedDb = db;
   return db;
 }
