@@ -11,6 +11,7 @@
 
 import {z} from 'genkit';
 import { openaiGenerateText } from '@/ai/openai';
+import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const GenerateProductSummaryInputSchema = z.object({
   name: z.string().describe('The name of the product.'),
@@ -29,8 +30,8 @@ export async function generateProductSummary(input: GenerateProductSummaryInput)
   }
 
   try {
-    const text = await openaiGenerateText({
-      prompt: `You are an expert copywriter. Write a single sentence (max 100 characters) that completes: "${input.name} [your sentence]"
+    const defaults = {
+      template: `You are an expert copywriter. Write a single sentence (max 100 characters) that completes: "{{name}} [your sentence]"
 
 The sentence describes this AI product for non-technical professionals. Focus on the practical benefit.
 
@@ -40,10 +41,21 @@ Requirements:
 - Maximum 100 characters
 - Plain, jargon-free language
 
-Product: ${input.name}
-Description: ${input.description}
+Product: {{name}}
+Description: {{description}}
 
 Respond with ONLY the sentence, nothing else.`,
+    };
+
+    const { template, system } = await getPromptContent('generateProductSummary', defaults);
+    const prompt = renderPrompt(template, {
+      name: input.name,
+      description: input.description,
+    });
+
+    const text = await openaiGenerateText({
+      prompt,
+      system,
       temperature: 0.5,
       maxOutputTokens: 80,
     });

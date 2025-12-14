@@ -43,6 +43,7 @@ import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { getFirestoreDb } from "@/firebase/index";
 import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
 import { openaiGenerateText } from "@/ai/openai";
+import { getPromptContent, renderPrompt } from "@/lib/prompts";
 import { load } from "cheerio";
 
 const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}]/gu;
@@ -366,8 +367,9 @@ export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<
 
 export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
   try {
-    const text = await openaiGenerateText({
-      prompt: `Summarize this AI news article in ONE short sentence for non-technical professionals.
+    const clippedArticleText = articleText.slice(0, 5000);
+    const defaults = {
+      template: `Summarize this AI news article in ONE short sentence for non-technical professionals.
 
 RULES:
 - ONE sentence only, very concise (about 15-20 words max)
@@ -377,9 +379,17 @@ RULES:
 - Focus on why it matters
 
 ARTICLE:
-${articleText.slice(0, 5000)}
+{{articleText}}
 
 Write ONLY the summary sentence:`,
+    };
+
+    const { template, system } = await getPromptContent('generateArticleOneSentenceSummary', defaults);
+    const prompt = renderPrompt(template, { articleText: clippedArticleText });
+
+    const text = await openaiGenerateText({
+      prompt,
+      system,
       temperature: 0.3,
       maxOutputTokens: 60,
     });
@@ -496,7 +506,10 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
     return { error: "Please provide some text to transform." };
   }
 
-  const instructions = `You are an expert content writer for Ahead, a platform focused on making AI practical for non-technical knowledge workers. Transform the provided information into a single, concise "Daily AI Tip".
+  const sourceText = trimmed.slice(0, 4000);
+
+  const defaults = {
+    template: `You are an expert content writer for Ahead, a platform focused on making AI practical for non-technical knowledge workers. Transform the provided information into a single, concise "Daily AI Tip".
 
 Requirements:
 1. <= 300 characters (including spaces).
@@ -507,14 +520,20 @@ Requirements:
 
 Source material:
 """
-${trimmed.slice(0, 4000)}
+{{sourceText}}
 """
 
-Respond with only the transformed tip (no preamble, no quotes).`;
+Respond with only the transformed tip (no preamble, no quotes).`,
+
+  };
+
+  const { template, system } = await getPromptContent('transformAiTip', defaults);
+  const instructions = renderPrompt(template, { sourceText });
 
   try {
     const tip = (await openaiGenerateText({
       prompt: instructions,
+      system,
       temperature: 0.6,
       maxOutputTokens: 220,
     }))?.trim();

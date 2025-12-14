@@ -12,3 +12,58 @@ To get started, take a look at src/app/page.tsx.
 - `NEXT_PUBLIC_NEWSROOM_BASE_PATH` — optional. Set to `/newsroom` if the app is always proxied under that path; otherwise the runtime auto-detects.
 - `NEWSROOM_PROXY_HOSTS` — optional. Comma-separated hostnames (e.g. `www.jumpahead.ai,jumpahead.ai`) that should always use the proxy base path.
 - `NEWSROOM_PROXY_BASE_PATH` — optional. Defaults to `/newsroom`; only used when `NEWSROOM_PROXY_HOSTS` has a match.
+
+## Firestore-backed prompts (no redeploy)
+
+All AI prompt templates are loaded from a Firestore collection named `Prompts` (server-only via Firebase Admin). This lets you edit prompts in the Firebase Console and see changes live.
+
+### Admin credentials
+
+Set one of:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON` — recommended. A single JSON string of a Firebase service account key.
+- OR the split vars:
+	- `FIREBASE_PROJECT_ID`
+	- `FIREBASE_CLIENT_EMAIL`
+	- `FIREBASE_PRIVATE_KEY` (use `\n` for newlines)
+
+If these are not set (or invalid), the app falls back to the code-default prompts.
+
+### Collection and document shape
+
+- Collection: `Prompts`
+- Doc ID: one of the IDs below
+- Fields:
+	- `template` (string, required)
+	- `system` (string, optional)
+
+Templates can use `{{var}}` placeholders.
+
+### Prompt IDs and variables
+
+- `generateLinkedInPitches`
+	- `{{articlesText}}`
+- `generateLinkedInPost`
+	- `{{title}}`, `{{summary}}`, `{{bulletsBlock}}`, `{{supportingArticlesBlock}}`, `{{feedbackBlock}}`
+- `findRelevantArticles`
+	- `{{userIdea}}`, `{{existingUrlsText}}`, `{{availableText}}`
+- `regeneratePitchTitle`
+	- `{{currentTitle}}`, `{{currentSummary}}`, `{{articlesText}}`
+- `generateNewsletterEmailContent`
+	- `{{newsLines}}`, `{{productLines}}`, `{{aiTip}}`
+- `generateAITip`
+	- `{{topicLine}}`
+- `generateArticleSummary`
+	- `{{articleText}}`
+- `generateProductSummary`
+	- `{{name}}`, `{{description}}`
+- `generateSubjectLine`
+	- `{{headline}}`
+- `generateIntroSentence`
+	- `{{headline}}`
+- `generateArticleOneSentenceSummary`
+	- `{{articleText}}`
+- `transformAiTip`
+	- `{{sourceText}}`
+
+Note: prompt docs are cached in-memory for ~60 seconds per server instance.

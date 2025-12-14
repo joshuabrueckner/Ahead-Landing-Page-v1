@@ -2,6 +2,7 @@
 
 import { z } from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const ArticleSchema = z.object({
   id: z.string(),
@@ -59,13 +60,17 @@ export async function findRelevantArticles(input: FindRelevantArticlesInput): Pr
     })
     .join('\n\n');
 
-  const prompt = `You are an expert LinkedIn content strategist.
+  const existingUrlsText = input.existingArticleUrls?.length
+    ? `User already has these URLs:\n${input.existingArticleUrls.map(u => `- ${u}`).join('\n')}\n\n`
+    : '';
+
+  const defaults = {
+    template: `You are an expert LinkedIn content strategist.
 A user has an idea for a LinkedIn post and wants to find stored articles that support, add perspective to, or offer unique angles.
 
-User idea: ${input.userIdea}
+User idea: {{userIdea}}
 
-${input.existingArticleUrls?.length ? `User already has these URLs:\n${input.existingArticleUrls.map(u => `- ${u}`).join('\n')}\n\n` : ''}
-Available articles to search from (use only these IDs):\n${availableText}
+{{existingUrlsText}}Available articles to search from (use only these IDs):\n{{availableText}}
 
 Pick 2-5 articles that best fit.
 Do NOT include any URLs the user already has.
@@ -81,10 +86,19 @@ Return JSON only:
 Title rules:
 - Must start with "Discusses" (no colon)
 - Lowercase after "Discusses"
-`;
+`,
+  };
+
+  const { template, system } = await getPromptContent('findRelevantArticles', defaults);
+  const prompt = renderPrompt(template, {
+    userIdea: input.userIdea,
+    existingUrlsText,
+    availableText,
+  });
 
   return openaiGenerateJson(FindRelevantArticlesOutputSchema, {
     prompt,
+    system,
     temperature: 0.4,
     maxOutputTokens: 500,
   });

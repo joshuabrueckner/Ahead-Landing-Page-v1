@@ -12,6 +12,7 @@
 
 import {z} from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const GenerateNewsletterEmailContentInputSchema = z.object({
   newsArticles: z.array(
@@ -66,7 +67,8 @@ export async function generateNewsletterEmailContent(input: GenerateNewsletterEm
     .map((p, idx) => `#${idx + 1}\nName: ${p.name}\nDescription: ${p.description}\nURL: ${p.url}`)
     .join('\n\n');
 
-  const prompt = `You are an expert newsletter creator. Use the provided information to create engaging content.
+  const defaults = {
+    template: `You are an expert newsletter creator. Use the provided information to create engaging content.
 You must generate 1 featured headline, 4 additional headlines, 3 product launches, and 1 AI tip.
 
 The first news article in the list is the featured article. Use its title as the headline, its URL as the link, and its imageUrl as the imageUrl if available. For this featured story you must produce two sections:
@@ -88,11 +90,11 @@ For product launches, write a concise single sentence for each based on the desc
 
 The AI tip must be the exact tip provided.
 
-News Articles:\n${newsLines}
+News Articles:\n{{newsLines}}
 
-Product Launches:\n${productLines}
+Product Launches:\n{{productLines}}
 
-AI Tip:\n${input.aiTip}
+AI Tip:\n{{aiTip}}
 
 Return JSON with this exact shape:
 {
@@ -106,10 +108,19 @@ Return JSON with this exact shape:
   "headlines": [{"headline": string, "link": string}, ...4 items],
   "launches": [{"name": string, "link": string, "sentence": string}, ...3 items],
   "aheadTip": string
-}`;
+}`,
+  };
+
+  const { template, system } = await getPromptContent('generateNewsletterEmailContent', defaults);
+  const prompt = renderPrompt(template, {
+    newsLines,
+    productLines,
+    aiTip: input.aiTip,
+  });
 
   return openaiGenerateJson(GenerateNewsletterEmailContentOutputSchema, {
     prompt,
+    system,
     temperature: 0.6,
     maxOutputTokens: 1400,
   });

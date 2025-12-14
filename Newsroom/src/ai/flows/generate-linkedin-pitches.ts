@@ -2,6 +2,7 @@
 
 import { z } from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const ArticleSchema = z.object({
   id: z.string().optional(),
@@ -309,7 +310,8 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     })
     .join('\n\n');
 
-  const prompt = `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
+  const defaults = {
+    template: `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
 
 Given the following AI news articles, identify exactly 6 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
 
@@ -322,7 +324,7 @@ Each pitch should:
 4. Encourage engagement and discussion
 5. Feel authentic and thoughtful, not clickbait
 
-Articles to analyze:\n${articlesText}
+Articles to analyze:\n{{articlesText}}
 
 Return JSON only with shape:
 {
@@ -368,12 +370,17 @@ Supporting articles:
 
 Bullets rules:
 - Exactly 2 bullets
-`;
+`,
+  };
+
+  const { template, system } = await getPromptContent('generateLinkedInPitches', defaults);
+  const prompt = renderPrompt(template, { articlesText });
 
   let first: GenerateLinkedInPitchesOutput = { pitches: [] };
   try {
     first = await openaiGenerateJson(GenerateLinkedInPitchesOutputSchema, {
       prompt,
+      system,
       temperature: 0.6,
       maxOutputTokens: 900,
       timeoutMs: 18000,

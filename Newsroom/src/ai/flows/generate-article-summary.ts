@@ -10,6 +10,7 @@
 
 import {z} from 'genkit';
 import { openaiGenerateText } from '@/ai/openai';
+import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const GenerateArticleSummaryInputSchema = z.object({
   text: z.string().describe('The full text of the news article to be summarized.'),
@@ -26,9 +27,11 @@ export async function generateArticleSummary(input: GenerateArticleSummaryInput)
     return { summary: "Could not generate summary: Article content was too short or unavailable." };
   }
 
+  const articleText = input.text.slice(0, 5000);
+
   try {
-    const text = await openaiGenerateText({
-      prompt: `Summarize this AI news article in ONE short sentence for non-technical professionals.
+    const defaults = {
+      template: `Summarize this AI news article in ONE short sentence for non-technical professionals.
 
 RULES:
 - ONE sentence only, very concise (about 15-20 words max)
@@ -38,9 +41,17 @@ RULES:
 - Focus on why it matters
 
 ARTICLE:
-${input.text.slice(0, 5000)}
+{{articleText}}
 
 Write ONLY the summary sentence:`,
+    };
+
+    const { template, system } = await getPromptContent('generateArticleSummary', defaults);
+    const prompt = renderPrompt(template, { articleText });
+
+    const text = await openaiGenerateText({
+      prompt,
+      system,
       temperature: 0.3,
       maxOutputTokens: 60,
     });

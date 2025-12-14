@@ -10,6 +10,7 @@
 
 import {z} from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const GenerateSubjectLineInputSchema = z.object({
   headline: z.string().describe('The full headline to be summarized into a subject line.'),
@@ -22,14 +23,20 @@ const GenerateSubjectLineOutputSchema = z.object({
 export type GenerateSubjectLineOutput = z.infer<typeof GenerateSubjectLineOutputSchema>;
 
 export async function generateSubjectLine(input: GenerateSubjectLineInput): Promise<GenerateSubjectLineOutput> {
-  const prompt = `You are an expert copywriter specializing in writing compelling, short email subject lines.
+  const defaults = {
+    template: `You are an expert copywriter specializing in writing compelling, short email subject lines.
 
 Based on the following headline, generate a subject line that is no more than 20 characters long.
 
-Headline: ${input.headline}`;
+Headline: {{headline}}`,
+  };
+
+  const { template, system } = await getPromptContent('generateSubjectLine', defaults);
+  const prompt = renderPrompt(template, { headline: input.headline });
 
   return openaiGenerateJson(GenerateSubjectLineOutputSchema, {
     prompt,
+    system,
     temperature: 0.7,
     maxOutputTokens: 40,
   });

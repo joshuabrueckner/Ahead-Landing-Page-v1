@@ -2,6 +2,7 @@
 
 import { z } from 'genkit';
 import { openaiGenerateText } from '@/ai/openai';
+import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const SupportingArticleSchema = z.object({
   title: z.string(),
@@ -35,9 +36,15 @@ export async function generateLinkedInPost(input: GenerateLinkedInPostInput): Pr
     })
     .join('\n\n');
 
-  const feedback = input.feedback ? `\n\nAdditional feedback:\n${input.feedback}` : '';
+  const bulletsBlock = bullets
+    ? `Key points to incorporate internally (do NOT format as bullets in output):\n${bullets}\n\n`
+    : '';
 
-  const prompt = `SYSTEM ROLE
+  const supportingArticlesBlock = articles ? `Supporting articles you must cite:\n${articles}\n\n` : '';
+  const feedbackBlock = input.feedback ? `Additional feedback:\n${input.feedback}\n\n` : '';
+
+  const defaults = {
+    template: `SYSTEM ROLE
 You are a Strategic Insight Synthesizer.
 You write high-engagement LinkedIn posts that turn AI news into grounded human insight.
 No hype.
@@ -54,27 +61,7 @@ INPUT CONTEXT
 Title: {{title}}
 Summary: {{summary}}
 
-{{#if bullets.length}}
-Key points to incorporate internally (do NOT format as bullets in output):
-{{#each bullets}}
-- {{this}}
-{{/each}}
-{{/if}}
-
-Supporting articles you must cite:
-{{#each supportingArticles}}
-- "{{this.title}}" ({{this.source}}, {{this.date}})
-{{#if this.url}}{{this.url}}{{/if}}
-{{#if this.text}}
-Article content:
-{{this.text}}
-{{/if}}
-{{/each}}
-
-{{#if feedback}}
-Additional feedback:
-{{feedback}}
-{{/if}}
+{{bulletsBlock}}{{supportingArticlesBlock}}{{feedbackBlock}}NON-NEGOTIABLE OUTPUT RULES
 
 NON-NEGOTIABLE OUTPUT RULES
 
@@ -186,10 +173,21 @@ If any line sounds like a LinkedIn template, rewrite it.
 If nothing feels risky, sharpen the claim.
 Then output only the final post.
 
-Write the post now:`;
+Write the post now:`,
+  };
+
+  const { template, system } = await getPromptContent('generateLinkedInPost', defaults);
+  const prompt = renderPrompt(template, {
+    title: input.title,
+    summary: input.summary,
+    bulletsBlock,
+    supportingArticlesBlock,
+    feedbackBlock,
+  });
 
   const post = await openaiGenerateText({
     prompt,
+    system,
     temperature: 0.7,
     maxOutputTokens: 1200,
   });
