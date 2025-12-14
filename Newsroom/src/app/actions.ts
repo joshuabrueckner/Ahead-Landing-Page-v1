@@ -501,14 +501,40 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
   const instructions = renderPrompt(template, { sourceText });
 
   try {
-    const tip = (await openaiGenerateText({
+    const tipDraft = (await openaiGenerateText({
       prompt: instructions,
       system,
       temperature: 0.6,
-      maxOutputTokens: 320,
+      maxOutputTokens: 420,
     }))?.trim();
-    if (!tip) {
+    if (!tipDraft) {
       return { error: "Model returned an empty tip." };
+    }
+
+    let tip = tipDraft;
+
+    // If the model tends to under-shoot the ~400 character target, run a second pass
+    // that explicitly expands to a tighter length range.
+    if (tip.length < 340) {
+      const rewritePrompt =
+        `Rewrite the tip below to be between 360 and 400 characters (inclusive).\n` +
+        `Do NOT exceed 400 characters.\n` +
+        `Keep it jargon-free, plain language, and highly actionable.\n` +
+        `Do not use exclamation points.\n` +
+        `Do not add any preamble or labels (no \"Daily AI Tip:\").\n` +
+        `Stay grounded in the source material.\n\n` +
+        `Source material:\n${sourceText}\n\n` +
+        `Current tip:\n${tip}\n\n` +
+        `Return only the rewritten tip.`;
+
+      const rewritten = (await openaiGenerateText({
+        prompt: rewritePrompt,
+        system,
+        temperature: 0.6,
+        maxOutputTokens: 500,
+      }))?.trim();
+
+      if (rewritten) tip = rewritten;
     }
 
     if (tip.length > 400) {
