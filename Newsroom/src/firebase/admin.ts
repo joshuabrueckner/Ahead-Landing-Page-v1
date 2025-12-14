@@ -8,6 +8,11 @@ type ServiceAccount = {
   private_key?: string;
 };
 
+function normalizePrivateKey(value?: string) {
+  if (!value) return undefined;
+  return value.replace(/\\n/g, '\n');
+}
+
 function getServiceAccountFromEnv(): ServiceAccount | null {
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (json) {
@@ -17,9 +22,7 @@ function getServiceAccountFromEnv(): ServiceAccount | null {
         return {
           project_id: parsed.project_id,
           client_email: parsed.client_email,
-          private_key: typeof parsed.private_key === 'string'
-            ? parsed.private_key.replace(/\\n/g, '\n')
-            : undefined,
+          private_key: normalizePrivateKey(typeof parsed.private_key === 'string' ? parsed.private_key : undefined),
         };
       }
     } catch {
@@ -27,10 +30,11 @@ function getServiceAccountFromEnv(): ServiceAccount | null {
     }
   }
 
-  const project_id = process.env.FIREBASE_PROJECT_ID;
-  const client_email = process.env.FIREBASE_CLIENT_EMAIL;
-  const private_key_raw = process.env.FIREBASE_PRIVATE_KEY;
-  const private_key = typeof private_key_raw === 'string' ? private_key_raw.replace(/\\n/g, '\n') : undefined;
+  const project_id = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const client_email = process.env.FIREBASE_CLIENT_EMAIL || process.env.GA4_CLIENT_EMAIL;
+  const private_key =
+    normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY) ||
+    normalizePrivateKey(process.env.GA4_PRIVATE_KEY);
 
   if (project_id && client_email && private_key) {
     return { project_id, client_email, private_key };
@@ -51,7 +55,7 @@ function getAdminApp(): admin.app.App {
   const serviceAccount = getServiceAccountFromEnv();
   if (!serviceAccount?.project_id || !serviceAccount?.client_email || !serviceAccount?.private_key) {
     throw new Error(
-      'Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY.'
+      'Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/NEXT_PUBLIC_FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL (or GA4_CLIENT_EMAIL) + FIREBASE_PRIVATE_KEY (or GA4_PRIVATE_KEY).'
     );
   }
 

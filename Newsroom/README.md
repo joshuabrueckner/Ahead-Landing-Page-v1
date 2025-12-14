@@ -15,7 +15,7 @@ To get started, take a look at src/app/page.tsx.
 
 ## Firestore-backed prompts (no redeploy)
 
-All AI prompt templates are loaded from a Firestore collection named `Prompts` (server-only via Firebase Admin). This lets you edit prompts in the Firebase Console and see changes live.
+All AI prompt templates are loaded from a Firestore collection named `Prompts`. This lets you edit prompts in the Firebase Console and see changes live.
 
 ### Access model
 
@@ -25,6 +25,17 @@ This project is configured to read `Prompts` using the Firebase client Firestore
 - Prompts are therefore publicly readable (by design in this setup).
 
 If a prompt doc is missing/unreadable, the app falls back to the code-default prompt.
+
+### Editing in-app (optional)
+
+The protected `/prompts` page can save prompt overrides into Firestore.
+
+Because Firestore rules block writes to `Prompts`, saves are performed via Next.js server actions using the Firebase Admin SDK.
+
+To enable this, configure one of:
+- `FIREBASE_SERVICE_ACCOUNT_JSON` (full service-account JSON)
+- Or: `FIREBASE_PROJECT_ID` (or `NEXT_PUBLIC_FIREBASE_PROJECT_ID`) + `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY`
+- Or (convenience): reuse GA4 creds: `GA4_CLIENT_EMAIL` + `GA4_PRIVATE_KEY` (must have Firestore permissions)
 
 ### Collection and document shape
 

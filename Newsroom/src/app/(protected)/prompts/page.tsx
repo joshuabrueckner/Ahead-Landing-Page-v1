@@ -8,8 +8,15 @@ export default async function PromptsPage() {
   const promptIds = Object.keys(DEFAULT_PROMPTS);
   const prompts = await Promise.all(
     promptIds.map(async (id) => {
-      const content = await getPromptContent(id, DEFAULT_PROMPTS[id]);
-      return { id, ...content };
+      const defaults = DEFAULT_PROMPTS[id];
+      const content = await getPromptContent(id, defaults);
+      return {
+        id,
+        template: content.template,
+        system: content.system,
+        defaultTemplate: defaults.template,
+        defaultSystem: defaults.system,
+      };
     })
   );
 
