@@ -2,6 +2,7 @@
 
 import { z } from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const ArticleSchema = z.object({
@@ -310,68 +311,7 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
     })
     .join('\n\n');
 
-  const defaults = {
-    template: `You are an expert LinkedIn content strategist helping create thoughtful, insightful posts about AI trends and developments.
-
-Given the following AI news articles, identify exactly 6 compelling narrative angles that connect multiple articles together into cohesive, thought-provoking LinkedIn posts.
-
-You MUST base your ideas on the article EXCERPTS (and summaries) provided — do not hallucinate facts.
-
-Each pitch should:
-1. Connect 2-3 articles that share a common theme
-2. Offer a unique insight beyond summarizing
-3. Be relevant to business professionals and AI practitioners
-4. Encourage engagement and discussion
-5. Feel authentic and thoughtful, not clickbait
-
-Articles to analyze:\n{{articlesText}}
-
-Return JSON only with shape:
-{
-  "pitches": [
-    {
-      "id": string,
-      "title": string,
-      "summary": string,
-      "bullets": string[],
-      "supportingArticles": [{"id"?: string, "title": string, "source": string, "date": string, "url": string, "text"?: string}]
-    }
-  ]
-}
-
-The top-level key "pitches" is REQUIRED. If you cannot produce pitches, return:
-{ "pitches": [] }
-
-Minimal valid example:
-{ "pitches": [] }
-
-If an input article includes an "ID", you MUST copy it exactly into the corresponding supportingArticles[].id.
-
-Title rules:
-- MUST start with "Discusses" (no colon)
-- Sentence case (do NOT put every word in Title Case; keep proper nouns as written)
-- Be specific about the actual idea (avoid generic themes like "AI regulation and policy")
-
-Length limits (keep output short):
-- title: max 58 characters
-- summary: max 140 characters
-- each bullet: max 90 characters
-
-Summary rules:
-- Must be a newly written summary of the idea grounded in the excerpts
-- Do NOT start with "Connects", "Angle connecting", or "Why X matters"
-
-Supporting articles:
-- Include ONLY: id (if available), title, source, date, url
-- Do NOT include the optional "text" field
-- Each pitch MUST include between 2 and 5 supportingArticles
-- Prefer 3–5 supportingArticles when you can find clearly related sources
-- Sources must be naturally related (shared theme grounded in excerpts)
-
-Bullets rules:
-- Exactly 2 bullets
-`,
-  };
+  const defaults = DEFAULT_PROMPTS.generateLinkedInPitches;
 
   const { template, system } = await getPromptContent('generateLinkedInPitches', defaults);
   const prompt = renderPrompt(template, { articlesText });

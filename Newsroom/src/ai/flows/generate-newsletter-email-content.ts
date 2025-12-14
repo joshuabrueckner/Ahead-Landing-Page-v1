@@ -12,6 +12,7 @@
 
 import {z} from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const GenerateNewsletterEmailContentInputSchema = z.object({
@@ -67,49 +68,7 @@ export async function generateNewsletterEmailContent(input: GenerateNewsletterEm
     .map((p, idx) => `#${idx + 1}\nName: ${p.name}\nDescription: ${p.description}\nURL: ${p.url}`)
     .join('\n\n');
 
-  const defaults = {
-    template: `You are an expert newsletter creator. Use the provided information to create engaging content.
-You must generate 1 featured headline, 4 additional headlines, 3 product launches, and 1 AI tip.
-
-The first news article in the list is the featured article. Use its title as the headline, its URL as the link, and its imageUrl as the imageUrl if available. For this featured story you must produce two sections:
-
-1. "What's Happening" – 3 concise sentences that:
-  - Explain the core development clearly and simply.
-  - Stay neutral and avoid hype or fear-based language.
-  - Use jargon-free, plain language for non-technical mid-career knowledge workers.
-
-2. "Why You Should Care" – 3 concise sentences that:
-  - Speak directly to knowledge workers pressured to adopt AI.
-  - Are empowering and practical.
-  - Sound smart, witty, and slightly philosophical without lecturing.
-  - Provide actionable guidance.
-
-For the other 4 news articles (Quick Hits), use their SUMMARY as the headline (not the title) and their URLs as the links.
-
-For product launches, write a concise single sentence for each based on the description.
-
-The AI tip must be the exact tip provided.
-
-News Articles:\n{{newsLines}}
-
-Product Launches:\n{{productLines}}
-
-AI Tip:\n{{aiTip}}
-
-Return JSON with this exact shape:
-{
-  "featuredHeadline": {
-    "headline": string,
-    "link": string,
-    "imageUrl"?: string,
-    "whatsHappening": string,
-    "whyYouShouldCare": string
-  },
-  "headlines": [{"headline": string, "link": string}, ...4 items],
-  "launches": [{"name": string, "link": string, "sentence": string}, ...3 items],
-  "aheadTip": string
-}`,
-  };
+  const defaults = DEFAULT_PROMPTS.generateNewsletterEmailContent;
 
   const { template, system } = await getPromptContent('generateNewsletterEmailContent', defaults);
   const prompt = renderPrompt(template, {

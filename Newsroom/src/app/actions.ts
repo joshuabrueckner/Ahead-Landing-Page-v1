@@ -43,6 +43,7 @@ import type { NewsArticle, ProductLaunch } from "@/lib/data";
 import { getFirestoreDb } from "@/firebase/index";
 import { collection, addDoc, getDocs, updateDoc, query, where, serverTimestamp, Timestamp } from "firebase/firestore";
 import { openaiGenerateText } from "@/ai/openai";
+import { DEFAULT_PROMPTS } from "@/lib/prompt-defaults";
 import { getPromptContent, renderPrompt } from "@/lib/prompts";
 import { load } from "cheerio";
 
@@ -368,21 +369,7 @@ export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<
 export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
   try {
     const clippedArticleText = articleText.slice(0, 5000);
-    const defaults = {
-      template: `Summarize this AI news article in ONE short sentence for non-technical professionals.
-
-RULES:
-- ONE sentence only, very concise (about 15-20 words max)
-- Include a key company name, person, or statistic
-- Start directly with the insight (no "This article..." or "The news...")
-- Plain language, no jargon
-- Focus on why it matters
-
-ARTICLE:
-{{articleText}}
-
-Write ONLY the summary sentence:`,
-    };
+    const defaults = DEFAULT_PROMPTS.generateArticleOneSentenceSummary;
 
     const { template, system } = await getPromptContent('generateArticleOneSentenceSummary', defaults);
     const prompt = renderPrompt(template, { articleText: clippedArticleText });
@@ -508,24 +495,7 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
 
   const sourceText = trimmed.slice(0, 4000);
 
-  const defaults = {
-    template: `You are an expert content writer for Ahead, a platform focused on making AI practical for non-technical knowledge workers. Transform the provided information into a single, concise "Daily AI Tip".
-
-Requirements:
-1. <= 300 characters (including spaces).
-2. Jargon-free, plain language.
-3. Highly actionable with a specific instruction someone can try immediately.
-4. Focus on helping the reader feel confident and efficient using AI tools.
-5. Keep the tone calm, encouraging, and empowering.
-
-Source material:
-"""
-{{sourceText}}
-"""
-
-Respond with only the transformed tip (no preamble, no quotes).`,
-
-  };
+  const defaults = DEFAULT_PROMPTS.transformAiTip;
 
   const { template, system } = await getPromptContent('transformAiTip', defaults);
   const instructions = renderPrompt(template, { sourceText });

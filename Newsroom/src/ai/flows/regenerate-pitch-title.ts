@@ -2,6 +2,7 @@
 
 import { z } from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const SupportingArticleSchema = z.object({
@@ -33,25 +34,7 @@ export async function regeneratePitchTitle(input: RegeneratePitchTitleInput): Pr
     })
     .join('\n');
 
-  const defaults = {
-    template: `You are an expert LinkedIn content strategist. Given a pitch idea with supporting articles, generate a NEW and DIFFERENT title and summary.
-
-Current pitch:
-Title: {{currentTitle}}
-Summary: {{currentSummary}}
-
-Supporting articles:
-{{articlesText}}
-
-Rules:
-1. Title MUST start with "Discusses" (no colon)
-2. Use lowercase after "Discusses" (not Title Case)
-3. Title under 8 words, specific, human
-4. Summary is 1-2 sentences
-5. Must be different from current title/summary
-
-Return JSON only: {"title": string, "summary": string}`,
-  };
+  const defaults = DEFAULT_PROMPTS.regeneratePitchTitle;
 
   const { template, system } = await getPromptContent('regeneratePitchTitle', defaults);
   const prompt = renderPrompt(template, {

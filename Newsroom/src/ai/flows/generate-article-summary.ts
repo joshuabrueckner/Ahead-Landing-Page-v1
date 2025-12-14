@@ -10,6 +10,7 @@
 
 import {z} from 'genkit';
 import { openaiGenerateText } from '@/ai/openai';
+import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const GenerateArticleSummaryInputSchema = z.object({
@@ -30,21 +31,7 @@ export async function generateArticleSummary(input: GenerateArticleSummaryInput)
   const articleText = input.text.slice(0, 5000);
 
   try {
-    const defaults = {
-      template: `Summarize this AI news article in ONE short sentence for non-technical professionals.
-
-RULES:
-- ONE sentence only, very concise (about 15-20 words max)
-- Include a key company name, person, or statistic
-- Start directly with the insight (no "This article..." or "The news...")
-- Plain language, no jargon
-- Focus on why it matters
-
-ARTICLE:
-{{articleText}}
-
-Write ONLY the summary sentence:`,
-    };
+    const defaults = DEFAULT_PROMPTS.generateArticleSummary;
 
     const { template, system } = await getPromptContent('generateArticleSummary', defaults);
     const prompt = renderPrompt(template, { articleText });

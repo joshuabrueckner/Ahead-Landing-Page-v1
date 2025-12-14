@@ -10,6 +10,7 @@
 
 import {z} from 'genkit';
 import { openaiGenerateJson } from '@/ai/openai';
+import { DEFAULT_PROMPTS } from '@/lib/prompt-defaults';
 import { getPromptContent, renderPrompt } from '@/lib/prompts';
 
 const GenerateIntroSentenceInputSchema = z.object({
@@ -23,15 +24,7 @@ const GenerateIntroSentenceOutputSchema = z.object({
 export type GenerateIntroSentenceOutput = z.infer<typeof GenerateIntroSentenceOutputSchema>;
 
 export async function generateIntroSentence(input: GenerateIntroSentenceInput): Promise<GenerateIntroSentenceOutput> {
-  const defaults = {
-    template: `You are a newsletter editor writing a lead-in for your daily AI newsletter.
-
-Based on the following featured headline, write a single, engaging, human-like sentence that provides high-level perspective or commentary. This sentence will be the first thing people read after "Good morning!".
-
-Make it feel like it was written by a person, not a machine. It should be insightful but brief.
-
-Headline: {{headline}}`,
-  };
+  const defaults = DEFAULT_PROMPTS.generateIntroSentence;
 
   const { template, system } = await getPromptContent('generateIntroSentence', defaults);
   const prompt = renderPrompt(template, { headline: input.headline });
