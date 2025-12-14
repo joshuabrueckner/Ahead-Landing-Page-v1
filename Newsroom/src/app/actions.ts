@@ -514,7 +514,12 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
       maxOutputTokens: 420,
     }))?.trim();
     if (!tipDraft) {
-      return { error: "Model returned an empty tip." };
+      const providerLabel = provider === 'gemini' ? 'Gemini' : 'Model';
+      return {
+        error:
+          `${providerLabel} returned empty output. ` +
+          `If provider=gemini, double-check GEMINI_API_KEY and GEMINI_MODEL, and consider setting NEWSROOM_DEBUG_GEMINI=1 to see prompt feedback.`,
+      };
     }
 
     let tip = tipDraft;
