@@ -144,11 +144,36 @@ export async function geminiGenerateText(options: {
 
   const candidates = response?.candidates;
   const first = Array.isArray(candidates) && candidates.length ? candidates[0] : null;
-  const parts = first?.content?.parts;
-  const joined = Array.isArray(parts)
-    ? parts.map((p: any) => (typeof p?.text === 'string' ? p.text : '')).join('').trim()
-    : '';
 
+  const joinedFromParts = (() => {
+    const parts = first?.content?.parts;
+    if (!Array.isArray(parts) || parts.length === 0) return '';
+    const joined = parts
+      .map((p: any) => {
+        if (typeof p?.text === 'string') return p.text;
+        // Some model variants may return nested shapes.
+        if (typeof p?.content === 'string') return p.content;
+        return '';
+      })
+      .join('')
+      .trim();
+    return joined;
+  })();
+
+  // Additional best-effort fallbacks for preview/variant responses.
+  const joinedFallback = (() => {
+    const maybe = [
+      first?.text,
+      first?.output,
+      first?.outputText,
+      first?.content?.text,
+      response?.text,
+      response?.outputText,
+    ].find((v) => typeof v === 'string' && v.trim());
+    return typeof maybe === 'string' ? maybe.trim() : '';
+  })();
+
+  const joined = joinedFromParts || joinedFallback;
   if (joined) return joined;
 
   const finishReason = first?.finishReason;
@@ -162,13 +187,30 @@ export async function geminiGenerateText(options: {
       promptFeedback,
       safetyRatings,
       candidates: Array.isArray(candidates) ? candidates.length : 0,
+      firstKeys: first && typeof first === 'object' ? Object.keys(first) : null,
+      contentKeys: first?.content && typeof first.content === 'object' ? Object.keys(first.content) : null,
+      partsKeys:
+        Array.isArray(first?.content?.parts) && first.content.parts.length
+          ? first.content.parts.slice(0, 3).map((p: any) => (p && typeof p === 'object' ? Object.keys(p) : []))
+          : null,
     });
   }
 
-  throw new Error(
+  const base =
     `Gemini returned empty output (model='${modelName}'). ` +
-      `finishReason=${finishReason ?? 'unknown'}. ` +
-      `promptFeedback=${promptFeedback ? JSON.stringify(promptFeedback) : 'null'}. ` +
+    `finishReason=${finishReason ?? 'unknown'}. ` +
+    `promptFeedback=${promptFeedback ? JSON.stringify(promptFeedback) : 'null'}. `;
+
+  if (finishReason === 'MAX_TOKENS') {
+    throw new Error(
+      base +
+        `The model hit the output limit but no text was extractable from the response. ` +
+        `Try increasing maxOutputTokens for this prompt, or set NEWSROOM_DEBUG_GEMINI=1 to inspect response shape.`
+    );
+  }
+
+  throw new Error(
+    base +
       `This usually means the model name is unavailable for your key/project, ` +
       `or the response was blocked by safety.`
   );
