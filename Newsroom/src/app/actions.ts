@@ -505,13 +505,14 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
     const MIN_CHARS = 360;
     const MAX_CHARS = 400;
     const debug = process.env.NEWSROOM_DEBUG_TIP_LENGTH === '1';
+    const geminiNoMaxTokens = provider === 'gemini';
 
     const tipDraft = (await generateText({
       provider,
       prompt: instructions,
       system,
       temperature: 0.6,
-      maxOutputTokens: 420,
+      ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 420 }),
     }))?.trim();
     if (!tipDraft) {
       const providerLabel = provider === 'gemini' ? 'Gemini' : 'Model';
@@ -552,7 +553,7 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
           prompt: rewritePrompt,
           system: rewriteSystem,
           temperature: 0.4,
-          maxOutputTokens: 520,
+          ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 520 }),
         }))?.trim();
 
         if (rewritten) tip = rewritten;
