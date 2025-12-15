@@ -39,12 +39,14 @@ export async function generateProductSummary(input: GenerateProductSummaryInput)
       description: input.description,
     });
 
+    const geminiNoMaxTokens = provider === 'gemini';
+
     const text = await generateText({
       provider,
       prompt,
       system,
       temperature: 0.5,
-      maxOutputTokens: 80,
+      ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 80 }),
       meta: { promptId: 'generateProductSummary' },
     });
 
