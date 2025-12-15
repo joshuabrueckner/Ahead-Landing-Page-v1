@@ -368,8 +368,8 @@ export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<
 
 export async function generateArticleSummaryAction(articleText: string): Promise<{ summary?: string; error?: string }> {
   try {
-    const clippedArticleText = (articleText || '').slice(0, 5000);
-    const result = await generateArticleSummary({ text: clippedArticleText });
+    const fullArticleText = articleText || '';
+    const result = await generateArticleSummary({ text: fullArticleText });
 
     const summary = String(result?.summary || '').trim();
     if (!summary) return { error: 'Failed to generate summary' };

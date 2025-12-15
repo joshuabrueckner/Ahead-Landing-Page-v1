@@ -28,7 +28,7 @@ export async function generateArticleSummary(input: GenerateArticleSummaryInput)
     return { summary: "Could not generate summary: Article content was too short or unavailable." };
   }
 
-  const articleText = input.text.slice(0, 5000);
+  const articleText = input.text;
 
   try {
     const defaults = DEFAULT_PROMPTS.generateArticleSummary;
