@@ -2,11 +2,6 @@
 "use server";
 
 import {
-  generateAITip,
-  GenerateAITipInput,
-  GenerateAITipOutput,
-} from "@/ai/flows/generate-ai-tip";
-import {
   generateArticleSummary,
   GenerateArticleSummaryInput,
 } from "@/ai/flows/generate-article-summary";
@@ -446,17 +441,6 @@ export async function extractArticleTextAction(
   } catch (error: any) {
     console.error("Error extracting article text via Diffbot:", error);
     return { error: error?.message || "Failed to extract article text." };
-  }
-}
-
-export async function getAITipAction(
-  input: GenerateAITipInput
-): Promise<GenerateAITipOutput | { error: string }> {
-  try {
-    return await generateAITip(input);
-  } catch (error: any) {
-    console.error("Error generating AI tip:", error);
-    return { error: error.message || "Failed to generate AI tip." };
   }
 }
 

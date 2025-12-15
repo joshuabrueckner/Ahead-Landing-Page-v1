@@ -147,13 +147,6 @@ Product Launches: {{productLines}}
 AI Tip: {{aiTip}}`,
   },
 
-  generateAITip: {
-    system: `You are an AI assistant designed to provide helpful and practical tips related to artificial intelligence.
-
-Generate a single, actionable AI tip or best practice that can be easily understood and implemented by readers of a daily newsletter.`,
-    template: `{{topicLine}}`,
-  },
-
   generateArticleSummary: {
     system: `Summarize this AI news article in ONE short sentence for non-technical professionals.
 
