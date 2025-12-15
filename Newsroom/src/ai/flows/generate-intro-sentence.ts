@@ -29,12 +29,14 @@ export async function generateIntroSentence(input: GenerateIntroSentenceInput): 
   const { template, system, provider } = await getPromptContent('generateIntroSentence', defaults);
   const prompt = renderPrompt(template, { headline: input.headline });
 
+  const geminiNoMaxTokens = provider === 'gemini';
+
   return generateJson(GenerateIntroSentenceOutputSchema, {
     provider,
     prompt,
     system,
     temperature: 0.8,
-    maxOutputTokens: 80,
+    ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 80 }),
     meta: { promptId: 'generateIntroSentence' },
   });
 }

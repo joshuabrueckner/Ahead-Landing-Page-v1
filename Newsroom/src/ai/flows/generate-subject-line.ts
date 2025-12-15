@@ -29,12 +29,14 @@ export async function generateSubjectLine(input: GenerateSubjectLineInput): Prom
   const { template, system, provider } = await getPromptContent('generateSubjectLine', defaults);
   const prompt = renderPrompt(template, { headline: input.headline });
 
+  const geminiNoMaxTokens = provider === 'gemini';
+
   return generateJson(GenerateSubjectLineOutputSchema, {
     provider,
     prompt,
     system,
     temperature: 0.7,
-    maxOutputTokens: 40,
+    ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 40 }),
     meta: { promptId: 'generateSubjectLine' },
   });
 }

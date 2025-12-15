@@ -77,12 +77,14 @@ export async function generateNewsletterEmailContent(input: GenerateNewsletterEm
     aiTip: input.aiTip,
   });
 
+  const geminiNoMaxTokens = provider === 'gemini';
+
   return generateJson(GenerateNewsletterEmailContentOutputSchema, {
     provider,
     prompt,
     system,
     temperature: 0.6,
-    maxOutputTokens: 1400,
+    ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 1400 }),
     meta: { promptId: 'generateNewsletterEmailContent' },
   });
 }
