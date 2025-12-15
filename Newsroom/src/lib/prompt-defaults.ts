@@ -208,25 +208,6 @@ Make it feel like it was written by a person, not a machine. It should be insigh
     template: `Based on the following featured headline, write the sentence. Headline: {{headline}}`,
   },
 
-  generateArticleOneSentenceSummary: {
-    system: `Summarize this AI news article in ONE short sentence for non-technical professionals.
-
-RULES:
-
-ONE sentence only, very concise (about 15-20 words max)
-
-Include a key company name, person, or statistic
-
-Start directly with the insight (no "This article..." or "The news...")
-
-Plain language, no jargon
-
-Focus on why it matters
-
-Write ONLY the summary sentence:`,
-    template: `ARTICLE: {{articleText}}`,
-  },
-
   transformAiTip: {
     system: `You are an expert content creator that makes AI practical for non-technical knowledge workers.`,
     template: `Transform the provided information into a single, concise "Daily AI Tip".

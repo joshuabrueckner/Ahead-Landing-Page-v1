@@ -366,47 +366,18 @@ export async function getArticleHeadlinesAction(dateStr?: string): Promise<Omit<
   }
 }
 
-export async function generateArticleOneSentenceSummary(articleText: string): Promise<{ summary?: string, error?: string }> {
+export async function generateArticleSummaryAction(articleText: string): Promise<{ summary?: string; error?: string }> {
   try {
-    const clippedArticleText = articleText.slice(0, 5000);
-    const defaults = DEFAULT_PROMPTS.generateArticleOneSentenceSummary;
+    const clippedArticleText = (articleText || '').slice(0, 5000);
+    const result = await generateArticleSummary({ articleText: clippedArticleText });
 
-    const { template, system, provider } = await getPromptContent('generateArticleOneSentenceSummary', defaults);
-    const prompt = renderPrompt(template, { articleText: clippedArticleText });
-
-    const text = await generateText({
-      provider,
-      prompt,
-      system,
-      temperature: 0.3,
-      maxOutputTokens: 60,
-      meta: { promptId: 'generateArticleOneSentenceSummary' },
-    });
-    
-    let summary = text.trim() || '';
-    if (!summary) {
-      return { error: "Failed to generate summary" };
-    }
-
-    // Clean up the response
-    summary = summary.replace(/^["']|["']$/g, '').trim();
-    summary = summary.replace(/^(Summary:|Here's|Here is|The summary:)\s*/i, '').trim();
-    
-    // STRICTLY enforce 150 character max
-    if (summary.length > 150) {
-      let truncated = summary.slice(0, 147);
-      const lastSpace = truncated.lastIndexOf(' ');
-      if (lastSpace > 80) {
-        summary = truncated.slice(0, lastSpace) + '...';
-      } else {
-        summary = truncated + '...';
-      }
-    }
+    const summary = String(result?.summary || '').trim();
+    if (!summary) return { error: 'Failed to generate summary' };
 
     return { summary };
   } catch (error: any) {
-    console.error("Error generating summary:", error);
-    return { error: error.message || "Failed to generate summary" };
+    console.error('Error generating summary:', error);
+    return { error: error?.message || 'Failed to generate summary' };
   }
 }
 

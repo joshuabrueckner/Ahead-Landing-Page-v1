@@ -29,7 +29,7 @@ import { Loader, Newspaper, Sparkles, Plus, RotateCcw, FileText, EyeOff, Eye, St
 import { Skeleton } from "./ui/skeleton";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
-import { extractArticleTextAction, generateArticleOneSentenceSummary, storeArticleAction, updateArticleByUrlAction } from "@/app/actions";
+import { extractArticleTextAction, generateArticleSummaryAction, storeArticleAction, updateArticleByUrlAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -212,7 +212,7 @@ class ExtractionQueue {
           if (text && text !== "No text was extracted." && text !== "Failed to extract article text.") {
             const summaryPromise = (async () => {
               try {
-                const summaryResult = await generateArticleOneSentenceSummary(text);
+                const summaryResult = await generateArticleSummaryAction(text);
                 const summary = summaryResult.error ? "" : (summaryResult.summary || "");
                 item.callbacks.onSummaryComplete(summary, text, extractedDate);
               } catch (err) {
@@ -459,7 +459,7 @@ const ArticleItem = ({
         if (!extractedText) return;
         setIsSummarizing(true);
         try {
-            const result = await generateArticleOneSentenceSummary(extractedText);
+            const result = await generateArticleSummaryAction(extractedText);
             if (result.error) {
                 console.error("Summary generation failed:", result.error);
                 toast({
