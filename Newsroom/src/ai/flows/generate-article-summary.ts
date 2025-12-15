@@ -36,12 +36,14 @@ export async function generateArticleSummary(input: GenerateArticleSummaryInput)
     const { template, system, provider } = await getPromptContent('generateArticleSummary', defaults);
     const prompt = renderPrompt(template, { articleText });
 
+    const geminiNoMaxTokens = provider === 'gemini';
+
     const text = await generateText({
       provider,
       prompt,
       system,
       temperature: 0.3,
-      maxOutputTokens: 60,
+      ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 60 }),
       meta: { promptId: 'generateArticleSummary' },
     });
 
