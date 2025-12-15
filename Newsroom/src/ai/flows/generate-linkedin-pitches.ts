@@ -325,6 +325,7 @@ export async function generateLinkedInPitches(input: GenerateLinkedInPitchesInpu
       temperature: 0.6,
       maxOutputTokens: 900,
       timeoutMs: 18000,
+      meta: { promptId: 'generateLinkedInPitches' },
     });
   } catch (error: any) {
     console.warn('[generateLinkedInPitches] Model call failed; using local fallback pitches', {

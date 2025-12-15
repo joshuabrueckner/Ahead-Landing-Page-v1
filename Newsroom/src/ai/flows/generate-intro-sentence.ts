@@ -35,6 +35,7 @@ export async function generateIntroSentence(input: GenerateIntroSentenceInput): 
     system,
     temperature: 0.8,
     maxOutputTokens: 80,
+    meta: { promptId: 'generateIntroSentence' },
   });
 }
 

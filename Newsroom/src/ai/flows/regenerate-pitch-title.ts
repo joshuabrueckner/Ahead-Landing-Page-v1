@@ -49,6 +49,7 @@ export async function regeneratePitchTitle(input: RegeneratePitchTitleInput): Pr
     system,
     temperature: 0.8,
     maxOutputTokens: 220,
+    meta: { promptId: 'regeneratePitchTitle' },
   });
 }
 

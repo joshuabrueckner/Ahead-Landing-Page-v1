@@ -83,6 +83,7 @@ export async function generateNewsletterEmailContent(input: GenerateNewsletterEm
     system,
     temperature: 0.6,
     maxOutputTokens: 1400,
+    meta: { promptId: 'generateNewsletterEmailContent' },
   });
 }
 

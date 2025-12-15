@@ -37,6 +37,7 @@ export async function generateAITip(input: GenerateAITipInput): Promise<Generate
     system,
     temperature: 0.7,
     maxOutputTokens: 180,
+    meta: { promptId: 'generateAITip' },
   });
 }
 

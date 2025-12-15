@@ -80,6 +80,7 @@ export async function findRelevantArticles(input: FindRelevantArticlesInput): Pr
     system,
     temperature: 0.4,
     maxOutputTokens: 500,
+    meta: { promptId: 'findRelevantArticles' },
   });
 }
 

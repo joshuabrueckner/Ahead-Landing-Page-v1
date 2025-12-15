@@ -380,6 +380,7 @@ export async function generateArticleOneSentenceSummary(articleText: string): Pr
       system,
       temperature: 0.3,
       maxOutputTokens: 60,
+      meta: { promptId: 'generateArticleOneSentenceSummary' },
     });
     
     let summary = text.trim() || '';
@@ -513,6 +514,7 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
       system,
       temperature: 0.6,
       ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 420 }),
+      meta: { promptId: 'transformAiTip' },
     }))?.trim();
     if (!tipDraft) {
       const providerLabel = provider === 'gemini' ? 'Gemini' : 'Model';
@@ -554,6 +556,7 @@ export async function transformAiTipAction(rawText: string): Promise<{ tip?: str
           system: rewriteSystem,
           temperature: 0.4,
           ...(geminiNoMaxTokens ? {} : { maxOutputTokens: 520 }),
+          meta: { promptId: 'transformAiTip.rewrite' },
         }))?.trim();
 
         if (rewritten) tip = rewritten;

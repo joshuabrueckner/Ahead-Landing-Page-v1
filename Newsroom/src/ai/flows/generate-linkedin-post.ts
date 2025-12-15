@@ -61,6 +61,7 @@ export async function generateLinkedInPost(input: GenerateLinkedInPostInput): Pr
     system,
     temperature: 0.7,
     maxOutputTokens: 1200,
+    meta: { promptId: 'generateLinkedInPost' },
   });
 
   return { post: post.trim() };

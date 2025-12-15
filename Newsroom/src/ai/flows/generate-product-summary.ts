@@ -45,6 +45,7 @@ export async function generateProductSummary(input: GenerateProductSummaryInput)
       system,
       temperature: 0.5,
       maxOutputTokens: 80,
+      meta: { promptId: 'generateProductSummary' },
     });
 
     let summary = text.trim() || '';

@@ -35,6 +35,7 @@ export async function generateSubjectLine(input: GenerateSubjectLineInput): Prom
     system,
     temperature: 0.7,
     maxOutputTokens: 40,
+    meta: { promptId: 'generateSubjectLine' },
   });
 }
 
