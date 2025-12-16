@@ -891,7 +891,7 @@ export async function sendToLoopsAction(
 
   for (const subscriber of activeSubscribers) {
     try {
-      const feedbackBase = "https://jumpahead.ai/feedback";
+      const feedbackBase = "https://jumpahead.ai/newsroom/feedback";
       const emailEncoded = encodeURIComponent(subscriber.email);
       const feedbackDate = toISODate(new Date());
       const FeedbackHappyUrl = `${feedbackBase}?score=5&email=${emailEncoded}&date=${feedbackDate}`;
@@ -995,7 +995,7 @@ export async function sendTestEmailAction(
   };
 
   try {
-    const feedbackBase = "https://jumpahead.ai/feedback";
+    const feedbackBase = "https://jumpahead.ai/newsroom/feedback";
     const emailEncoded = encodeURIComponent(recipientEmail);
     const feedbackDate = toISODate(new Date());
     const FeedbackHappyUrl = `${feedbackBase}?score=5&email=${emailEncoded}&date=${feedbackDate}`;
