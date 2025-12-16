@@ -220,6 +220,55 @@ export async function saveNewsletterFeedbackCommentAction(input: {
   }
 }
 
+export type NewsletterFeedbackEntry = {
+  id: string;
+  email: string;
+  date: string;
+  score: number | null;
+  clickCount: number | null;
+  createdAt: string | null;
+  lastClickedAt: string | null;
+  comment: string | null;
+  commentedAt: string | null;
+};
+
+export async function getNewsletterFeedbackAction(input?: {
+  limit?: number;
+}): Promise<NewsletterFeedbackEntry[] | { error: string }> {
+  try {
+    const limit = Math.min(Math.max(Number(input?.limit ?? 500), 1), 5000);
+    const db = getAdminFirestore();
+
+    const snap = await db
+      .collection("newsletterFeedback")
+      .orderBy("date", "desc")
+      .limit(limit)
+      .get();
+
+    const toIso = (value: any) => (value?.toDate ? value.toDate().toISOString() : null);
+
+    const entries: NewsletterFeedbackEntry[] = snap.docs.map((d) => {
+      const data: any = d.data();
+      return {
+        id: d.id,
+        email: typeof data.email === "string" ? data.email : "",
+        date: typeof data.date === "string" ? data.date : "",
+        score: typeof data.score === "number" ? data.score : null,
+        clickCount: typeof data.clickCount === "number" ? data.clickCount : null,
+        createdAt: toIso(data.createdAt),
+        lastClickedAt: toIso(data.lastClickedAt),
+        comment: typeof data.comment === "string" ? data.comment : null,
+        commentedAt: toIso(data.commentedAt),
+      };
+    });
+
+    return entries;
+  } catch (error: any) {
+    console.error("Error fetching newsletter feedback:", error);
+    return { error: error?.message || "Failed to fetch feedback." };
+  }
+}
+
 const SERPAPI_NEWS_SEARCH_URL = "https://serpapi.com/search.json";
 const SERPAPI_MAX_RESULTS = 50;
 const FUTURE_TOOLS_NEWS_URL = "https://www.futuretools.io/news";

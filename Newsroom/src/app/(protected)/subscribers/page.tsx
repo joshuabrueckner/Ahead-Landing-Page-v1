@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { addSubscriberAction, getSubscribersAction, getGoogleAnalyticsDataAction, type AnalyticsDataPoint } from '../../actions';
+import { addSubscriberAction, getSubscribersAction, getGoogleAnalyticsDataAction, getNewsletterFeedbackAction, type AnalyticsDataPoint, type NewsletterFeedbackEntry } from '../../actions';
 import { Loader2, PlusCircle, CalendarIcon, Users, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
@@ -198,6 +198,8 @@ export default function SubscribersPage() {
   const [email, setEmail] = useState('');
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [feedback, setFeedback] = useState<NewsletterFeedbackEntry[]>([]);
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [basePath, setBasePath] = useState<string>(() => getBasePath());
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
@@ -232,6 +234,20 @@ export default function SubscribersPage() {
     };
     fetchSubscribers();
   }, [toast]);
+
+  useEffect(() => {
+    const fetchFeedback = async () => {
+      setIsLoadingFeedback(true);
+      const result = await getNewsletterFeedbackAction({ limit: 1000 });
+      if ('error' in result) {
+        setFeedback([]);
+      } else {
+        setFeedback(result);
+      }
+      setIsLoadingFeedback(false);
+    };
+    fetchFeedback();
+  }, []);
 
   // Find the earliest subscriber date (used as data start for both charts)
   const firstDataDate = useMemo(() => {
@@ -773,6 +789,44 @@ export default function SubscribersPage() {
                     </p>
                   )}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Feedback History</CardTitle>
+              <CardDescription>
+                All logged emoji responses (latest first).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingFeedback ? (
+                <div className="flex justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : feedback.length > 0 ? (
+                <div className="space-y-2 max-h-[520px] overflow-auto">
+                  {feedback.map((f) => (
+                    <div key={f.id} className="p-3 rounded-md bg-background border">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{f.email}</p>
+                          <p className="text-xs text-muted-foreground">{f.date || '—'}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm text-foreground">Score: {typeof f.score === 'number' ? `${f.score}/5` : '—'}</p>
+                          <p className="text-xs text-muted-foreground">Clicks: {typeof f.clickCount === 'number' ? f.clickCount : '—'}</p>
+                        </div>
+                      </div>
+                      {f.comment ? (
+                        <p className="mt-2 text-sm text-muted-foreground">{f.comment}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No feedback yet.</p>
               )}
             </CardContent>
           </Card>
