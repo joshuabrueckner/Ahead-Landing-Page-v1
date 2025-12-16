@@ -59,6 +59,17 @@ const trafficChartConfig: ChartConfig = {
   },
 };
 
+const feedbackChartConfig: ChartConfig = {
+  avgScore: {
+    label: 'Avg Score',
+    color: 'hsl(var(--primary))',
+  },
+  responses: {
+    label: 'Responses',
+    color: 'hsl(var(--chart-1))',
+  },
+};
+
 function getDateRangeForTimeRange(timeRange: TimeRange, customRange?: DateRange, dataStartDate?: Date): { start: Date; end: Date } {
   const now = new Date();
   const end = endOfDay(now);
@@ -385,6 +396,50 @@ export default function SubscribersPage() {
     );
   }, [trafficData]);
 
+  const feedbackChartData = useMemo(() => {
+    if (!feedback.length) return [] as Array<{ date: string; period: string; avgScore: number; responses: number }>;
+
+    const byDate = new Map<string, { sum: number; count: number }>();
+    for (const entry of feedback) {
+      if (!entry?.date) continue;
+      if (typeof entry.score !== 'number') continue;
+      const current = byDate.get(entry.date) ?? { sum: 0, count: 0 };
+      current.sum += entry.score;
+      current.count += 1;
+      byDate.set(entry.date, current);
+    }
+
+    const dates = Array.from(byDate.keys()).sort((a, b) => a.localeCompare(b));
+    return dates.map((date) => {
+      const stats = byDate.get(date)!;
+      const avg = stats.count ? stats.sum / stats.count : 0;
+      let label = date;
+      try {
+        label = format(new Date(date), 'MMM d');
+      } catch {
+        // ignore
+      }
+      return {
+        date,
+        period: label,
+        avgScore: Math.round(avg * 100) / 100,
+        responses: stats.count,
+      };
+    });
+  }, [feedback]);
+
+  const feedbackTotals = useMemo(() => {
+    const scored = feedback.filter((f) => typeof f.score === 'number');
+    const totalResponses = scored.length;
+    const avgOverall = totalResponses
+      ? scored.reduce((acc, f) => acc + (f.score as number), 0) / totalResponses
+      : null;
+    return {
+      totalResponses,
+      avgOverall: avgOverall !== null ? Math.round(avgOverall * 100) / 100 : null,
+    };
+  }, [feedback]);
+
   const handleAddSubscriber = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !name) return;
@@ -427,6 +482,114 @@ export default function SubscribersPage() {
       </header>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto space-y-8">
+          {/* Newsletter Feedback */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Newsletter Feedback</CardTitle>
+              <CardDescription>
+                Emoji ratings over time and full response history.
+              </CardDescription>
+              {!isLoadingFeedback && feedbackTotals.totalResponses > 0 ? (
+                <div className="flex gap-6 mt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Total responses:</span>
+                    <span className="font-semibold">{feedbackTotals.totalResponses.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Avg score:</span>
+                    <span className="font-semibold">{feedbackTotals.avgOverall}/5</span>
+                  </div>
+                </div>
+              ) : null}
+            </CardHeader>
+            <CardContent>
+              {isLoadingFeedback ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : feedbackChartData.length > 0 ? (
+                <ChartContainer config={feedbackChartConfig} className="h-[260px] w-full">
+                  <LineChart data={feedbackChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      dataKey="period"
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-muted-foreground"
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-muted-foreground"
+                      domain={[1, 5]}
+                      allowDecimals
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fontSize: 12 }}
+                      tickLine={false}
+                      axisLine={false}
+                      className="text-muted-foreground"
+                      allowDecimals={false}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line
+                      type="monotone"
+                      yAxisId="left"
+                      dataKey="avgScore"
+                      stroke="var(--color-avgScore)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      name="Avg Score"
+                    />
+                    <Line
+                      type="monotone"
+                      yAxisId="right"
+                      dataKey="responses"
+                      stroke="var(--color-responses)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                      name="Responses"
+                    />
+                  </LineChart>
+                </ChartContainer>
+              ) : (
+                <div className="flex justify-center py-10 text-muted-foreground">
+                  No feedback data yet.
+                </div>
+              )}
+
+              {/* History */}
+              {!isLoadingFeedback && feedback.length > 0 ? (
+                <div className="mt-6 space-y-2 max-h-[520px] overflow-auto">
+                  {feedback.map((f) => (
+                    <div key={f.id} className="p-3 rounded-md bg-background border">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{f.email}</p>
+                          <p className="text-xs text-muted-foreground">{f.date || '—'}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm text-foreground">Score: {typeof f.score === 'number' ? `${f.score}/5` : '—'}</p>
+                          <p className="text-xs text-muted-foreground">Clicks: {typeof f.clickCount === 'number' ? f.clickCount : '—'}</p>
+                        </div>
+                      </div>
+                      {f.comment ? (
+                        <p className="mt-2 text-sm text-muted-foreground">{f.comment}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
           {/* Website Traffic Chart */}
           <Card>
             <CardHeader>
@@ -789,44 +952,6 @@ export default function SubscribersPage() {
                     </p>
                   )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Feedback History</CardTitle>
-              <CardDescription>
-                All logged emoji responses (latest first).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingFeedback ? (
-                <div className="flex justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : feedback.length > 0 ? (
-                <div className="space-y-2 max-h-[520px] overflow-auto">
-                  {feedback.map((f) => (
-                    <div key={f.id} className="p-3 rounded-md bg-background border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{f.email}</p>
-                          <p className="text-xs text-muted-foreground">{f.date || '—'}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm text-foreground">Score: {typeof f.score === 'number' ? `${f.score}/5` : '—'}</p>
-                          <p className="text-xs text-muted-foreground">Clicks: {typeof f.clickCount === 'number' ? f.clickCount : '—'}</p>
-                        </div>
-                      </div>
-                      {f.comment ? (
-                        <p className="mt-2 text-sm text-muted-foreground">{f.comment}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No feedback yet.</p>
               )}
             </CardContent>
           </Card>
