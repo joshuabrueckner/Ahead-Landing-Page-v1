@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 const AUTH_COOKIE_NAME = 'newsroom_auth';
-const PUBLIC_PATHS = ['/password', '/api/authenticate'];
+const PUBLIC_PATHS = ['/password', '/api/authenticate', '/feedback'];
 
 const isPublicPath = (pathname: string) =>
   PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));

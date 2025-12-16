@@ -41,6 +41,9 @@ import { generateText } from "@/ai/generate";
 import { DEFAULT_PROMPTS } from "@/lib/prompt-defaults";
 import { getPromptContent, renderPrompt } from "@/lib/prompts";
 import { load } from "cheerio";
+import { getAdminFirestore } from "@/firebase/admin";
+import admin from "firebase-admin";
+import crypto from "crypto";
 
 const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}]/gu;
 
@@ -79,6 +82,143 @@ const toISODate = (date: Date) => {
   const pacific = new Date(date.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
   return pacific.toISOString().slice(0, 10);
 };
+
+const FEEDBACK_SCORES = new Set([1, 3, 5]);
+
+const normalizeEmail = (value: string) => (value || "").trim().toLowerCase();
+
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const isValidISODate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const feedbackDocId = (email: string, date: string) => {
+  const hash = crypto.createHash("sha256").update(email).digest("hex").slice(0, 16);
+  return `${date}_${hash}`;
+};
+
+export async function logNewsletterFeedbackAction(input: {
+  email: string;
+  score: number;
+  date?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const email = normalizeEmail(input.email);
+    const score = Number(input.score);
+    const date = input.date && isValidISODate(input.date) ? input.date : toISODate(new Date());
+
+    if (!isValidEmail(email)) {
+      return { success: false, error: "Invalid email." };
+    }
+    if (!FEEDBACK_SCORES.has(score)) {
+      return { success: false, error: "Invalid score." };
+    }
+
+    const db = getAdminFirestore();
+    const id = feedbackDocId(email, date);
+    const feedbackRef = db.collection("newsletterFeedback").doc(id);
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(feedbackRef);
+      if (!snap.exists) {
+        tx.set(feedbackRef, {
+          email,
+          date,
+          score,
+          clickCount: 1,
+          createdAt: now,
+          lastClickedAt: now,
+        });
+      } else {
+        tx.update(feedbackRef, {
+          score,
+          lastClickedAt: now,
+          clickCount: admin.firestore.FieldValue.increment(1),
+        });
+      }
+    });
+
+    const subscriberSnap = await db
+      .collection("newsletterSubscribers")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (!subscriberSnap.empty) {
+      await subscriberSnap.docs[0].ref.set(
+        {
+          lastFeedbackScore: score,
+          lastFeedbackAt: now,
+          lastFeedbackDate: date,
+          lastFeedbackDocId: id,
+        },
+        { merge: true }
+      );
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error logging newsletter feedback:", error);
+    return { success: false, error: error?.message || "Failed to log feedback." };
+  }
+}
+
+export async function saveNewsletterFeedbackCommentAction(input: {
+  email: string;
+  date?: string;
+  comment: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const email = normalizeEmail(input.email);
+    const comment = (input.comment || "").trim();
+    const date = input.date && isValidISODate(input.date) ? input.date : toISODate(new Date());
+
+    if (!isValidEmail(email)) {
+      return { success: false, error: "Invalid email." };
+    }
+
+    if (!comment) {
+      return { success: true };
+    }
+
+    const db = getAdminFirestore();
+    const id = feedbackDocId(email, date);
+    const ref = db.collection("newsletterFeedback").doc(id);
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    await ref.set(
+      {
+        comment,
+        commentedAt: now,
+        updatedAt: now,
+      },
+      { merge: true }
+    );
+
+    const subscriberSnap = await db
+      .collection("newsletterSubscribers")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (!subscriberSnap.empty) {
+      await subscriberSnap.docs[0].ref.set(
+        {
+          lastFeedbackComment: comment,
+          lastFeedbackAt: now,
+          lastFeedbackDate: date,
+          lastFeedbackDocId: id,
+        },
+        { merge: true }
+      );
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error saving newsletter feedback comment:", error);
+    return { success: false, error: error?.message || "Failed to save comment." };
+  }
+}
 
 const SERPAPI_NEWS_SEARCH_URL = "https://serpapi.com/search.json";
 const SERPAPI_MAX_RESULTS = 50;
@@ -751,6 +891,13 @@ export async function sendToLoopsAction(
 
   for (const subscriber of activeSubscribers) {
     try {
+      const feedbackBase = "https://jumpahead.ai/feedback";
+      const emailEncoded = encodeURIComponent(subscriber.email);
+      const feedbackDate = toISODate(new Date());
+      const FeedbackHappyUrl = `${feedbackBase}?score=5&email=${emailEncoded}&date=${feedbackDate}`;
+      const FeedbackNeutralUrl = `${feedbackBase}?score=3&email=${emailEncoded}&date=${feedbackDate}`;
+      const FeedbackSadUrl = `${feedbackBase}?score=1&email=${emailEncoded}&date=${feedbackDate}`;
+
       const response = await fetch('https://app.loops.so/api/v1/events/send', {
         method: 'POST',
         headers: {
@@ -764,6 +911,9 @@ export async function sendToLoopsAction(
           eventProperties: {
             ...eventProperties,
             RecipientName: subscriber.name || '',
+            FeedbackHappyUrl,
+            FeedbackNeutralUrl,
+            FeedbackSadUrl,
           },
         }),
       });
@@ -845,6 +995,13 @@ export async function sendTestEmailAction(
   };
 
   try {
+    const feedbackBase = "https://jumpahead.ai/feedback";
+    const emailEncoded = encodeURIComponent(recipientEmail);
+    const feedbackDate = toISODate(new Date());
+    const FeedbackHappyUrl = `${feedbackBase}?score=5&email=${emailEncoded}&date=${feedbackDate}`;
+    const FeedbackNeutralUrl = `${feedbackBase}?score=3&email=${emailEncoded}&date=${feedbackDate}`;
+    const FeedbackSadUrl = `${feedbackBase}?score=1&email=${emailEncoded}&date=${feedbackDate}`;
+
     const response = await fetch('https://app.loops.so/api/v1/events/send', {
       method: 'POST',
       headers: {
@@ -858,6 +1015,9 @@ export async function sendTestEmailAction(
         eventProperties: {
           ...eventProperties,
           RecipientName: "Test User",
+          FeedbackHappyUrl,
+          FeedbackNeutralUrl,
+          FeedbackSadUrl,
         },
       }),
     });
@@ -911,11 +1071,16 @@ export async function getSubscribersAction(): Promise<{ email: string; name: str
     const subscribers = snapshot.docs.map(doc => {
       const data = doc.data();
       const subscribedAt = data.subscribedAt;
+      const lastFeedbackAt = data.lastFeedbackAt;
       return { 
         email: data.email, 
         name: data.name,
         isSubscribed: data.isSubscribed,
         subscribedAt: subscribedAt ? (subscribedAt as Timestamp).toDate().toISOString() : null,
+        lastFeedbackScore: typeof data.lastFeedbackScore === 'number' ? data.lastFeedbackScore : null,
+        lastFeedbackDate: typeof data.lastFeedbackDate === 'string' ? data.lastFeedbackDate : null,
+        lastFeedbackAt: lastFeedbackAt ? (lastFeedbackAt as Timestamp).toDate().toISOString() : null,
+        lastFeedbackComment: typeof data.lastFeedbackComment === 'string' ? data.lastFeedbackComment : null,
       };
     });
     return subscribers;

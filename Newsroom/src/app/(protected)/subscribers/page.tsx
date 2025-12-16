@@ -24,6 +24,10 @@ type Subscriber = {
   email: string;
   name: string;
   subscribedAt: string | null;
+  lastFeedbackScore?: number | null;
+  lastFeedbackDate?: string | null;
+  lastFeedbackAt?: string | null;
+  lastFeedbackComment?: string | null;
 };
 
 type TimeRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
@@ -742,10 +746,23 @@ export default function SubscribersPage() {
                         <div>
                           <p className="font-medium text-foreground">{sub.name}</p>
                           <p className="text-sm text-muted-foreground">{sub.email}</p>
+                          {sub.lastFeedbackComment ? (
+                            <p className="text-xs text-muted-foreground/80 mt-1">
+                              {sub.lastFeedbackComment}
+                            </p>
+                          ) : null}
                         </div>
                         <div className="text-right">
                             <p className="text-sm text-muted-foreground">Subscribed on</p>
                             <p className="text-xs text-muted-foreground/80">{sub.subscribedAt ? new Date(sub.subscribedAt).toLocaleDateString() : 'N/A'}</p>
+                            {typeof sub.lastFeedbackScore === 'number' ? (
+                              <>
+                                <p className="text-sm text-muted-foreground mt-2">Feedback</p>
+                                <p className="text-xs text-muted-foreground/80">
+                                  {sub.lastFeedbackScore}/5{sub.lastFeedbackAt ? ` · ${new Date(sub.lastFeedbackAt).toLocaleDateString()}` : ''}
+                                </p>
+                              </>
+                            ) : null}
                         </div>
                         {/* Delete functionality can be added here */}
                       </div>
